@@ -78,10 +78,19 @@ test("IMPUI01 收藏、批量删除撤销与账号会话设置", async ({ page }
   });
 });
 test("IMPUI02 文件夹导入保留三层结构", async ({ page }) => {
+  // HTTP public-IP origins lack randomUUID; uploads must not require it.
+  await page.addInitScript(() => {
+    Object.defineProperty(crypto, "randomUUID", {
+      value: undefined,
+      configurable: true,
+    });
+  });
   const directory = resolve("../.tools/e2e-import-" + Date.now());
   mkdirSync(resolve(directory, "章节/示例"), { recursive: true });
   writeFileSync(resolve(directory, "章节/示例/笔记.txt"), "folder import");
   await register(page);
+  expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe("undefined");
+  await upload(page, "standalone.txt", "ordinary upload without randomUUID");
   const chooser = page.waitForEvent("filechooser");
   await page.getByRole("button", { name: "上传文件夹", exact: true }).click();
   await (await chooser).setFiles(directory);

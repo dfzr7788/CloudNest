@@ -2,6 +2,8 @@ import { defineStore } from "pinia";
 import axios from "axios";
 import { reactive, ref } from "vue";
 import { api, errorText, type UploadSession } from "../api";
+// UI-only keys live in this page; server-generated session IDs handle authorization.
+let taskSequence = 0;
 export interface UploadTask {
   key: string;
   name: string;
@@ -217,7 +219,7 @@ export const useUploads = defineStore("uploads", () => {
     // A file queue limits simultaneous hash/merge memory while each file has three part workers.
     for (const file of files) {
       const task: UploadTask = reactive({
-        key: crypto.randomUUID(),
+        key: `local-upload-${++taskSequence}`,
         name: file.name,
         size: file.size,
         progress: 0,
