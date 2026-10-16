@@ -1,0 +1,9 @@
+services:
+  server:
+    environment:
+      SECURE_COOKIES: "true"
+  web:
+    ports: !override ["80:80", "443:443"]
+    volumes:
+      - ./deploy/nginx-tls.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./deploy/certs:/etc/nginx/certs:ro

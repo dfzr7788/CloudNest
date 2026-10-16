@@ -1,0 +1,1 @@
+CREATE TABLE invitation (id VARCHAR(36) PRIMARY KEY,token_hash VARCHAR(64) NOT NULL UNIQUE,created_by VARCHAR(36) NOT NULL REFERENCES sys_user(id),quota BIGINT NOT NULL,expires_at BIGINT NOT NULL,used_by VARCHAR(36) REFERENCES sys_user(id));
