@@ -67,12 +67,110 @@ public class DownloadJobs {
 
   public record Input(@NotEmpty @Size(max = 100) List<@NotBlank String> fileIds) {}
 
+  public record ArchiveEntry(
+      String id, String parentId, String name, String path, boolean directory, long revision) {}
+
+  private String safeName(String name) {
+    String safe = Util.name(name).replaceAll("[<>:\"|?*]", "_").replaceAll("[. ]+$", "_");
+    if (safe.matches("(?i)^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\\..*)?$")) safe = "_" + safe;
+    return safe;
+  }
+
+  private List<ArchiveEntry> snapshot(String uid, List<String> ids) {
+    Set<String> selected = new HashSet<>(ids), names = new HashSet<>(), seen = new HashSet<>();
+    List<ArchiveEntry> result = new ArrayList<>();
+    long total = 0;
+    int fileCount = 0;
+    record Pending(String id, String prefix, int depth) {}
+    ArrayDeque<Pending> pending = new ArrayDeque<>();
+    for (String id : ids) {
+      var entry = drive.live(uid, id);
+      String parent = s(entry, "parent_id");
+      boolean covered = false;
+      int depth = 0;
+      while (parent != null) {
+        if (++depth > 64) throw Problem.invalid("目录层级超过 64 层");
+        if (selected.contains(parent)) {
+          covered = true;
+          break;
+        }
+        parent = s(drive.live(uid, parent), "parent_id");
+      }
+      if (!covered) pending.add(new Pending(id, "", 0));
+    }
+    while (!pending.isEmpty()) {
+      Pending item = pending.removeFirst();
+      if (item.depth() > 64) throw Problem.invalid("目录层级超过 64 层");
+      if (!seen.add(item.id())) throw Problem.conflict("目录结构异常");
+      if (seen.size() > 2000) throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 2000 个文件和目录");
+      var entry = drive.live(uid, item.id());
+      boolean directory = s(entry, "kind").equals("FOLDER");
+      String base = safeName(s(entry, "name")), candidate = item.prefix() + base;
+      int duplicate = 0;
+      while (!names.add(candidate.toLowerCase(Locale.ROOT)))
+        candidate = item.prefix() + "(" + (++duplicate) + ") " + base;
+      if (candidate.getBytes(java.nio.charset.StandardCharsets.UTF_8).length > 4096)
+        throw Problem.invalid("压缩包中的路径过长");
+      result.add(
+          new ArchiveEntry(
+              item.id(),
+              s(entry, "parent_id"),
+              s(entry, "name"),
+              candidate + (directory ? "/" : ""),
+              directory,
+              n(entry, "revision")));
+      if (directory) {
+        for (var child :
+            db.list(
+                "SELECT id FROM drive_entry WHERE user_id=? AND parent_id=? AND deleted=FALSE ORDER"
+                    + " BY kind,name,id LIMIT 2001",
+                uid,
+                item.id())) {
+          if (pending.size() + result.size() >= 2000)
+            throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 2000 个文件和目录");
+          pending.addLast(new Pending(s(child, "id"), candidate + "/", item.depth() + 1));
+        }
+      } else {
+        total += n(entry, "size");
+        if (++fileCount > 1000) throw new Problem(413, "ZIP_TOO_MANY_FILES", "单次打包最多 1000 个文件");
+        if (total > 512 * 1024 * 1024L)
+          throw new Problem(413, "ZIP_TOO_LARGE", "批量下载总大小限制 512 MiB");
+      }
+    }
+    return result;
+  }
+
+  private List<ArchiveEntry> manifest(Map<String, Object> job) throws IOException {
+    if (job.get("archive_manifest") == null) return List.of();
+    return json.readValue(s(job, "archive_manifest"), new TypeReference<List<ArchiveEntry>>() {});
+  }
+
+  private void validateSnapshot(String uid, List<ArchiveEntry> entries) {
+    for (ArchiveEntry item : entries) {
+      var entry = drive.live(uid, item.id());
+      if (!Objects.equals(item.parentId(), s(entry, "parent_id"))
+          || !item.name().equals(s(entry, "name"))
+          || item.directory() != s(entry, "kind").equals("FOLDER")
+          || (!item.directory() && item.revision() != n(entry, "revision")))
+        throw Problem.conflict("文件或目录已变更，请重新打包");
+    }
+  }
+
+  /** Public shares must authorize every archived descendant, not only selected roots. */
+  public List<String> sourceIds(String uid, String id) throws IOException {
+    var job = job(uid, id);
+    var entries = manifest(job);
+    return entries.isEmpty()
+        ? json.readValue(s(job, "entry_ids"), new TypeReference<List<String>>() {})
+        : entries.stream().map(ArchiveEntry::id).toList();
+  }
+
   @GetMapping
   public List<Map<String, Object>> list(Authentication a) {
     return db
         .list(
-            "SELECT id,status,error,created_at,expires_at,entry_ids FROM download_job WHERE"
-                + " user_id=? ORDER BY created_at DESC LIMIT 20",
+            "SELECT id,status,error,created_at,expires_at,entry_ids,archive_manifest FROM"
+                + " download_job WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
             a.getName())
         .stream()
         .map(
@@ -87,6 +185,12 @@ public class DownloadJobs {
                 result.put(
                     "fileIds",
                     json.readValue(s(row, "entry_ids"), new TypeReference<List<String>>() {}));
+                if (row.get("archive_manifest") != null) {
+                  var entries = manifest(row);
+                  result.put("fileCount", entries.stream().filter(e -> !e.directory()).count());
+                  result.put(
+                      "folderCount", entries.stream().filter(ArchiveEntry::directory).count());
+                }
               } catch (IOException e) {
                 result.put("fileIds", List.of());
               }
@@ -103,7 +207,7 @@ public class DownloadJobs {
     db.atomic(
         uid,
         () -> {
-          validate(uid, ids);
+          var entries = snapshot(uid, ids);
           if (db.count(
                   "SELECT COUNT(*) FROM download_job WHERE user_id=? AND expires_at>?",
                   uid,
@@ -116,24 +220,26 @@ public class DownloadJobs {
               >= 2) throw Problem.conflict("已有打包任务，请等待完成");
           try {
             Map<String, Long> revisions = new LinkedHashMap<>();
-            for (String file : ids) revisions.put(file, n(drive.file(uid, file), "revision"));
+            for (ArchiveEntry entry : entries)
+              if (!entry.directory()) revisions.put(entry.id(), entry.revision());
             db.update(
                 "INSERT INTO"
-                    + " download_job(id,user_id,status,entry_ids,created_at,expires_at,entry_revisions)"
-                    + " VALUES(?,?,'QUEUED',?,?,?,?)",
+                    + " download_job(id,user_id,status,entry_ids,created_at,expires_at,entry_revisions,archive_manifest)"
+                    + " VALUES(?,?,'QUEUED',?,?,?,?,?)",
                 id,
                 uid,
                 json.writeValueAsString(ids),
                 System.currentTimeMillis(),
                 System.currentTimeMillis() + 3600000,
-                json.writeValueAsString(revisions));
+                json.writeValueAsString(revisions),
+                json.writeValueAsString(entries));
           } catch (IOException e) {
             throw new UncheckedIOException(e);
           }
           return null;
         });
     try {
-      executor.submit(() -> build(uid, id, ids));
+      executor.submit(() -> build(uid, id));
     } catch (RejectedExecutionException e) {
       db.update("UPDATE download_job SET status='FAILED',error='任务繁忙，请重试' WHERE id=?", id);
     }
@@ -146,25 +252,23 @@ public class DownloadJobs {
     if (total > 512 * 1024 * 1024L) throw new Problem(413, "ZIP_TOO_LARGE", "批量下载总大小限制 512 MiB");
   }
 
-  private void build(String uid, String id, List<String> ids) {
+  private void build(String uid, String id) {
     Path path = root.resolve(id + ".zip");
     try {
       db.update("UPDATE download_job SET status='BUILDING' WHERE id=?", id);
-      validate(uid, ids);
-      Set<String> names = new HashSet<>();
+      var entries = manifest(job(uid, id));
+      validateSnapshot(uid, entries);
       try (var zip = new ZipOutputStream(Files.newOutputStream(path))) {
-        for (String fileId : ids) {
-          var e = drive.file(uid, fileId);
-          String name = Util.name(s(e, "name")), candidate = name;
-          int n = 0;
-          while (!names.add(candidate)) candidate = "(" + (++n) + ") " + name;
-          zip.putNextEntry(new ZipEntry(candidate));
-          try (var input = content.open(content.blob(uid, fileId))) {
-            input.transferTo(zip);
-          }
+        for (ArchiveEntry entry : entries) {
+          zip.putNextEntry(new ZipEntry(entry.path()));
+          if (!entry.directory())
+            try (var input = content.open(content.blob(uid, entry.id()))) {
+              input.transferTo(zip);
+            }
           zip.closeEntry();
         }
       }
+      validateSnapshot(uid, entries);
       db.update("UPDATE download_job SET status='READY' WHERE id=?", id);
     } catch (Exception e) {
       db.update(
@@ -202,7 +306,11 @@ public class DownloadJobs {
       throws IOException {
     var j = job(a.getName(), id);
     if (!s(j, "status").equals("READY")) throw Problem.conflict("打包尚未完成");
-    validate(a.getName(), json.readValue(s(j, "entry_ids"), new TypeReference<List<String>>() {}));
+    var entries = manifest(j);
+    if (entries.isEmpty())
+      validate(
+          a.getName(), json.readValue(s(j, "entry_ids"), new TypeReference<List<String>>() {}));
+    else validateSnapshot(a.getName(), entries);
     if (j.get("entry_revisions") == null) throw Problem.conflict("请重新创建打包任务");
     var revisions =
         json.readValue(s(j, "entry_revisions"), new TypeReference<Map<String, Long>>() {});

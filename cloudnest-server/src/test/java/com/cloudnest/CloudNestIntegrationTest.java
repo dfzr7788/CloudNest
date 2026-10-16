@@ -1290,4 +1290,141 @@ class CloudNestIntegrationTest {
       Files.deleteIfExists(updater.resolve("state/status.json"));
     }
   }
+
+  String readyArchive(User user, List<String> ids) throws Exception {
+    String id =
+        read(call(user, post("/api/downloads"), Map.of("fileIds", ids), 200)).path("id").asText();
+    for (int i = 0; i < 100; i++) {
+      String status =
+          read(call(user, get("/api/downloads/" + id), null, 200)).path("status").asText();
+      if (status.equals("READY")) return id;
+      assertNotEquals("FAILED", status);
+      Thread.sleep(50);
+    }
+    fail("ZIP task did not finish");
+    return id;
+  }
+
+  Map<String, String> archiveEntries(byte[] bytes) throws Exception {
+    Map<String, String> result = new LinkedHashMap<>();
+    try (var zip = new java.util.zip.ZipInputStream(new ByteArrayInputStream(bytes))) {
+      for (var entry = zip.getNextEntry(); entry != null; entry = zip.getNextEntry()) {
+        assertFalse(result.containsKey(entry.getName()), "Duplicate archive path");
+        result.put(entry.getName(), new String(zip.readAllBytes(), StandardCharsets.UTF_8));
+      }
+    }
+    return result;
+  }
+
+  @Test
+  void ZIP01_foldersPreserveStructureEmptyDirectoriesAndDeduplicateSelections() throws Exception {
+    User u = register("folderzip");
+    String algo = folder(u, u.root, "algo"),
+        en = folder(u, u.root, "en"),
+        chapter = folder(u, algo, "算法"),
+        empty = folder(u, chapter, "空目录");
+    String note = upload(u, chapter, "笔记.txt", text("中文内容"));
+    upload(u, en, "words.txt", text("vocabulary"));
+    String removed = upload(u, algo, "deleted.txt", text("private trash"));
+    call(u, delete("/api/files/" + removed), null, 200);
+    call(b, post("/api/downloads"), Map.of("fileIds", List.of(algo)), 404);
+    String job = readyArchive(u, List.of(note, empty, en, algo, algo));
+    var entries =
+        archiveEntries(
+            call(u, get("/api/downloads/" + job + "/file"), null, 200)
+                .getResponse()
+                .getContentAsByteArray());
+    assertEquals(
+        Set.of("algo/", "algo/算法/", "algo/算法/空目录/", "algo/算法/笔记.txt", "en/", "en/words.txt"),
+        entries.keySet());
+    assertEquals("中文内容", entries.get("algo/算法/笔记.txt"));
+    assertEquals("vocabulary", entries.get("en/words.txt"));
+    var listing = read(call(u, get("/api/downloads"), null, 200)).get(0);
+    assertEquals(2, listing.path("fileCount").asInt());
+    assertEquals(4, listing.path("folderCount").asInt());
+  }
+
+  @Test
+  void ZIP02_snapshotRejectsMovedOrChangedDescendantsAndSharedScopeEscape() throws Exception {
+    User u = register("zipsnapshot");
+    String root = folder(u, u.root, "shared"),
+        child = folder(u, root, "child"),
+        file = upload(u, child, "note.txt", text("v1"));
+    String job = readyArchive(u, List.of(root));
+    call(u, patch("/api/files/" + file), Map.of("name", "renamed.txt"), 200);
+    call(u, get("/api/downloads/" + job + "/file"), null, 409);
+    job = readyArchive(u, List.of(root));
+    db.update("UPDATE drive_entry SET revision=revision+1 WHERE id=?", file);
+    call(u, get("/api/downloads/" + job + "/file"), null, 409);
+    var share =
+        read(
+            call(
+                u,
+                post("/api/shares"),
+                Map.of("fileId", root, "hours", 1, "allowDownload", true),
+                200));
+    String base = "/api/public/shares/" + share.path("token").asText();
+    String sharedJob =
+        read(call(null, post(base + "/downloads"), Map.of("fileIds", List.of(child)), 200))
+            .path("id")
+            .asText();
+    for (int i = 0; i < 100; i++) {
+      if (read(call(null, get(base + "/downloads/" + sharedJob), null, 200))
+          .path("status")
+          .asText()
+          .equals("READY")) break;
+      Thread.sleep(50);
+    }
+    call(null, get(base + "/downloads/" + sharedJob + "/file"), null, 200);
+    call(u, patch("/api/files/" + file), Map.of("parentId", u.root), 200);
+    call(null, get(base + "/downloads/" + sharedJob + "/file"), null, 404);
+  }
+
+  @Test
+  void ZIP03_archiveNamesAvoidExtractionCollisionsAndUnsafeWindowsNames() throws Exception {
+    User u = register("zipnames");
+    String left = folder(u, u.root, "left"),
+        right = folder(u, u.root, "right"),
+        a = folder(u, left, "same"),
+        b = folder(u, right, "same");
+    upload(u, a, "CON.txt", text("reserved"));
+    upload(u, b, "CON.txt", text("other"));
+    upload(u, a, "bad:name.txt", text("colon"));
+    upload(u, a, "bad_name.txt", text("underscore"));
+    String job = readyArchive(u, List.of(a, b));
+    var entries =
+        archiveEntries(
+            call(u, get("/api/downloads/" + job + "/file"), null, 200)
+                .getResponse()
+                .getContentAsByteArray());
+    assertTrue(entries.containsKey("same/_CON.txt"));
+    assertTrue(entries.containsKey("(1) same/_CON.txt"));
+    assertEquals(4, entries.entrySet().stream().filter(e -> !e.getKey().endsWith("/")).count());
+    assertTrue(
+        entries.keySet().stream()
+            .noneMatch(path -> path.contains(":") || path.contains("..") || path.startsWith("/")));
+  }
+
+  @Test
+  void ZIP04_recursiveEntryLimitIsEnforcedBeforeQueueing() throws Exception {
+    User u = register("ziplimit");
+    String root = folder(u, u.root, "limit");
+    long now = System.currentTimeMillis();
+    db.transaction(
+        () -> {
+          for (int i = 0; i < 2000; i++)
+            db.update(
+                "INSERT INTO drive_entry(id,user_id,parent_id,kind,name,created_at,updated_at)"
+                    + " VALUES(?,?,?,'FOLDER',?,?,?)",
+                Util.id(),
+                u.id,
+                root,
+                "empty-" + i,
+                now,
+                now);
+          return null;
+        });
+    call(u, post("/api/downloads"), Map.of("fileIds", List.of(root)), 413);
+    assertEquals(0, db.count("SELECT COUNT(*) FROM download_job WHERE user_id=?", u.id));
+  }
 }

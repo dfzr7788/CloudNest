@@ -2252,7 +2252,7 @@
     },
     "/downloads": {
       "post": {
-        "summary": "创建 ZIP 任务",
+        "summary": "创建文件或文件夹 ZIP 任务，保留目录树与空目录",
         "operationId": "post__downloads",
         "parameters": [
           {
@@ -2293,6 +2293,9 @@
           },
           "429": {
             "description": "请求过于频繁"
+          },
+          "413": {
+            "description": "递归展开数量或总大小超过打包上限"
           }
         },
         "security": [
@@ -2310,7 +2313,8 @@
                   "fileIds": {
                     "type": "array",
                     "items": {
-                      "type": "string"
+                      "type": "string",
+                      "description": "文件或文件夹ID"
                     },
                     "minItems": 1,
                     "maxItems": 100
@@ -3841,7 +3845,7 @@
     },
     "/public/shares/{token}/downloads": {
       "post": {
-        "summary": "共享目录内文件打包",
+        "summary": "共享目录内文件或文件夹打包，逐项校验后代权限",
         "operationId": "post__public_shares_token_downloads",
         "parameters": [
           {
@@ -3890,6 +3894,9 @@
           },
           "429": {
             "description": "请求过于频繁"
+          },
+          "413": {
+            "description": "递归展开数量或总大小超过打包上限"
           }
         },
         "security": [],

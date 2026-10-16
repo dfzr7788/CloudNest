@@ -357,9 +357,7 @@ public class ShareController {
 
   private Authentication zipAuth(Map<String, Object> share, String job) throws IOException {
     var j = db.one("SELECT * FROM download_job WHERE id=? AND share_id=?", job, share.get("id"));
-    for (String id :
-        new com.fasterxml.jackson.databind.ObjectMapper()
-            .readValue(s(j, "entry_ids"), String[].class)) member(share, id);
+    for (String id : jobs.sourceIds(s(share, "user_id"), job)) member(share, id);
     if (!b(share, "allow_download")) throw new Problem(403, "DOWNLOAD_DISABLED", "此分享未开放下载");
     return new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
         s(share, "user_id"), null);

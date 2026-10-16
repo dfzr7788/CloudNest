@@ -23,6 +23,7 @@ def endpoint(method,path,summary,body=None,queries=None,public=False,binary=Fals
     success={'description':'成功；具体 JSON 结构见 docs/api.md','content':{'application/octet-stream' if binary else 'application/json':{'schema':schema}}}
     if method=='delete' or method=='put' or path=='/auth/logout':success={'description':'成功，空响应体'}
     responses={'200':success,'400':{'description':'参数无效'},'401':{'description':'未登录'},'403':{'description':'授权或 CSRF 校验失败'},'404':{'description':'资源不存在或不可访问'},'409':{'description':'名称、配额或状态冲突'},'429':{'description':'请求过于频繁'}}
+    if method=='post' and path.endswith('/downloads'): responses['413']={'description':'递归展开数量或总大小超过打包上限'}
     operation=dict(summary=summary,operationId=method+'_'+path.replace('/','_').replace('{','').replace('}',''),parameters=parameters,responses=responses,security=[] if public else [{'cookieAuth':[]}])
     if body: operation['requestBody']={'required':True,'content':{'multipart/form-data' if multipart else 'application/octet-stream' if binary and method=='put' else 'application/json':{'schema':body}}}
     paths.setdefault(path,{})[method]=operation
@@ -59,7 +60,7 @@ endpoint('delete','/shares/{id}','撤销分享')
 endpoint('get','/public/shares/{token}','分享锁定状态或文件资料',public=True)
 endpoint('post','/public/shares/{token}/verify','验证提取码并写入访客 Cookie',obj({'code':field(maxLength=32)}),public=True)
 for action in ('preview','download'):endpoint('get','/public/shares/{token}/'+action,'授权后的分享内容',public=True,binary=True)
-endpoint('post','/downloads','创建 ZIP 任务',obj({'fileIds':field('array',items=field(),minItems=1,maxItems=100)}))
+endpoint('post','/downloads','创建文件或文件夹 ZIP 任务，保留目录树与空目录',obj({'fileIds':field('array',items=field(description='文件或文件夹ID'),minItems=1,maxItems=100)}))
 endpoint('get','/downloads/{id}','打包状态')
 endpoint('get','/downloads/{id}/file','授权下载 ZIP',binary=True)
 endpoint('get','/downloads','当前用户下载任务列表（含文件ID和有效期）')
@@ -85,7 +86,7 @@ endpoint('get','/files/{id}/thumbnail','缩略图，生成中202',binary=True)
 endpoint('patch','/shares/{id}','修改有效期/下载权限/提取码并撤销旧授权',obj({'hours':field('integer',minimum=1,maximum=720),'allowDownload':field('boolean'),'code':field(maxLength=32)},['hours','allowDownload']))
 endpoint('get','/public/shares/{token}/entries','共享目录内容',queries={'parentId':field(),'page':field('integer',minimum=1)},public=True)
 for action in ('preview','download'):endpoint('get','/public/shares/{token}/entries/{id}/'+action,'共享目录内文件'+action,public=True,binary=True)
-endpoint('post','/public/shares/{token}/downloads','共享目录内文件打包',obj({'fileIds':field('array',items=field(),minItems=1,maxItems=100)}),public=True)
+endpoint('post','/public/shares/{token}/downloads','共享目录内文件或文件夹打包，逐项校验后代权限',obj({'fileIds':field('array',items=field(),minItems=1,maxItems=100)}),public=True)
 endpoint('get','/public/shares/{token}/downloads/{id}','共享打包状态',public=True)
 endpoint('get','/public/shares/{token}/downloads/{id}/file','共享打包下载',public=True,binary=True)
 endpoint('get','/admin/users','管理员：用户列表',queries={'page':field('integer',minimum=1)})

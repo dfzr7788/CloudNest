@@ -67,7 +67,7 @@
 
 ## 批量下载
 
-- POST `/downloads`：`{fileIds:string[]}`，1～100 项、总大小 ≤512 MiB。返回 `{id}`。
+- POST `/downloads`：`{fileIds:string[]}`，兼容字段名 fileIds，现在允许文件与文件夹 ID。选择 1～100 项，递归展开最多 1000 文件、2000 个文件与目录、64 层、512 MiB。返回 `{id}`。父子项同时选择自动去重，保留目录树及空目录；同名或不适合解压的名称自动处理。
 - GET `/downloads/{id}`：`{id,status:QUEUED|BUILDING|READY|FAILED,error}`。
 - GET `/downloads/{id}/file`：READY 状态 ZIP；重新校验全部源文件授权与有效状态。
 
@@ -101,7 +101,7 @@
 | GET /api/public/shares/{token}/entries | parentId 可选，默认共享根；page 每页 50；必须为目录分享且目标位于子树 |
 | GET /api/public/shares/{token}/entries/{id}/preview或download | 每次检查分享有效、提取码授权、子树成员及下载权限 |
 | GET /api/downloads | 当前用户的 ZIP 任务列表，含 id/status/error/createdAt/expiresAt/fileIds，最多返回 20 项；其他用户不可见 |
-| POST /api/public/shares/{token}/downloads | fileIds 最多 100，全部必须在共享子树；总大小最多 512 MiB；返回任务 id |
+| POST /api/public/shares/{token}/downloads | fileIds 最多 100，支持文件/文件夹，全部必须在共享子树；递归最多 1000 文件、2000 文件与目录、512 MiB；创建与取包均复核每个后代的共享范围 |
 | GET /api/public/shares/{token}/downloads/{id} | 每次检查任务绑定的是该分享及来源仍在范围内 |
 | GET /api/public/shares/{token}/downloads/{id}/file | 上述校验加上每个源文件 revision 检查；版本改变 409，分享撤销 410 |
 | GET /api/admin/users?page=1 | 仅管理员，每页 50，返回账号、配额、占用、启用与管理员标记；不提供密码或文件内容 |

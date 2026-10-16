@@ -13,6 +13,8 @@ const props = defineProps<{ revision: number }>(),
       createdAt: number;
       expiresAt: number;
       fileIds: string[];
+      fileCount?: number;
+      folderCount?: number;
     }[]
   >([]),
   error = ref("");
@@ -66,6 +68,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section
+    id="download-tasks"
     style="
       margin-top: 18px;
       padding: 18px;
@@ -94,9 +97,13 @@ onBeforeUnmount(() => {
         ><template #default="{ row }">{{
           date(row.createdAt)
         }}</template></el-table-column
-      ><el-table-column label="内容" width="100"
+      ><el-table-column label="内容" min-width="155"
         ><template #default="{ row }"
-          >{{ row.fileIds.length }} 个文件</template
+          ><span v-if="row.fileCount !== undefined"
+            >{{ row.fileCount }} 个文件<span v-if="row.folderCount">
+              · {{ row.folderCount }} 个目录</span
+            ></span
+          ><span v-else>{{ row.fileIds.length }} 个文件</span></template
         ></el-table-column
       ><el-table-column label="状态" min-width="150"
         ><template #default="{ row }"

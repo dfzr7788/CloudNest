@@ -551,10 +551,10 @@ async function revoke(id: string) {
     if (e !== "cancel" && e !== "close") ElMessage.error(errorText(e));
   }
 }
-async function zip() {
-  const ids = selected.value.filter((e) => e.kind === "FILE").map((e) => e.id);
+async function zip(entries = selected.value) {
+  const ids = entries.map((e) => e.id);
   if (!ids.length) {
-    ElMessage.info("请选择要下载的文件");
+    ElMessage.info("请选择要下载的文件或文件夹");
     return;
   }
   packaging.value = true;
@@ -562,6 +562,9 @@ async function zip() {
     await api.post("/downloads", { fileIds: ids });
     downloadRevision.value++;
     ElMessage.success("打包任务已创建，请在下载任务中查看进度");
+    document
+      .getElementById("download-tasks")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (e) {
     ElMessage.error(errorText(e));
   } finally {
@@ -595,6 +598,7 @@ async function logout() {
   }
 }
 function command(c: string, e: Entry) {
+  if (c === "zip") zip([e]);
   if (c === "versions") historyFile.value = e;
   if (c === "favorite") favorite(e);
   if (c === "rename") rename(e);
@@ -866,14 +870,13 @@ function selectCard(e: Entry) {
               <strong>{{ query ? "搜索结果" : "全部内容" }}</strong
               ><span class="muted">{{ total }} 项</span
               ><el-button
-                v-if="selected.some((e) => e.kind === 'FILE')"
+                v-if="section === 'drive'"
+                :disabled="!selected.length"
                 :icon="Download"
                 size="small"
                 :loading="packaging"
-                @click="zip"
-                >打包下载 ({{
-                  selected.filter((e) => e.kind === "FILE").length
-                }})</el-button
+                @click="zip()"
+                >打包下载 ({{ selected.length }})</el-button
               >
             </div>
             <div class="list-controls">
@@ -1059,6 +1062,8 @@ function selectCard(e: Entry) {
                     :aria-label="e.name + '的操作'"
                   /><template #dropdown
                     ><el-dropdown-menu
+                      ><el-dropdown-item command="zip"
+                        >压缩下载</el-dropdown-item
                       ><el-dropdown-item command="favorite">{{
                         e.favorite ? "取消收藏" : "收藏"
                       }}</el-dropdown-item
@@ -1182,6 +1187,8 @@ function selectCard(e: Entry) {
                       :aria-label="row.name + '的操作'"
                     /><template #dropdown
                       ><el-dropdown-menu
+                        ><el-dropdown-item command="zip" :icon="Download"
+                          >压缩下载</el-dropdown-item
                         ><el-dropdown-item command="favorite">{{
                           row.favorite ? "取消收藏" : "收藏"
                         }}</el-dropdown-item
