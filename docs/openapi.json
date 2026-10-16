@@ -4208,6 +4208,120 @@
         ]
       }
     },
+    "/admin/updates": {
+      "get": {
+        "summary": "管理员：更新服务、运行版本与任务状态",
+        "operationId": "get__admin_updates",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "管理员：检查或执行系统更新",
+        "operationId": "post__admin_updates",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "enum": [
+                      "check",
+                      "update"
+                    ]
+                  }
+                },
+                "required": [
+                  "action"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
     "/admin/invitations": {
       "post": {
         "summary": "管理员：生成48小时一次性邀请",

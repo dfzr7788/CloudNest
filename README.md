@@ -60,6 +60,8 @@ bash scripts/create-admin.sh owner
 
 ## 开源与发布
 
+管理员面板提供邀请链接复制、分区用户管理和“系统更新”。首次在服务器执行 `bash scripts/install-updater.sh` 启用配套服务，此后可从网页检查 GitHub main 并一键备份、更新、查看结果；详见 [一键更新说明](docs/system-updates.md)。
+
 项目采用 [MIT 许可证](LICENSE)，第三方依赖保留各自许可证。欢迎阅读 [贡献说明](CONTRIBUTING.md) 和 [安全反馈说明](SECURITY.md)。上传 GitHub 的具体步骤与排除范围见 [公开发布指南](docs/publishing.md)。
 
 ## 功能边界

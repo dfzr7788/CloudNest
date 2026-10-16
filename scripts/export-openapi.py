@@ -91,6 +91,8 @@ endpoint('get','/public/shares/{token}/downloads/{id}/file','共享打包下载'
 endpoint('get','/admin/users','管理员：用户列表',queries={'page':field('integer',minimum=1)})
 endpoint('patch','/admin/users/{id}','管理员：配额与启用状态',obj({'quota':field('integer',minimum=0),'enabled':field('boolean')}))
 endpoint('get','/admin/status','管理员：磁盘与任务概况')
+endpoint('get','/admin/updates','管理员：更新服务、运行版本与任务状态')
+endpoint('post','/admin/updates','管理员：检查或执行系统更新',obj({'action':field(enum=['check','update'])}))
 endpoint('post','/admin/invitations','管理员：生成48小时一次性邀请',obj({'quota':field('integer',minimum=1048576)}))
 paths['/entries']['get']['parameters'].extend([{'name':name,'in':'query','schema':schema}for name,schema in {'collection':field(enum=['all','favorites','opened','uploaded']),'type':field(enum=['all','image','document','folder']),'minSize':field('integer',minimum=0),'maxSize':field('integer',minimum=0),'after':field('integer',minimum=0),'before':field('integer',minimum=0)}.items()])
 for parameter in paths['/entries']['get']['parameters']:

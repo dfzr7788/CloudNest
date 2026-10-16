@@ -112,3 +112,9 @@
 
 历史版本和单文件固定分享会增加对象引用；普通文件删除、分享撤销、后台清理已同步适配。普通下载 ZIP 同样验证修订号。其他限制与旧接口定义继续适用。
 
+## 系统更新接口
+
+- `GET /api/admin/updates`：仅启用中的管理员。返回 enabled（30 秒内服务心跳）、pending、busy、phase、message、current/latest 提交摘要、available、backup 备份标识与 updatedAt。未配置宿主机服务时 enabled=false，不执行任何系统操作。
+- `POST /api/admin/updates`：检查管理员和 CSRF，JSON 为 `{"action":"check"}` 或 `{"action":"update"}`。只接受固定动作，不接受命令、仓库 URL、路径或版本参数。成功返回 accepted=true；未知动作 400、重复/执行中 409、服务不可用 503。
+- 后台服务写入只读状态目录；应用只写请求队列。构建、备份、重启、健康检查与失败行为见 [更新说明](system-updates.md)。
+

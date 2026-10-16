@@ -1,0 +1,7 @@
+services:
+  server:
+    environment:
+      CLOUDNEST_UPDATER_DIR: /app/updater
+    volumes:
+      - /var/lib/cloudnest-updater/requests:/app/updater/requests
+      - /var/lib/cloudnest-updater/state:/app/updater/state:ro

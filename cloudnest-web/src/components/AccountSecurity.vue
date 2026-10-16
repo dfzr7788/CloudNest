@@ -3,6 +3,29 @@ import { ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, date, errorText } from "../api";
+import SystemUpdate from "./SystemUpdate.vue";
+const activeTab = ref("trash"),
+  inviteBusy = ref(false);
+async function copyInvite() {
+  try {
+    if (navigator.clipboard?.writeText)
+      await navigator.clipboard.writeText(inviteLink.value);
+    else {
+      const input = document.createElement("textarea");
+      input.value = inviteLink.value;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand("copy");
+      input.remove();
+      if (!copied) throw new Error("请选中链接后手动复制");
+    }
+    ElMessage.success("邀请链接已复制");
+  } catch {
+    ElMessage.info("请选中下方链接，按 Ctrl+C 复制");
+  }
+}
 const router = useRouter(),
   visible = ref(false),
   oldPassword = ref(""),
@@ -20,10 +43,13 @@ async function invite() {
     const quota = Number(value) * 1024 ** 3;
     if (!Number.isSafeInteger(quota) || quota < 1048576)
       throw new Error("请输入至少 1 MiB 的有效容量");
+    inviteBusy.value = true;
     const { data } = await api.post("/admin/invitations", { quota });
     inviteLink.value = location.origin + "/login?invitation=" + data.token;
   } catch (e) {
     if (e !== "cancel" && e !== "close") ElMessage.error(errorText(e));
+  } finally {
+    inviteBusy.value = false;
   }
 }
 const sessions = ref<
@@ -65,6 +91,8 @@ const activityLabels: Record<string, string> = {
   CREATE_ADMIN: "创建管理员",
   CREATE_USER: "创建用户",
   RESET_PASSWORD: "维护人员重置密码",
+  SYSTEM_UPDATE_REQUESTED: "请求更新系统",
+  SYSTEM_UPDATE_CHECKED: "检查系统版本",
 };
 const account = useUser(),
   activityPage = ref(1),
@@ -218,10 +246,13 @@ async function change() {
     append-to-body
     v-model="visible"
     title="账号与安全"
-    width="min(640px, 94vw)"
+    width="min(1000px, 94vw)"
+    class="account-dialog"
+    top="6vh"
   >
-    <el-tabs>
-      <el-tab-pane label="回收站设置"
+    <p class="account-subtitle">管理个人安全、存储空间与系统设置</p>
+    <el-tabs v-model="activeTab" class="account-tabs">
+      <el-tab-pane name="trash" label="回收站设置"
         ><p>
           默认关闭自动清理。启用后按服务器时间每小时检查，永久清理不会进入另一个回收站。
         </p>
@@ -243,7 +274,7 @@ async function change() {
           ><el-button @click="policy">保存保留策略</el-button>
         </div></el-tab-pane
       >
-      <el-tab-pane label="活动记录"
+      <el-tab-pane name="activity" label="活动记录"
         ><p>每页 50 条安全与整理、版本和自动清理操作，保留 90 天。</p>
         <div>
           <el-button :disabled="activityPage <= 1" @click="activityPage--"
@@ -265,48 +296,114 @@ async function change() {
           ></el-table
         ></el-tab-pane
       >
-      <el-tab-pane v-if="account.user?.administrator" label="系统管理"
-        ><el-button @click="invite">邀请新用户</el-button
-        ><el-input
-          v-if="inviteLink"
-          :model-value="inviteLink"
-          readonly
-          aria-label="邀请注册链接"
-        />
-        <p v-if="inviteLink">请复制并妥善发送；链接仅在本次创建时显示。</p>
-        <p>
-          服务器剩余磁盘：{{ bytes(adminStatus.freeBytes || 0) }} · 待处理上传
-          {{ adminStatus.pendingUploads || 0 }} · 待清理对象
-          {{ adminStatus.pendingDeletes || 0 }}
-        </p>
-        <div>
-          <el-button :disabled="adminPage <= 1" @click="adminPage--"
-            >上一页用户</el-button
-          ><span>第 {{ adminPage }} 页</span
-          ><el-button :disabled="adminUsers.length < 50" @click="adminPage++"
-            >下一页用户</el-button
-          >
-        </div>
-        <el-table :data="adminUsers"
-          ><el-table-column prop="username" label="账号" /><el-table-column
-            label="配额"
-            ><template #default="{ row }">{{
-              bytes(row.storage_quota)
-            }}</template></el-table-column
-          ><el-table-column label="管理"
-            ><template #default="{ row }"
-              ><el-button text @click="editUser(row)">调整配额</el-button
-              ><el-button text @click="toggleUser(row)">{{
-                row.enabled ? "禁用" : "启用"
-              }}</el-button></template
-            ></el-table-column
-          ></el-table
-        >
-        <p>
-          账号创建、密码重置与初始管理员设置通过本机维护命令执行，详见部署手册。
-        </p></el-tab-pane
+      <el-tab-pane
+        v-if="account.user?.administrator"
+        name="admin"
+        label="系统管理"
       >
-      <el-tab-pane label="修改密码">
+        <div class="admin-overview">
+          <div class="admin-stat">
+            <span>剩余磁盘</span
+            ><strong>{{ bytes(adminStatus.freeBytes || 0) }}</strong>
+          </div>
+          <div class="admin-stat">
+            <span>待处理上传</span
+            ><strong
+              >{{ adminStatus.pendingUploads || 0 }} <small>项</small></strong
+            >
+          </div>
+          <div class="admin-stat">
+            <span>待清理对象</span
+            ><strong
+              >{{ adminStatus.pendingDeletes || 0 }} <small>项</small></strong
+            >
+          </div>
+        </div>
+        <section class="admin-card invitation-card">
+          <div class="admin-section-heading">
+            <div>
+              <h3>邀请新成员</h3>
+              <p>每个链接限用一次，48 小时后失效。</p>
+            </div>
+            <el-button type="primary" :loading="inviteBusy" @click="invite"
+              >邀请新用户</el-button
+            >
+          </div>
+          <div v-if="inviteLink" class="invitation-result">
+            <label>邀请注册链接</label>
+            <div class="invitation-link">
+              <el-input
+                v-if="inviteLink"
+                :model-value="inviteLink"
+                readonly
+                aria-label="邀请注册链接"
+              /><el-button @click="copyInvite">复制链接</el-button>
+            </div>
+            <p>链接仅在本次创建时显示，请复制后发送给受邀人。</p>
+          </div>
+        </section>
+        <section class="admin-card">
+          <div class="admin-section-heading">
+            <div>
+              <h3>用户管理</h3>
+              <p>管理账号的存储配额和访问状态。</p>
+            </div>
+            <span class="page-label">第 {{ adminPage }} 页</span>
+          </div>
+          <el-table
+            :data="adminUsers"
+            class="admin-user-table"
+            empty-text="暂无用户"
+          >
+            <el-table-column prop="username" label="账号" min-width="150" />
+            <el-table-column label="存储使用" min-width="180"
+              ><template #default="{ row }"
+                ><strong>{{ bytes(row.storage_used) }}</strong
+                ><span class="quota-detail">
+                  / {{ bytes(row.storage_quota) }}</span
+                ></template
+              ></el-table-column
+            >
+            <el-table-column label="状态" width="100"
+              ><template #default="{ row }"
+                ><el-tag
+                  :type="row.enabled ? 'success' : 'info'"
+                  size="small"
+                  >{{ row.enabled ? "正常" : "已禁用" }}</el-tag
+                ></template
+              ></el-table-column
+            >
+            <el-table-column label="管理" width="180"
+              ><template #default="{ row }"
+                ><el-button link type="primary" @click="editUser(row)"
+                  >调整配额</el-button
+                ><el-button
+                  link
+                  :disabled="row.id === account.user?.id"
+                  :type="row.enabled ? 'danger' : 'primary'"
+                  @click="toggleUser(row)"
+                  >{{ row.enabled ? "禁用" : "启用" }}</el-button
+                ></template
+              ></el-table-column
+            >
+          </el-table>
+          <div class="account-pagination">
+            <el-button :disabled="adminPage <= 1" @click="adminPage--"
+              >上一页用户</el-button
+            ><el-button :disabled="adminUsers.length < 50" @click="adminPage++"
+              >下一页用户</el-button
+            >
+          </div>
+        </section>
+        <p class="account-hint">初始管理员与账号恢复由服务器维护人员处理。</p>
+      </el-tab-pane>
+      <el-tab-pane
+        v-if="account.user?.administrator"
+        name="updates"
+        label="系统更新"
+        ><SystemUpdate :active="visible && activeTab === 'updates'"
+      /></el-tab-pane>
+      <el-tab-pane name="password" label="修改密码">
         <el-form label-position="top" @submit.prevent="change">
           <el-form-item label="原密码"
             ><el-input
@@ -335,7 +432,7 @@ async function change() {
           >
         </el-form>
       </el-tab-pane>
-      <el-tab-pane label="登录会话">
+      <el-tab-pane name="sessions" label="登录会话">
         <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>
         <el-button @click="revoke()">退出其他会话</el-button>
         <el-table :data="sessions"
@@ -357,7 +454,7 @@ async function change() {
           ></el-table
         >
       </el-tab-pane>
-      <el-tab-pane label="空间明细"
+      <el-tab-pane name="space" label="空间明细"
         ><template v-if="space"
           ><p>有效文件：{{ bytes(space.live) }}</p>
           <p>回收站当前内容：{{ bytes(space.trash) }}</p>
@@ -369,3 +466,147 @@ async function change() {
     </el-tabs>
   </el-dialog>
 </template>
+<style scoped>
+.account-subtitle {
+  margin: -6px 0 22px;
+  color: #8c95aa;
+  font-size: 13px;
+}
+.account-tabs :deep(.el-tabs__header) {
+  margin-bottom: 24px;
+}
+.account-tabs :deep(.el-tabs__item) {
+  height: 48px;
+  font-size: 14px;
+}
+.account-tabs :deep(.el-tab-pane) {
+  max-height: 65vh;
+  overflow-y: auto;
+  padding: 2px 2px 12px;
+}
+.admin-overview {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.admin-stat {
+  background: #f4f6fd;
+  border: 1px solid #e9ecf7;
+  border-radius: 14px;
+  padding: 20px;
+}
+.admin-stat span {
+  display: block;
+  color: #8390aa;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.admin-stat strong {
+  color: #2c3c62;
+  font-size: 24px;
+  font-weight: 600;
+}
+.admin-stat small {
+  font-size: 12px;
+  color: #8c95aa;
+  font-weight: 400;
+}
+.admin-card {
+  border: 1px solid #e6eaf4;
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  margin-bottom: 18px;
+}
+.admin-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.admin-section-heading h3 {
+  color: #2d3b59;
+  margin: 0 0 7px;
+  font-size: 17px;
+}
+.admin-section-heading p,
+.invitation-result p,
+.account-hint {
+  color: #8791a6;
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.7;
+}
+.invitation-card .admin-section-heading {
+  margin-bottom: 0;
+}
+.invitation-result {
+  margin-top: 20px;
+  padding: 16px;
+  border-radius: 12px;
+  background: #f5f7ff;
+}
+.invitation-result label {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: #626e8a;
+}
+.invitation-link {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.invitation-link :deep(.el-input__inner) {
+  font-size: 12px;
+}
+.quota-detail,
+.page-label {
+  color: #8c95aa;
+  font-size: 12px;
+}
+.account-pagination {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+.account-pagination .el-button + .el-button {
+  margin-left: 0;
+}
+.admin-user-table :deep(.el-table__cell) {
+  padding: 16px 0;
+}
+.account-hint {
+  padding: 0 4px;
+}
+@media (max-width: 600px) {
+  .admin-overview {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .admin-stat {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 16px;
+  }
+  .admin-stat span {
+    margin: 0;
+  }
+  .admin-stat strong {
+    font-size: 20px;
+  }
+  .admin-card {
+    padding: 16px;
+  }
+  .admin-section-heading {
+    flex-wrap: wrap;
+  }
+  .invitation-link {
+    flex-direction: column;
+  }
+}
+</style>

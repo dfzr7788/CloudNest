@@ -54,6 +54,7 @@ class CloudNestIntegrationTest {
   @DynamicPropertySource
   static void settings(DynamicPropertyRegistry r) {
     r.add("cloudnest.data-dir", () -> data.toString());
+    r.add("cloudnest.updater-dir", () -> data.resolve("updater").toString());
     String url = System.getenv("CN_TEST_DATABASE_URL");
     if (url != null) {
       r.add("spring.datasource.url", () -> url);
@@ -1255,5 +1256,38 @@ class CloudNestIntegrationTest {
     var event = read(call(visitor, get("/api/user/activity"), null, 200)).get(0);
     assertEquals("ACCESS_DENIED", event.path("action").asText());
     assertTrue(event.path("target_id").isNull());
+  }
+
+  @Test
+  void UPD01_adminQueueRequiresLiveWorkerAndRejectsDuplicateActions() throws Exception {
+    User admin = register("updateradmin");
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", admin.id);
+    call(b, get("/api/admin/updates"), null, 403);
+    call(b, post("/api/admin/updates"), Map.of("action", "update"), 403);
+    assertFalse(
+        read(call(admin, get("/api/admin/updates"), null, 200)).path("enabled").asBoolean());
+    call(admin, post("/api/admin/updates"), Map.of("action", "update"), 503);
+    Path updater = data.resolve("updater");
+    Files.createDirectories(updater.resolve("state"));
+    Files.createDirectories(updater.resolve("requests"));
+    Path heartbeat = updater.resolve("state/heartbeat"),
+        request = updater.resolve("requests/request.json");
+    Files.writeString(heartbeat, "");
+    try {
+      call(admin, post("/api/admin/updates"), Map.of("action", "shell"), 400);
+      call(admin, post("/api/admin/updates"), Map.of("action", "check"), 200);
+      assertEquals("check", json.readTree(Files.readString(request)).path("action").asText());
+      call(admin, post("/api/admin/updates"), Map.of("action", "update"), 409);
+      Files.delete(request);
+      Files.writeString(
+          updater.resolve("state/status.json"), "{\"busy\":true,\"phase\":\"BUILDING\"}");
+      call(admin, post("/api/admin/updates"), Map.of("action", "update"), 409);
+      Files.setLastModifiedTime(heartbeat, java.nio.file.attribute.FileTime.fromMillis(0));
+      call(admin, post("/api/admin/updates"), Map.of("action", "check"), 503);
+    } finally {
+      Files.deleteIfExists(request);
+      Files.deleteIfExists(heartbeat);
+      Files.deleteIfExists(updater.resolve("state/status.json"));
+    }
   }
 }
