@@ -702,6 +702,20 @@ class CloudNestIntegrationTest {
             .andReturn()
             .getResponse()
             .getStatus());
+    assertEquals(
+        201,
+        mvc.perform(
+                request("COPY", java.net.URI.create("/dav/test.txt"))
+                    .header("Authorization", basic)
+                    .header("Destination", "https://localhost/dav/copied.txt"))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    assertEquals(
+        2,
+        db.count(
+            "SELECT COUNT(*) FROM drive_entry WHERE user_id=? AND kind='FILE' AND deleted=FALSE",
+            u.id));
   }
 
   @Test

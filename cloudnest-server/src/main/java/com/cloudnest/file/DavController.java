@@ -239,8 +239,12 @@ public class DavController {
         throw Problem.invalid("目标路径无效");
       if (dest.isAbsolute()) {
         var origin = URI.create(req.getRequestURL().toString());
-        if (!Objects.equals(origin.getAuthority(), dest.getAuthority())
-            || !Objects.equals(origin.getScheme(), dest.getScheme()))
+        // A TLS-terminating proxy may forward HTTP internally. Destination is a local path,
+        // never fetched; permit an HTTPS upgrade for the same authority, never another host.
+        boolean schemeMatches =
+            Objects.equals(origin.getScheme(), dest.getScheme())
+                || (origin.getScheme().equals("http") && dest.getScheme().equals("https"));
+        if (!Objects.equals(origin.getAuthority(), dest.getAuthority()) || !schemeMatches)
           throw Problem.invalid("不能跨服务器移动或复制");
       }
       var target = segments(dest.getRawPath());
