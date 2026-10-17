@@ -1,6 +1,8 @@
 """Failure-path tests with a simulated command runner; no Docker or server access."""
 import importlib.util
 import json
+import io
+import hashlib
 from pathlib import Path
 import tempfile
 import unittest
@@ -13,6 +15,8 @@ spec.loader.exec_module(module)
 
 
 class FakeUpdater(module.Updater):
+    def prebuilt(self, revision):
+        return False
     def __init__(self, directory, failure=None, dirty='', upstream=''):
         root = Path(directory)
         super().__init__(root, root / 'worker')
@@ -39,6 +43,7 @@ class FakeUpdater(module.Updater):
             assert kwargs.get('log_output') is False
             return json.dumps({'services': {'server': {'environment': {'STORAGE_BACKEND': 'local'}}}})
         if command.startswith('docker compose images -q'): return 'sha256:fixture'
+        if args[:4] == ('docker', 'compose', 'exec', '-T'): return '0'
         if command == 'docker compose ps -a -q server': return 'fixture-container'
         if args[:2] == ('docker', 'inspect'):
             return json.dumps([{'Destination': '/app/data', 'Type': 'volume', 'Name': 'fixture-volume'}])
@@ -57,6 +62,34 @@ class FakeUpdater(module.Updater):
 
 
 class Tests(unittest.TestCase):
+    def test_prebuilt_download_verifies_checksum_before_docker_import(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            payload=b'fixture-image-archive'
+            checksum=hashlib.sha256(payload).hexdigest()
+            responses=[io.BytesIO((checksum+'  cloudnest-images-linux-amd64.tar.gz\n').encode()),io.BytesIO(payload)]
+            with patch.object(module.urllib.request,'urlopen',side_effect=responses),patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=10*1024**3)):
+                self.assertTrue(module.Updater.prebuilt(updater,'b'*40))
+            self.assertTrue(any(c[:2]==('docker','load') for c in updater.calls))
+            self.assertFalse((updater.base/'images.download').exists())
+
+    def test_corrupt_prebuilt_never_imported(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            responses=[io.BytesIO(('0'*64+'  cloudnest-images-linux-amd64.tar.gz\n').encode()),io.BytesIO(b'corrupt')]
+            with patch.object(module.urllib.request,'urlopen',side_effect=responses),patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=10*1024**3)):
+                with self.assertRaisesRegex(RuntimeError,'SHA256'):module.Updater.prebuilt(updater,'b'*40)
+            self.assertFalse(any(c[:2]==('docker','load') for c in updater.calls))
+
+    def test_prebuilt_activation_preserves_existing_overlays_and_occurs_after_backup(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            (updater.repo/'.env').write_text('COMPOSE_FILE=docker-compose.yml:deploy/compose.tls.yml:deploy/compose.updater.yml\nPRIVATE_FIXTURE=yes\n')
+            with patch.object(updater,'prebuilt',return_value=True):updater.perform('update')
+            self.assertEqual('COMPLETE',updater.status['phase'])
+            self.assertIn('deploy/compose.tls.yml:deploy/compose.updater.yml:deploy/compose.images.yml',(updater.repo/'.env').read_text())
+            self.assertNotIn(('docker','compose','build','server','web'),updater.calls)
+
     def execute(self, **kwargs):
         directory = tempfile.TemporaryDirectory()
         self.addCleanup(directory.cleanup)

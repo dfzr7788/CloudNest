@@ -23,6 +23,21 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/downloads")
 public class DownloadJobs {
+  @Value("${cloudnest.zip.max-bytes:536870912}")
+  private long maxBytes;
+
+  @Value("${cloudnest.zip.max-files:1000}")
+  private int maxFiles;
+
+  @Value("${cloudnest.zip.max-entries:2000}")
+  private int maxEntries;
+
+  @Value("${cloudnest.zip.hours:1}")
+  private int hours;
+
+  @Value("${cloudnest.zip.reserve-bytes:268435456}")
+  private long reserveBytes;
+
   private final Db db;
   private final DriveService drive;
   private final ContentService content;
@@ -55,6 +70,15 @@ public class DownloadJobs {
 
   @PostConstruct
   void recover() {
+    if (maxBytes < 1
+        || maxBytes > 1099511627776L
+        || maxFiles < 1
+        || maxFiles > 100000
+        || maxEntries < maxFiles
+        || maxEntries > 200000
+        || hours < 1
+        || hours > 168
+        || reserveBytes < 0) throw new IllegalArgumentException("Invalid ZIP settings");
     db.update(
         "UPDATE download_job SET status='FAILED',error='服务重启，请重新创建任务' WHERE status IN"
             + " ('QUEUED','BUILDING')");
@@ -102,7 +126,8 @@ public class DownloadJobs {
       Pending item = pending.removeFirst();
       if (item.depth() > 64) throw Problem.invalid("目录层级超过 64 层");
       if (!seen.add(item.id())) throw Problem.conflict("目录结构异常");
-      if (seen.size() > 2000) throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 2000 个文件和目录");
+      if (seen.size() > maxEntries)
+        throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 " + maxEntries + " 个文件和目录");
       var entry = drive.live(uid, item.id());
       boolean directory = s(entry, "kind").equals("FOLDER");
       String base = safeName(s(entry, "name")), candidate = item.prefix() + base;
@@ -123,18 +148,19 @@ public class DownloadJobs {
         for (var child :
             db.list(
                 "SELECT id FROM drive_entry WHERE user_id=? AND parent_id=? AND deleted=FALSE ORDER"
-                    + " BY kind,name,id LIMIT 2001",
+                    + " BY kind,name,id LIMIT ?",
                 uid,
-                item.id())) {
-          if (pending.size() + result.size() >= 2000)
-            throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 2000 个文件和目录");
+                item.id(),
+                maxEntries + 1)) {
+          if (pending.size() + result.size() >= maxEntries)
+            throw new Problem(413, "ZIP_TOO_MANY_ENTRIES", "单次打包最多 " + maxEntries + " 个文件和目录");
           pending.addLast(new Pending(s(child, "id"), candidate + "/", item.depth() + 1));
         }
       } else {
         total += n(entry, "size");
-        if (++fileCount > 1000) throw new Problem(413, "ZIP_TOO_MANY_FILES", "单次打包最多 1000 个文件");
-        if (total > 512 * 1024 * 1024L)
-          throw new Problem(413, "ZIP_TOO_LARGE", "批量下载总大小限制 512 MiB");
+        if (++fileCount > maxFiles)
+          throw new Problem(413, "ZIP_TOO_MANY_FILES", "单次打包最多 " + maxFiles + " 个文件");
+        if (total > maxBytes) throw new Problem(413, "ZIP_TOO_LARGE", "打包总大小超过管理员设置的限制");
       }
     }
     return result;
@@ -169,8 +195,9 @@ public class DownloadJobs {
   public List<Map<String, Object>> list(Authentication a) {
     return db
         .list(
-            "SELECT id,status,error,created_at,expires_at,entry_ids,archive_manifest FROM"
-                + " download_job WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
+            "SELECT"
+                + " id,status,error,created_at,expires_at,entry_ids,archive_manifest,completed_bytes,total_bytes"
+                + " FROM download_job WHERE user_id=? ORDER BY created_at DESC LIMIT 20",
             a.getName())
         .stream()
         .map(
@@ -179,6 +206,8 @@ public class DownloadJobs {
               result.put("id", row.get("id"));
               result.put("status", row.get("status"));
               result.put("error", row.get("error"));
+              result.put("completedBytes", row.get("completed_bytes"));
+              result.put("totalBytes", row.get("total_bytes"));
               result.put("createdAt", row.get("created_at"));
               result.put("expiresAt", row.get("expires_at"));
               try {
@@ -199,9 +228,59 @@ public class DownloadJobs {
         .toList();
   }
 
-  @PostMapping
-  public Map<String, Object> create(Authentication a, @Valid @RequestBody Input input)
+  @PostMapping("/estimate")
+  public Map<String, Object> estimate(Authentication a, @Valid @RequestBody Input input)
       throws IOException {
+    var entries =
+        db.atomic(
+            a.getName(), () -> snapshot(a.getName(), input.fileIds().stream().distinct().toList()));
+    long total = 0;
+    for (var entry : entries)
+      if (!entry.directory())
+        total = Math.addExact(total, n(drive.file(a.getName(), entry.id()), "size"));
+    long pending =
+        db.count(
+            "SELECT COALESCE(SUM(total_bytes-completed_bytes),0) FROM download_job WHERE status IN"
+                + " ('QUEUED','BUILDING')");
+    long free = Math.max(0, Files.getFileStore(root).getUsableSpace() - pending);
+    return Map.of(
+        "bytes",
+        total,
+        "files",
+        entries.stream().filter(e -> !e.directory()).count(),
+        "entries",
+        entries.size(),
+        "freeBytes",
+        free,
+        "canPack",
+        free >= total + entries.size() * 512L + reserveBytes,
+        "maxBytes",
+        maxBytes,
+        "maxFiles",
+        maxFiles,
+        "maxEntries",
+        maxEntries);
+  }
+
+  @DeleteMapping("/{id}")
+  public void cancel(Authentication a, @PathVariable String id) throws IOException {
+    job(a.getName(), id);
+    db.update(
+        "UPDATE download_job SET status='CANCELLED',error=NULL WHERE id=? AND user_id=?",
+        id,
+        a.getName());
+    try {
+      Files.deleteIfExists(root.resolve(id + ".zip"));
+    } catch (IOException ignored) {
+    }
+  }
+
+  @PostMapping
+  public synchronized Map<String, Object> create(Authentication a, @Valid @RequestBody Input input)
+      throws IOException {
+    var estimate = estimate(a, input);
+    if (!Boolean.TRUE.equals(estimate.get("canPack")))
+      throw new Problem(507, "ZIP_DISK_FULL", "磁盘不足，无法创建压缩包");
     List<String> ids = input.fileIds.stream().distinct().toList();
     String uid = a.getName(), id = Util.id();
     db.atomic(
@@ -230,12 +309,13 @@ public class DownloadJobs {
                 uid,
                 json.writeValueAsString(ids),
                 System.currentTimeMillis(),
-                System.currentTimeMillis() + 3600000,
+                System.currentTimeMillis() + hours * 3600000L,
                 json.writeValueAsString(revisions),
                 json.writeValueAsString(entries));
           } catch (IOException e) {
             throw new UncheckedIOException(e);
           }
+          db.update("UPDATE download_job SET total_bytes=? WHERE id=?", estimate.get("bytes"), id);
           return null;
         });
     try {
@@ -249,30 +329,57 @@ public class DownloadJobs {
   private void validate(String uid, List<String> ids) {
     long total = 0;
     for (String id : ids) total += n(drive.file(uid, id), "size");
-    if (total > 512 * 1024 * 1024L) throw new Problem(413, "ZIP_TOO_LARGE", "批量下载总大小限制 512 MiB");
+    if (total > maxBytes) throw new Problem(413, "ZIP_TOO_LARGE", "打包总大小超过管理员设置的限制");
   }
 
   private void build(String uid, String id) {
     Path path = root.resolve(id + ".zip");
     try {
-      db.update("UPDATE download_job SET status='BUILDING' WHERE id=?", id);
+      if (db.update("UPDATE download_job SET status='BUILDING' WHERE id=? AND status='QUEUED'", id)
+          == 0) return;
       var entries = manifest(job(uid, id));
       validateSnapshot(uid, entries);
       try (var zip = new ZipOutputStream(Files.newOutputStream(path))) {
+        long completed = 0;
         for (ArchiveEntry entry : entries) {
+          if (!"BUILDING".equals(s(job(uid, id), "status"))) throw new IOException("Cancelled");
           zip.putNextEntry(new ZipEntry(entry.path()));
-          if (!entry.directory())
-            try (var input = content.open(content.blob(uid, entry.id()))) {
-              input.transferTo(zip);
+          if (!entry.directory()) {
+            var source =
+                db.atomic(
+                    uid,
+                    () -> {
+                      var current = drive.file(uid, entry.id());
+                      if (n(current, "revision") != entry.revision())
+                        throw Problem.conflict("文件版本已变化");
+                      return content.blob(uid, entry.id());
+                    });
+            try (var input = content.open(source)) {
+              byte[] block = new byte[1024 * 1024];
+              int count;
+              while ((count = input.read(block)) != -1) {
+                if (!"BUILDING".equals(s(job(uid, id), "status")))
+                  throw new IOException("Cancelled");
+                if (completed + count > maxBytes
+                    || Files.getFileStore(root).getUsableSpace() < reserveBytes + count)
+                  throw new IOException("ZIP disk/size limit reached");
+                zip.write(block, 0, count);
+                completed += count;
+                db.update("UPDATE download_job SET completed_bytes=? WHERE id=?", completed, id);
+              }
             }
+          }
           zip.closeEntry();
         }
       }
       validateSnapshot(uid, entries);
-      db.update("UPDATE download_job SET status='READY' WHERE id=?", id);
+      if (db.update("UPDATE download_job SET status='READY' WHERE id=? AND status='BUILDING'", id)
+          == 0) Files.deleteIfExists(path);
     } catch (Exception e) {
       db.update(
-          "UPDATE download_job SET status='FAILED',error='打包失败，文件可能已变更，请重新选择' WHERE id=?", id);
+          "UPDATE download_job SET status='FAILED',error='打包失败，文件可能已变更，请重新选择' WHERE id=? AND"
+              + " status<>'CANCELLED'",
+          id);
       try {
         Files.deleteIfExists(path);
       } catch (IOException ignored) {
@@ -298,6 +405,8 @@ public class DownloadJobs {
     m.put("id", id);
     m.put("status", j.get("status"));
     m.put("error", j.get("error"));
+    m.put("completedBytes", j.get("completed_bytes"));
+    m.put("totalBytes", j.get("total_bytes"));
     return m;
   }
 

@@ -29,6 +29,7 @@ public class AuthController {
   private final long quota;
   private final int hours;
   private final boolean secure;
+  private final MfaService mfa;
 
   @Value("${cloudnest.registration-open:true}")
   private boolean registrationOpen;
@@ -39,6 +40,7 @@ public class AuthController {
       PasswordEncoder passwords,
       JwtEncoder jwt,
       RateLimits limits,
+      MfaService mfa,
       @Value("${cloudnest.quota}") long quota,
       @Value("${cloudnest.session-hours}") int hours,
       @Value("${cloudnest.secure-cookies}") boolean secure) {
@@ -47,6 +49,7 @@ public class AuthController {
     this.passwords = passwords;
     this.jwt = jwt;
     this.limits = limits;
+    this.mfa = mfa;
     this.quota = quota;
     this.hours = hours;
     this.secure = secure;
@@ -55,7 +58,8 @@ public class AuthController {
   public record Credentials(
       @NotBlank @Pattern(regexp = "[A-Za-z0-9_]{3,40}") String username,
       @NotNull @Size(min = 8, max = 64) String password,
-      @Size(max = 100) String invitation) {}
+      @Size(max = 100) String invitation,
+      @Size(max = 100) String otp) {}
 
   public record Profile(@NotBlank @Size(max = 80) String nickname) {}
 
@@ -131,6 +135,7 @@ public class AuthController {
         || !passwords.matches(input.password, a.passwordHash)
         || db.count("SELECT COUNT(*) FROM sys_user WHERE id=? AND enabled=TRUE", a.id) != 1)
       throw new Problem(401, "INVALID_CREDENTIALS", "账号或密码错误");
+    mfa.verify(a.id, input.otp());
     issue(a.id, req, res);
     return profile(a.id);
   }

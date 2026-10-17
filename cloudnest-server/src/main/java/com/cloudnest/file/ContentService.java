@@ -44,6 +44,39 @@ public class ContentService {
     return storage.open(s(b, "backend"), s(b, "object_key"), 0, n(b, "size"));
   }
 
+  public String attachment(String uid, String note, String path, String boundary) {
+    if (boundary == null) boundary = drive.root(uid);
+    var source = drive.file(uid, note);
+    String cursor = s(source, "parent_id");
+    if (boundary.equals(note)) throw Problem.missing();
+    if (path == null
+        || path.length() > 2000
+        || path.startsWith("/")
+        || path.contains("\\")
+        || path.contains(":")) throw Problem.invalid("附件路径无效");
+    String[] segments = path.split("/");
+    for (String segment : segments) {
+      if (segment.isBlank() || segment.equals(".")) continue;
+      if (segment.equals("..")) {
+        if (cursor.equals(boundary)) throw Problem.missing();
+        cursor = s(drive.folder(uid, cursor), "parent_id");
+        if (cursor == null) throw Problem.missing();
+      } else {
+        var rows =
+            db.list(
+                "SELECT id FROM drive_entry WHERE user_id=? AND parent_id=? AND name=? AND"
+                    + " deleted=FALSE",
+                uid,
+                cursor,
+                segment);
+        if (rows.size() != 1) throw Problem.missing();
+        cursor = s(rows.getFirst(), "id");
+      }
+    }
+    drive.file(uid, cursor);
+    return cursor;
+  }
+
   public void send(
       String uid, String id, boolean preview, HttpServletRequest req, HttpServletResponse res)
       throws IOException {

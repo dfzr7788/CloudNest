@@ -11,6 +11,36 @@ import org.junit.jupiter.api.Test;
 
 class WordPreviewTest {
   @Test
+  void rendersExcelAndPowerPointAsEscapedReadingViews() throws Exception {
+    try (var book = new org.apache.poi.xssf.usermodel.XSSFWorkbook();
+        var out = new ByteArrayOutputStream()) {
+      book.createSheet("成绩").createRow(0).createCell(0).setCellValue("<script>unsafe</script>");
+      book.write(out);
+      String html =
+          new WordPreview()
+              .render(
+                  new ByteArrayInputStream(out.toByteArray()),
+                  "test.xlsx",
+                  "application/octet-stream");
+      assertTrue(html.contains("成绩"));
+      assertTrue(html.contains("&lt;script&gt;"));
+      assertFalse(html.contains("<script>"));
+    }
+    try (var slides = new org.apache.poi.xslf.usermodel.XMLSlideShow();
+        var out = new ByteArrayOutputStream()) {
+      slides.createSlide().createTextBox().setText("演示文稿内容");
+      slides.write(out);
+      assertTrue(
+          new WordPreview()
+              .render(
+                  new ByteArrayInputStream(out.toByteArray()),
+                  "test.pptx",
+                  "application/octet-stream")
+              .contains("演示文稿内容"));
+    }
+  }
+
+  @Test
   void rendersDocxStructureAndEscapesActiveContent() throws Exception {
     byte[] data;
     try (var doc = new XWPFDocument();
@@ -54,5 +84,15 @@ class WordPreviewTest {
         () ->
             preview.render(
                 new ByteArrayInputStream(out.toByteArray()), "bomb.docx", "application/zip"));
+    assertThrows(
+        Problem.class,
+        () ->
+            preview.render(
+                new ByteArrayInputStream(out.toByteArray()), "bomb.xlsx", "application/zip"));
+    assertThrows(
+        Problem.class,
+        () ->
+            preview.render(
+                new ByteArrayInputStream(out.toByteArray()), "bomb.pptx", "application/zip"));
   }
 }

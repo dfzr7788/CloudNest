@@ -47,6 +47,10 @@ import Thumbnail from "../components/Thumbnail.vue";
 import ShareSettings from "../components/ShareSettings.vue";
 import DownloadCenter from "../components/DownloadCenter.vue";
 import SelectionBasket from "../components/SelectionBasket.vue";
+import AdvancedSearch from "../components/AdvancedSearch.vue";
+import CollectionShare from "../components/CollectionShare.vue";
+const collectionFiles = ref<Entry[] | null>(null),
+  collecting = ref(false);
 import { useSelection } from "../selection";
 const editingShare = ref<{
     id: string;
@@ -77,6 +81,8 @@ const collection = ref("all"),
   folderInput = ref<HTMLInputElement>(),
   conflictPolicy = ref("keep"),
   batchMoving = ref(false),
+  copyMode = ref(false),
+  clipboard = ref<{ ids: string[]; cut: boolean } | null>(null),
   batchBusy = ref(false);
 const router = useRouter(),
   store = useUser(),
@@ -294,6 +300,11 @@ async function rename(e: Entry) {
   }
 }
 async function moveTo(id: string) {
+  if (copyMode.value) {
+    await copyTo(id);
+    copyMode.value = false;
+    return;
+  }
   if (batchMoving.value) {
     await batch("move", id);
     batchMoving.value = false;
@@ -415,6 +426,57 @@ async function favorite(e: Entry) {
     ElMessage.error(errorText(err));
   }
 }
+async function copyTo(parentId: string) {
+  try {
+    batchBusy.value = true;
+    const ids = clipboard.value?.ids || selected.value.map((e) => e.id);
+    if (!ids.length) return;
+    if (clipboard.value?.cut) {
+      const { data } = await api.post("/entries/batch", {
+        ids,
+        parentId,
+        action: "move",
+      });
+      if (data.failed)
+        throw new Error(`${data.failed} 项移动失败，请检查目标目录`);
+    } else await api.post("/entries/copy", { ids, parentId });
+    clipboard.value = null;
+    await load();
+    ElMessage.success("文件操作已完成");
+  } catch (e) {
+    ElMessage.error(errorText(e));
+  } finally {
+    batchBusy.value = false;
+  }
+}
+function putClipboard(cut: boolean) {
+  clipboard.value = { ids: selected.value.map((e) => e.id), cut };
+  ElMessage.info(cut ? "已剪切，进入目标目录粘贴" : "已复制，进入目标目录粘贴");
+}
+function shortcut(event: KeyboardEvent) {
+  const node = event.target as HTMLElement;
+  if (
+    node.closest("input, textarea, [contenteditable=true], [role=dialog]") ||
+    section.value !== "drive"
+  )
+    return;
+  if (!(event.ctrlKey || event.metaKey)) return;
+  const key = event.key.toLowerCase();
+  if (["c", "x"].includes(key) && selected.value.length) {
+    event.preventDefault();
+    putClipboard(key === "x");
+  }
+  if (key === "v" && clipboard.value) {
+    event.preventDefault();
+    void copyTo(current.value);
+  }
+  if (key === "a") {
+    event.preventDefault();
+    if (!allSelected()) togglePage();
+  }
+}
+onMounted(() => window.addEventListener("keydown", shortcut));
+onBeforeUnmount(() => window.removeEventListener("keydown", shortcut));
 async function batch(action: string, parentId?: string) {
   const snapshot = [...selected.value];
   if (!snapshot.length) return;
@@ -572,6 +634,14 @@ async function zip(entries = selected.value) {
   }
   packaging.value = true;
   try {
+    const { data: estimate } = await api.post("/downloads/estimate", {
+      fileIds: ids,
+    });
+    if (!estimate.canPack)
+      throw new Error("服务器磁盘不足，请先清理或缩小打包范围");
+    ElMessage.info(
+      `预计打包 ${estimate.files} 个文件，共 ${bytes(estimate.bytes)}`,
+    );
     await api.post("/downloads", { fileIds: ids });
     downloadRevision.value++;
     ElMessage.success("打包任务已创建，请在下载任务中查看进度");
@@ -610,7 +680,32 @@ async function logout() {
     ElMessage.error(errorText(e));
   }
 }
+async function editTags(e: Entry) {
+  try {
+    const { data } = await api.get(`/entries/${e.id}/tags`);
+    const { value } = await ElMessageBox.prompt(
+      "用逗号分隔标签，每项最多 40 字符，最多 20 项",
+      "编辑标签",
+      { inputValue: data.join(", ") },
+    );
+    await api.put(`/entries/${e.id}/tags`, {
+      tags: value
+        .split(/[,，]/)
+        .map((s: string) => s.trim())
+        .filter(Boolean),
+    });
+    ElMessage.success("标签已保存");
+  } catch (error) {
+    if (error !== "cancel" && error !== "close")
+      ElMessage.error(errorText(error));
+  }
+}
 function command(c: string, e: Entry) {
+  if (c === "tags") void editTags(e);
+  if (c === "collect") {
+    collecting.value = true;
+    collectionFiles.value = [e];
+  }
   if (c === "zip") zip([e]);
   if (c === "versions") historyFile.value = e;
   if (c === "favorite") favorite(e);
@@ -843,9 +938,11 @@ function command(c: string, e: Entry) {
               v-model="conflictPolicy"
               aria-label="上传同名处理"
               style="width: 160px"
-              ><el-option label="同名：保留两份" value="keep" /><el-option
-                label="同名：跳过"
-                value="skip"
+              ><el-option
+                label="同名：覆盖并保留历史"
+                value="replace" /><el-option
+                label="同名：保留两份"
+                value="keep" /><el-option label="同名：跳过" value="skip"
             /></el-select>
           </div>
           <div class="files-toolbar">
@@ -873,6 +970,10 @@ function command(c: string, e: Entry) {
               /></el-select>
             </div>
           </div>
+          <AdvancedSearch
+            v-if="section === 'drive'"
+            @choose="preview = $event"
+            @folder="navigate($event)" />
           <div class="list-toolbar">
             <div>
               <strong>{{ query ? "搜索结果" : "全部内容" }}</strong
@@ -932,7 +1033,34 @@ function command(c: string, e: Entry) {
             >全选当前页</el-checkbox
           >
           <span>已选 {{ selected.length }} 项（跨目录保留）</span>
-          <SelectionBasket v-model="selected" />
+          <SelectionBasket v-model="selected" /><el-button
+            v-if="section === 'drive' && selected.length"
+            size="small"
+            @click="
+              collecting = false;
+              collectionFiles = [...selected];
+            "
+            >分享选中项目</el-button
+          >
+          <el-button
+            v-if="section === 'drive' && selected.length"
+            size="small"
+            @click="putClipboard(false)"
+            >复制</el-button
+          >
+          <el-button
+            v-if="section === 'drive' && selected.length"
+            size="small"
+            @click="putClipboard(true)"
+            >剪切</el-button
+          >
+          <el-button
+            v-if="section === 'drive' && clipboard"
+            size="small"
+            :disabled="batchBusy"
+            @click="copyTo(current)"
+            >粘贴到当前目录</el-button
+          >
           <el-button size="small" @click="selected = []">取消选择</el-button>
           <template v-if="selected.length"
             ><template v-if="section === 'drive'"
@@ -1067,6 +1195,12 @@ function command(c: string, e: Entry) {
                     :aria-label="e.name + '的操作'"
                   /><template #dropdown
                     ><el-dropdown-menu
+                      ><el-dropdown-item command="tags"
+                        >编辑标签</el-dropdown-item
+                      ><el-dropdown-item
+                        v-if="e.kind === 'FOLDER'"
+                        command="collect"
+                        >收集文件</el-dropdown-item
                       ><el-dropdown-item command="zip"
                         >压缩下载</el-dropdown-item
                       ><el-dropdown-item command="favorite">{{
@@ -1191,6 +1325,12 @@ function command(c: string, e: Entry) {
                       :aria-label="row.name + '的操作'"
                     /><template #dropdown
                       ><el-dropdown-menu
+                        ><el-dropdown-item command="tags"
+                          >编辑标签</el-dropdown-item
+                        ><el-dropdown-item
+                          v-if="row.kind === 'FOLDER'"
+                          command="collect"
+                          >收集文件</el-dropdown-item
                         ><el-dropdown-item command="zip" :icon="Download"
                           >压缩下载</el-dropdown-item
                         ><el-dropdown-item command="favorite">{{
@@ -1262,6 +1402,11 @@ function command(c: string, e: Entry) {
       :siblings="items"
       @select="preview = $event"
       @close="preview = null"
+    /><CollectionShare
+      :files="collectionFiles"
+      :collect="collecting"
+      @close="collectionFiles = null"
+      @created="load"
     /><FolderPicker
       :open="!!moving || batchMoving"
       :root-id="store.user?.rootId || ''"

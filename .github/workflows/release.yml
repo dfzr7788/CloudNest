@@ -1,0 +1,64 @@
+name: Test and publish prebuilt images
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: cloudnest-server/pom.xml
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: cloudnest-web/package-lock.json
+      - name: Test and package server
+        run: mvn -B -f cloudnest-server/pom.xml verify
+      - name: Build web
+        working-directory: cloudnest-web
+        run: |
+          npm ci
+          npm run build
+      - name: Test deployment workers
+        run: |
+          python3 scripts/test-updater.py
+          python3 scripts/test-backup.py
+      - name: Package Linux amd64 images
+        if: github.event_name != 'pull_request'
+        env:
+          REV: ${{ github.sha }}
+        run: |
+          docker build --platform linux/amd64 -f deploy/Dockerfile.server-runtime -t "cloudnest-server:sha-$REV" .
+          docker build --platform linux/amd64 -f deploy/Dockerfile.web-runtime -t "cloudnest-web:sha-$REV" .
+      - name: Verify Docker deployment and isolated backup restore
+        if: github.event_name != 'pull_request'
+        run: python3 scripts/test-compose.py
+      - name: Export verified images
+        if: github.event_name != 'pull_request'
+        env:
+          REV: ${{ github.sha }}
+        run: |
+          docker save "cloudnest-server:sha-$REV" "cloudnest-web:sha-$REV" | gzip > cloudnest-images-linux-amd64.tar.gz
+          sha256sum cloudnest-images-linux-amd64.tar.gz > SHA256SUMS
+      - name: Publish immutable revision assets
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REV: ${{ github.sha }}
+        run: |
+          gh release create "build-$REV" --target "$REV" --prerelease --latest=false --title "Build $REV" --notes 'Prebuilt Linux amd64 images. Verify SHA256SUMS before importing.' cloudnest-images-linux-amd64.tar.gz SHA256SUMS

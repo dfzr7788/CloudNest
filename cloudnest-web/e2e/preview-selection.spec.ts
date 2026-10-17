@@ -7,7 +7,17 @@ async function account(page: Page) {
   await page.getByRole("button", { name: "创建账号", exact: true }).click();
   await page.getByLabel("账号", { exact: true }).fill("preview_" + Date.now());
   await page.getByLabel("密码", { exact: true }).fill("Preview-Test-123");
-  await page.getByRole("button", { name: "注册并进入云盘" }).click();
+  // Full-suite runs share a loopback IP; respect the production registration limit.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const response = page.waitForResponse(
+      (r) =>
+        r.url().endsWith("/api/auth/register") &&
+        r.request().method() === "POST",
+    );
+    await page.getByRole("button", { name: "注册并进入云盘" }).click();
+    if ((await response).status() !== 429) break;
+    await page.waitForTimeout(Math.min(30000, 60050 - (Date.now() % 60000)));
+  }
   await expect(page.getByRole("heading", { name: "我的文件." })).toBeVisible();
   return (await (await page.request.get("/api/user/me")).json())
     .rootId as string;
@@ -79,6 +89,68 @@ function zipNames(bytes: Buffer) {
   }
   return names;
 }
+
+test("COREUI Markdown 数学代码与相对图片、复制粘贴和搜索入口", async ({
+  page,
+}) => {
+  const root = await account(page);
+  const folder = await post(page, "/folders", {
+    parentId: root,
+    name: "Destination",
+  });
+  await upload(
+    page,
+    root,
+    "formula.md",
+    Buffer.from(
+      "# Formula\n\n$x^2 + y^2$\n\n```python\nprint(42)\n```\n\n![local](image.png)",
+    ),
+  );
+  await upload(
+    page,
+    root,
+    "image.png",
+    Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  );
+  await page.reload();
+  await page.getByRole("button", { name: "formula.md", exact: true }).click();
+  await expect(page.locator(".rendered-document .katex")).toBeVisible();
+  await expect(page.locator(".rendered-document .hljs-number")).toHaveText(
+    "42",
+  );
+  await expect(page.locator(".rendered-document img")).toBeVisible();
+  expect(
+    await page
+      .locator(".rendered-document img")
+      .evaluate((image: any) => image.naturalWidth),
+  ).toBe(1);
+  await close(page);
+  await page.getByLabel("选择 formula.md", { exact: true }).check();
+  await page.getByRole("button", { name: "复制", exact: true }).click();
+  await page.getByRole("button", { name: "Destination", exact: true }).click();
+  await page
+    .getByRole("button", { name: "粘贴到当前目录", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "formula.md", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "标签与正文搜索", exact: true })
+    .click();
+  await page.getByLabel("高级搜索关键词").fill("formula");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "搜索", exact: true })
+    .click();
+  await expect(
+    page
+      .getByRole("dialog")
+      .getByRole("button", { name: "formula.md", exact: true }),
+  ).toHaveCount(2);
+});
 
 test("PREVIEW01 生产构建 PDF、Markdown 安全渲染及 DOCX 阅读预览", async ({
   page,
@@ -169,8 +241,14 @@ test("ZIPSELECT01 私有云盘跨目录选择部分文件，当前页取消不�
     .filter({ hasText: "Shared root" })
     .click();
   await page.getByRole("button", { name: "Folder B", exact: true }).click();
-  await page.locator("label.el-checkbox").filter({ hasText: "全选当前页" }).click();
-  await page.locator("label.el-checkbox").filter({ hasText: "全选当前页" }).click();
+  await page
+    .locator("label.el-checkbox")
+    .filter({ hasText: "全选当前页" })
+    .click();
+  await page
+    .locator("label.el-checkbox")
+    .filter({ hasText: "全选当前页" })
+    .click();
   await expect(
     page.getByRole("button", { name: "打包下载 (1)", exact: true }),
   ).toBeEnabled();
@@ -249,24 +327,44 @@ test("SHAREZIP01 分享目录递归打包、跨目录部分选择与 PDF/Word/Ma
   const names = zipNames(readFileSync((await (await all).path())!));
   expect(names).toContain("Shared root/Folder A/omit-a.txt");
   expect(names).toContain("Shared root/Folder B/omit-b.txt");
-  const previewOnly = await post(page, "/shares", { fileId: parent.id, hours: 1, allowDownload: false });
+  const previewOnly = await post(page, "/shares", {
+    fileId: parent.id,
+    hours: 1,
+    allowDownload: false,
+  });
   await shared.goto(new URL("/s/" + previewOnly.token, page.url()).href);
-  await expect(shared.getByText("分享者仅开放了预览权限", { exact: true })).toBeVisible();
+  await expect(
+    shared.getByText("分享者仅开放了预览权限", { exact: true }),
+  ).toBeVisible();
   await expect(shared.getByRole("checkbox")).toHaveCount(0);
-  await expect(shared.getByRole("button", { name: "下载整个文件夹", exact: true })).toHaveCount(0);
+  await expect(
+    shared.getByRole("button", { name: "下载整个文件夹", exact: true }),
+  ).toHaveCount(0);
   await visitor.close();
 });
 
-test("PDFHTTP01 普通 HTTP 域名下 PDF worker 正常渲染", async ({ page, browser }) => {
-  test.skip(!process.env.CN_HTTP_PREVIEW_ORIGIN, "Requires a local HTTP hostname mapped to the production test server");
+test("PDFHTTP01 普通 HTTP 域名下 PDF worker 正常渲染", async ({
+  page,
+  browser,
+}) => {
+  test.skip(
+    !process.env.CN_HTTP_PREVIEW_ORIGIN,
+    "Requires a local HTTP hostname mapped to the production test server",
+  );
   const root = await account(page);
   const file = await upload(page, root, "http.pdf", pdfFixture());
-  const share = await post(page, "/shares", { fileId: file.fileId, hours: 1, allowDownload: false });
+  const share = await post(page, "/shares", {
+    fileId: file.fileId,
+    hours: 1,
+    allowDownload: false,
+  });
   const visitor = await browser.newContext();
   const shared = await visitor.newPage();
   await shared.goto(process.env.CN_HTTP_PREVIEW_ORIGIN + "/s/" + share.token);
   expect(await shared.evaluate(() => window.isSecureContext)).toBe(false);
   await shared.getByRole("button", { name: "在线预览", exact: true }).click();
-  await expect(shared.locator('canvas[data-rendered="true"]')).toBeVisible({ timeout: 15000 });
+  await expect(shared.locator('canvas[data-rendered="true"]')).toBeVisible({
+    timeout: 15000,
+  });
   await visitor.close();
 });

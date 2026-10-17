@@ -3,7 +3,7 @@ import { computed, ref, watch, defineAsyncComponent } from "vue";
 import { api, errorText, type Entry, bytes } from "../api";
 import FileMark from "./FileMark.vue";
 import DOMPurify from "dompurify";
-import { marked } from "marked";
+import { renderMarkdown } from "../markdown";
 const PdfPreview = defineAsyncComponent(() => import("./PdfPreview.vue"));
 const props = defineProps<{
   file: Entry | null;
@@ -21,50 +21,51 @@ const markdown = computed(
 const word = computed(
   () =>
     !!props.file &&
-    (/\.(doc|docx)$/i.test(props.file.name) ||
+    (/\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(props.file.name) ||
       [
         "application/msword",
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       ].includes(props.file.mime || "")),
 );
+const officeEnabled = ref(false);
 const rawMarkdown = ref(false),
   documentHtml = ref("");
 const renderedHtml = computed(() =>
-  DOMPurify.sanitize(
-    word.value
-      ? documentHtml.value
-      : marked.parse(text.value, { async: false, gfm: true }),
-    {
-      ALLOWED_TAGS: [
-        "p",
-        "br",
-        "hr",
-        "h1",
-        "h2",
-        "h3",
-        "h4",
-        "h5",
-        "h6",
-        "strong",
-        "em",
-        "del",
-        "blockquote",
-        "ul",
-        "ol",
-        "li",
-        "pre",
-        "code",
-        "table",
-        "thead",
-        "tbody",
-        "tr",
-        "th",
-        "td",
-        "a",
-      ],
-      ALLOWED_ATTR: ["href", "title", "start", "align"],
-    },
-  ),
+  word.value
+    ? DOMPurify.sanitize(documentHtml.value, {
+        ALLOWED_TAGS: [
+          "p",
+          "br",
+          "hr",
+          "h1",
+          "h2",
+          "h3",
+          "h4",
+          "h5",
+          "h6",
+          "strong",
+          "em",
+          "del",
+          "blockquote",
+          "ul",
+          "ol",
+          "li",
+          "pre",
+          "code",
+          "table",
+          "thead",
+          "tbody",
+          "tr",
+          "th",
+          "td",
+          "a",
+        ],
+        ALLOWED_ATTR: ["href", "title", "start", "align"],
+      })
+    : renderMarkdown(
+        text.value,
+        (props.base || `/api/files/${props.file?.id}`) + "/attachment?path=",
+      ),
 );
 let requestGeneration = 0;
 const images = computed(
@@ -111,6 +112,14 @@ watch(
   () => props.file,
   async (f) => {
     const mine = ++requestGeneration;
+    officeEnabled.value = false;
+    if (f && !props.base && /\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(f.name))
+      void api
+        .get("/office/status")
+        .then((r) => {
+          if (mine === requestGeneration) officeEnabled.value = r.data.enabled;
+        })
+        .catch(() => {});
     text.value = "";
     documentHtml.value = "";
     rawMarkdown.value = false;
@@ -122,7 +131,7 @@ watch(
       const isWord = word.value;
       if (f.size > (isWord ? 10 : 2) * 1024 * 1024) {
         error.value = isWord
-          ? "Word 文档超过 10 MiB，请下载后查看"
+          ? "Office 文档超过 10 MiB，请下载后查看"
           : "文本超过 2 MiB，请下载后查看";
         return;
       }
@@ -194,7 +203,7 @@ watch(
         <section v-else-if="word || markdown" class="document-preview">
           <div class="document-toolbar">
             <span v-if="word"
-              >Word 阅读预览 · 复杂排版、图片及批注请下载原文件查看</span
+              >Office 阅读预览 · 复杂排版、图片及批注请下载原文件查看</span
             >
             <template v-else
               ><span>Markdown</span
@@ -203,6 +212,21 @@ watch(
                 active-text="源码"
                 inactive-text="阅读"
             /></template>
+          </div>
+          <div v-if="word && officeEnabled && file" class="office-actions">
+            <a
+              class="el-button"
+              :href="`/api/office/${file.id}/editor?mode=view`"
+              target="_blank"
+              rel="noopener"
+              >Office 原版式查看</a
+            ><a
+              class="el-button el-button--primary"
+              :href="`/api/office/${file.id}/editor?mode=edit`"
+              target="_blank"
+              rel="noopener"
+              >在线编辑并保留版本</a
+            >
           </div>
           <pre v-if="markdown && rawMarkdown">{{ text }}</pre>
           <article v-else class="rendered-document" v-html="renderedHtml" />
@@ -305,5 +329,16 @@ watch(
 .rendered-document :deep(a) {
   color: #5264dd;
   text-decoration: underline;
+}
+</style>
+
+<style scoped>
+.rendered-document :deep(img) {
+  max-width: 100%;
+  height: auto;
+}
+.rendered-document :deep(.katex-display) {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 </style>

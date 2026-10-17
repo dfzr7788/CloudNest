@@ -20,6 +20,7 @@ public class WordPreview {
     String lower = name.toLowerCase(Locale.ROOT);
     return lower.endsWith(".doc")
         || lower.endsWith(".docx")
+        || lower.matches(".*\\.(xls|xlsx|ppt|pptx)")
         || mime.equals("application/msword")
         || mime.equals("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
   }
@@ -31,6 +32,7 @@ public class WordPreview {
       if (data.length > MAX_SIZE)
         throw new Problem(413, "PREVIEW_TOO_LARGE", "Word 文档超过 10 MiB，请下载后查看");
       StringBuilder html = new StringBuilder();
+      String lower = name.toLowerCase(Locale.ROOT);
       if (data.length >= 2 && data[0] == 'P' && data[1] == 'K') {
         // Bound expanded OOXML input before POI builds the document model.
         try (var zip = new ZipInputStream(new ByteArrayInputStream(data))) {
@@ -46,6 +48,17 @@ public class WordPreview {
             }
           }
         }
+      }
+      if (data.length >= 2 && data[0] == 'P' && data[1] == 'K') {}
+      if (lower.matches(".*\\.(xls|xlsx)")) {
+        spreadsheet(data, html);
+        return html.toString();
+      }
+      if (lower.matches(".*\\.(ppt|pptx)")) {
+        presentation(data, html);
+        return html.toString();
+      }
+      if (data.length >= 2 && data[0] == 'P' && data[1] == 'K') {
         try (var doc = new XWPFDocument(new ByteArrayInputStream(data))) {
           for (var body : doc.getBodyElements()) {
             if (body instanceof XWPFParagraph paragraph) paragraph(html, paragraph);
@@ -101,6 +114,48 @@ public class WordPreview {
       limit(html);
     }
     html.append("</").append(tag).append('>');
+  }
+
+  private static void spreadsheet(byte[] data, StringBuilder html) throws IOException {
+    try (var book =
+        org.apache.poi.ss.usermodel.WorkbookFactory.create(new ByteArrayInputStream(data))) {
+      var format = new org.apache.poi.ss.usermodel.DataFormatter(Locale.ROOT);
+      format.setUseCachedValuesForFormulaCells(true);
+      int cells = 0;
+      for (var sheet : book) {
+        html.append("<h2>").append(escape(sheet.getSheetName())).append("</h2><table><tbody>");
+        if (sheet.getLastRowNum() > 2000) throw tooComplex();
+        for (var row : sheet) {
+          if (row.getLastCellNum() > 100) throw tooComplex();
+          html.append("<tr>");
+          for (int c = 0; c < row.getLastCellNum(); c++) {
+            if (++cells > 20000) throw tooComplex();
+            html.append("<td>")
+                .append(escape(format.formatCellValue(row.getCell(c))))
+                .append("</td>");
+          }
+          html.append("</tr>");
+          limit(html);
+        }
+        html.append("</tbody></table>");
+      }
+    }
+  }
+
+  private static void presentation(byte[] data, StringBuilder html) throws IOException {
+    try (var slides =
+        org.apache.poi.sl.usermodel.SlideShowFactory.create(new ByteArrayInputStream(data))) {
+      int n = 0;
+      for (var slide : slides.getSlides()) {
+        if (++n > 200) throw tooComplex();
+        html.append("<h2>幻灯片 ").append(n).append("</h2>");
+        for (var shape : slide.getShapes()) {
+          if (shape instanceof org.apache.poi.sl.usermodel.TextShape<?, ?> text)
+            html.append("<p>").append(escape(text.getText())).append("</p>");
+          limit(html);
+        }
+      }
+    }
   }
 
   private static String escape(String text) {

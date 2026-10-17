@@ -27,4 +27,15 @@ public class ContentController {
       throws IOException {
     content.send(a.getName(), id, true, req, res);
   }
+
+  @GetMapping("/{id}/attachment")
+  public void attachment(
+      Authentication a,
+      @PathVariable String id,
+      @RequestParam String path,
+      HttpServletRequest req,
+      HttpServletResponse res)
+      throws IOException {
+    content.send(a.getName(), content.attachment(a.getName(), id, path, null), true, req, res);
+  }
 }

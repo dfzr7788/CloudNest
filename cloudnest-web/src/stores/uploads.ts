@@ -116,6 +116,8 @@ export const useUploads = defineStore("uploads", () => {
               name: task.name,
               size: task.size,
               sha256: hash,
+              targetId: chosen.targetId,
+              expectedRevision: chosen.expectedRevision,
             },
             { signal },
           )

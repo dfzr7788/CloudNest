@@ -1,10 +1,18 @@
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
+import { ElMessage } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import { api, errorText } from "../api";
 import { useUser } from "../stores/user";
 import { Cloudy, FolderOpened, Lock, Share } from "@element-plus/icons-vue";
 const registering = ref(false),
+  otp = ref(""),
+  forgot = ref(false),
+  recoveryAccount = ref(""),
+  resetToken = ref(String(useRoute().query.reset || "")),
+  resetPassword = ref(""),
+  resetConfirmation = ref(""),
+  recoveryMessage = ref(""),
   username = ref(""),
   password = ref(""),
   busy = ref(false),
@@ -30,11 +38,56 @@ async function submit() {
         username: username.value,
         password: password.value,
         invitation: invitation.value || undefined,
+        otp: otp.value || undefined,
       })
     ).data;
     await router.push("/");
   } catch (e) {
     error.value = errorText(e);
+  } finally {
+    busy.value = false;
+  }
+}
+onMounted(async () => {
+  const token = String(useRoute().query.verifyEmail || "");
+  if (token) {
+    try {
+      await api.post("/public/auth/verify-email", { token });
+      ElMessage.success("邮箱验证成功，可以登录了");
+      await router.replace("/login");
+    } catch (e) {
+      error.value = errorText(e);
+    }
+  }
+});
+async function recover() {
+  busy.value = true;
+  try {
+    recoveryMessage.value = (
+      await api.post("/public/auth/forgot", { account: recoveryAccount.value })
+    ).data.message;
+  } catch (e) {
+    recoveryMessage.value = errorText(e);
+  } finally {
+    busy.value = false;
+  }
+}
+async function reset() {
+  if (resetPassword.value !== resetConfirmation.value) {
+    recoveryMessage.value = "两次密码不同";
+    return;
+  }
+  busy.value = true;
+  try {
+    await api.post("/public/auth/reset", {
+      token: resetToken.value,
+      password: resetPassword.value,
+    });
+    resetToken.value = "";
+    await router.replace("/login");
+    ElMessage.success("密码已重置，请重新登录；双重验证保持启用");
+  } catch (e) {
+    recoveryMessage.value = errorText(e);
   } finally {
     busy.value = false;
   }
@@ -103,6 +156,12 @@ async function submit() {
             :autocomplete="registering ? 'new-password' : 'current-password'"
             size="large"
             maxlength="64"
+          /><el-input
+            v-if="!registering"
+            v-model="otp"
+            placeholder="双重验证代码 / 恢复码（未启用可留空）"
+            aria-label="登录双重验证代码"
+            autocomplete="one-time-code"
           /><el-alert
             v-if="error"
             :title="error"
@@ -129,10 +188,59 @@ async function submit() {
             {{ registering ? "立即登录" : "创建账号" }}
           </button>
         </p>
+        <el-button
+          v-if="!registering"
+          text
+          @click="
+            forgot = true;
+            recoveryMessage = '';
+          "
+          >忘记密码</el-button
+        >
         <div class="login-note">
           <el-icon><Lock /></el-icon> 文件独立存储，访问始终经过授权
         </div>
       </div>
     </section>
+    <el-dialog v-model="forgot" title="找回密码" width="min(480px,94vw)"
+      ><p>使用账号或已验证的邮箱接收重置链接。</p>
+      <el-input
+        v-model="recoveryAccount"
+        placeholder="账号或邮箱"
+        aria-label="找回账号"
+      />
+      <p>{{ recoveryMessage }}</p>
+      <template #footer
+        ><el-button :loading="busy" @click="recover"
+          >发送重置链接</el-button
+        ></template
+      ></el-dialog
+    >
+    <el-dialog
+      :model-value="!!resetToken"
+      title="设置新密码"
+      width="min(480px,94vw)"
+      :close-on-click-modal="false"
+      @close="resetToken = ''"
+    >
+      <el-input
+        v-model="resetPassword"
+        type="password"
+        show-password
+        placeholder="新密码，8～64 字符"
+        aria-label="重置新密码"
+      /><el-input
+        v-model="resetConfirmation"
+        type="password"
+        placeholder="再次输入新密码"
+        aria-label="确认重置密码"
+      />
+      <p>{{ recoveryMessage }}</p>
+      <template #footer
+        ><el-button :loading="busy" @click="reset"
+          >保存新密码</el-button
+        ></template
+      >
+    </el-dialog>
   </main>
 </template>

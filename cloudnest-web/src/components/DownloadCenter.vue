@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
-import { api, date, errorText } from "../api";
+import { api, date, errorText, bytes } from "../api";
 import { useUser } from "../stores/user";
 import { ElMessage } from "element-plus";
 const props = defineProps<{ revision: number }>(),
@@ -14,6 +14,8 @@ const props = defineProps<{ revision: number }>(),
       expiresAt: number;
       fileIds: string[];
       fileCount?: number;
+      completedBytes?: number;
+      totalBytes?: number;
       folderCount?: number;
     }[]
   >([]),
@@ -23,6 +25,7 @@ const labels: Record<string, string> = {
   BUILDING: "正在打包",
   READY: "可下载",
   FAILED: "打包失败",
+  CANCELLED: "已取消",
 };
 let timer: ReturnType<typeof setTimeout> | undefined,
   disposed = false,
@@ -48,6 +51,14 @@ async function poll() {
         ? 2000
         : 10000,
     );
+}
+async function cancel(id: string) {
+  try {
+    await api.delete(`/downloads/${id}`);
+    await load();
+  } catch (e) {
+    ElMessage.error(errorText(e));
+  }
 }
 async function retry(ids: string[]) {
   try {
@@ -119,6 +130,14 @@ onBeforeUnmount(() => {
             v-if="row.status === 'READY' && row.expiresAt > Date.now()"
             :href="`/api/downloads/${row.id}/file`"
             >下载 ZIP</a
+          ><span v-if="row.totalBytes"
+            >{{ bytes(row.completedBytes || 0) }} /
+            {{ bytes(row.totalBytes) }}</span
+          ><el-button
+            v-if="['QUEUED', 'BUILDING'].includes(row.status)"
+            text
+            @click="cancel(row.id)"
+            >取消打包</el-button
           ><el-button text @click="retry(row.fileIds)"
             >重新打包</el-button
           ></template

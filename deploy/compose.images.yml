@@ -1,0 +1,7 @@
+services:
+  server:
+    image: cloudnest-server:sha-${DEPLOY_REVISION:?Set DEPLOY_REVISION}
+    pull_policy: never
+  web:
+    image: cloudnest-web:sha-${DEPLOY_REVISION:?Set DEPLOY_REVISION}
+    pull_policy: never

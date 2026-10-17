@@ -4,6 +4,8 @@ import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, date, errorText } from "../api";
 import SystemUpdate from "./SystemUpdate.vue";
+import AccessSettings from "./AccessSettings.vue";
+import ServerSettings from "./ServerSettings.vue";
 const activeTab = ref("trash"),
   inviteBusy = ref(false);
 async function copyInvite() {
@@ -402,6 +404,15 @@ async function change() {
         name="updates"
         label="系统更新"
         ><SystemUpdate :active="visible && activeTab === 'updates'"
+      /></el-tab-pane>
+      <el-tab-pane name="access" label="验证与客户端"
+        ><AccessSettings :active="visible && activeTab === 'access'"
+      /></el-tab-pane>
+      <el-tab-pane
+        v-if="account.user?.administrator"
+        name="server"
+        label="服务与存储"
+        ><ServerSettings :active="visible && activeTab === 'server'"
       /></el-tab-pane>
       <el-tab-pane name="password" label="修改密码">
         <el-form label-position="top" @submit.prevent="change">

@@ -54,8 +54,13 @@ public class VersionController {
           if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", id) >= 20)
             throw Problem.conflict("最多保留 20 个历史版本，请先清理旧版本");
           if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", in.sourceId()) > 0
-              || db.count("SELECT COUNT(*) FROM file_share WHERE file_id=?", in.sourceId()) > 0)
-            throw Problem.conflict("来源文件已有历史或分享，请上传独立副本");
+              || db.count("SELECT COUNT(*) FROM file_share WHERE file_id=?", in.sourceId()) > 0
+              || db.count("SELECT COUNT(*) FROM share_member WHERE entry_id=?", in.sourceId()) > 0
+              || db.count(
+                      "SELECT COUNT(*) FROM office_session WHERE file_id=? AND expires_at>?",
+                      in.sourceId(),
+                      System.currentTimeMillis())
+                  > 0) throw Problem.conflict("来源文件已有历史或分享，请上传独立副本");
           saveOld(target);
           db.update(
               "UPDATE drive_entry SET blob_id=?,size=?,mime=?,revision=revision+1,updated_at=?"

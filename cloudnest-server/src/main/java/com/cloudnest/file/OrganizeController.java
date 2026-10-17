@@ -174,7 +174,28 @@ public class OrganizeController {
         () -> {
           String parent = s(drive.folder(a.getName(), in.parentId()), "id"),
               name = Util.name(in.name());
-          if (!Set.of("skip", "keep").contains(in.policy())) throw Problem.invalid("冲突策略错误");
+          if (!Set.of("skip", "keep", "replace").contains(in.policy()))
+            throw Problem.invalid("冲突策略错误");
+          if (in.policy().equals("replace")) {
+            var matches =
+                db.list(
+                    "SELECT * FROM drive_entry WHERE user_id=? AND parent_id=? AND kind='FILE' AND"
+                        + " name=? AND deleted=FALSE",
+                    a.getName(),
+                    parent,
+                    name);
+            if (!matches.isEmpty())
+              return Map.of(
+                  "name",
+                  name,
+                  "skipped",
+                  false,
+                  "targetId",
+                  matches.getFirst().get("id"),
+                  "expectedRevision",
+                  matches.getFirst().get("revision"));
+            return Map.of("name", name, "skipped", false);
+          }
           for (int i = 0; i < 10000; i++) {
             String suffix = " (" + i + ")";
             String chosen =

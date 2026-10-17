@@ -24,6 +24,10 @@ public class UploadService {
   private final Path parts;
   private final long max, partSize, lifetime;
   private final String backend;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.user.RuntimeSettings settings;
+
   private final Object[] locks = new Object[256];
 
   public UploadService(
@@ -77,6 +81,17 @@ public class UploadService {
   }
 
   public Map<String, Object> init(String uid, String folder, String input, long size, String hash) {
+    return init(uid, folder, input, size, hash, null, null);
+  }
+
+  public Map<String, Object> init(
+      String uid,
+      String folder,
+      String input,
+      long size,
+      String hash,
+      String target,
+      Long revision) {
     if (size < 0 || size > max) throw new Problem(413, "TOO_LARGE", "文件超过允许大小");
     if (hash == null || !hash.matches("[a-f0-9]{64}")) throw Problem.invalid("需要有效的 SHA-256");
     String name = Util.name(input);
@@ -95,17 +110,38 @@ public class UploadService {
                   size,
                   hash,
                   System.currentTimeMillis());
-          if (!pending.isEmpty()) return describe(pending.getFirst());
+          if (!pending.isEmpty()) {
+            var prior = pending.getFirst();
+            if (!Objects.equals(target, s(prior, "target_id"))
+                || (target != null && !Objects.equals(revision, n(prior, "target_revision"))))
+              throw Problem.conflict("已有同名上传，请先继续或取消该任务");
+            return describe(prior);
+          }
           if (db.count(
                   "SELECT COUNT(*) FROM upload_session WHERE user_id=? AND status IN"
                       + " ('UPLOADING','ASSEMBLING')",
                   uid)
               >= 20) throw Problem.conflict("最多同时保留 20 个上传会话，请先取消或完成已有上传");
-          drive.available(uid, parent, "FILE", name, null);
+          if (target != null) {
+            var e = drive.file(uid, target);
+            if (!parent.equals(s(e, "parent_id"))
+                || !name.equals(s(e, "name"))
+                || revision == null
+                || revision != n(e, "revision")) throw Problem.conflict("覆盖目标已变化，请重新选择文件");
+            if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", target) >= 20)
+              throw Problem.conflict("历史版本已达上限，请先清理旧版本");
+          }
+          drive.available(uid, parent, "FILE", name, target);
           var user = db.one("SELECT * FROM sys_user WHERE id=?", uid);
           if (n(user, "storage_used") + n(user, "storage_reserved")
               > n(user, "storage_quota") - size)
             throw new Problem(409, "QUOTA_EXCEEDED", "存储空间不足，请清理回收站或取消上传");
+          String selectedBackend = settings.get("storage").getOrDefault("defaultBackend", backend);
+          if (selectedBackend.startsWith("s3:")
+              && db.count(
+                      "SELECT COUNT(*) FROM storage_policy WHERE id=? AND enabled=TRUE",
+                      selectedBackend.substring(3))
+                  != 1) throw Problem.conflict("默认存储策略不可用，请联系管理员");
           String id = Util.id(), key = "objects/" + Util.id();
           long now = System.currentTimeMillis();
           db.update(
@@ -121,11 +157,17 @@ public class UploadService {
               partSize,
               Math.max(1, (size + partSize - 1) / partSize),
               key,
-              backend,
+              selectedBackend,
               now,
               now + lifetime);
           db.update(
               "UPDATE sys_user SET storage_reserved=storage_reserved+? WHERE id=?", size, uid);
+          if (target != null)
+            db.update(
+                "UPDATE upload_session SET target_id=?,target_revision=? WHERE id=?",
+                target,
+                revision,
+                id);
           var reusable =
               db.list(
                   "SELECT b.* FROM file_blob b WHERE b.user_id=? AND b.sha256=? AND b.size=? AND"
@@ -273,7 +315,12 @@ public class UploadService {
               var current = session(uid, id);
               if (!s(current, "status").equals("ASSEMBLING")) throw Problem.conflict("上传状态已改变");
               drive.folder(uid, s(current, "folder_id"));
-              drive.available(uid, s(current, "folder_id"), "FILE", s(current, "name"), null);
+              drive.available(
+                  uid,
+                  s(current, "folder_id"),
+                  "FILE",
+                  s(current, "name"),
+                  s(current, "target_id"));
               // Recheck under the user row lock: two simultaneous uploads may have identical
               // content.
               var blobs =
@@ -323,21 +370,46 @@ public class UploadService {
   }
 
   private void publish(Map<String, Object> s, Map<String, Object> blob) {
-    String uid = s(s, "user_id"), fid = Util.id();
+    String uid = s(s, "user_id"), fid = s(s, "target_id") == null ? Util.id() : s(s, "target_id");
     long now = System.currentTimeMillis();
-    db.update(
-        "INSERT INTO"
-            + " drive_entry(id,user_id,parent_id,kind,name,blob_id,size,mime,created_at,updated_at)"
-            + " VALUES(?,?,?,'FILE',?,?,?,?,?,?)",
-        fid,
-        uid,
-        s(s, "folder_id"),
-        s(s, "name"),
-        s(blob, "id"),
-        n(s, "size"),
-        s(blob, "mime"),
-        now,
-        now);
+    if (s(s, "target_id") != null) {
+      var old = drive.file(uid, fid);
+      if (n(old, "revision") != n(s, "target_revision")
+          || !Objects.equals(old.get("parent_id"), s.get("folder_id"))
+          || !Objects.equals(old.get("name"), s.get("name")))
+        throw Problem.conflict("覆盖目标已变化，请取消任务后重新上传");
+      if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", fid) >= 20)
+        throw Problem.conflict("历史版本已达上限");
+      db.update(
+          "INSERT INTO file_version(id,entry_id,blob_id,size,mime,created_at) VALUES(?,?,?,?,?,?)",
+          Util.id(),
+          fid,
+          old.get("blob_id"),
+          old.get("size"),
+          old.get("mime"),
+          old.get("updated_at"));
+      db.update(
+          "UPDATE drive_entry SET blob_id=?,size=?,mime=?,updated_at=?,revision=revision+1 WHERE"
+              + " id=?",
+          blob.get("id"),
+          s.get("size"),
+          blob.get("mime"),
+          now,
+          fid);
+    } else
+      db.update(
+          "INSERT INTO"
+              + " drive_entry(id,user_id,parent_id,kind,name,blob_id,size,mime,created_at,updated_at)"
+              + " VALUES(?,?,?,'FILE',?,?,?,?,?,?)",
+          fid,
+          uid,
+          s(s, "folder_id"),
+          s(s, "name"),
+          s(blob, "id"),
+          n(s, "size"),
+          s(blob, "mime"),
+          now,
+          now);
     db.update(
         "UPDATE sys_user SET storage_reserved=storage_reserved-?,storage_used=storage_used+? WHERE"
             + " id=?",

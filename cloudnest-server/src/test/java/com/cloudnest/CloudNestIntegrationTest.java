@@ -30,7 +30,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 @SpringBootTest(
     properties = {
       "spring.datasource.url=jdbc:h2:mem:test;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
-      "cloudnest.part-size=1024"
+      "cloudnest.part-size=1024",
+      "cloudnest.index-enabled=false"
     })
 @AutoConfigureMockMvc
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -163,6 +164,527 @@ class CloudNestIntegrationTest {
 
   byte[] text(String v) {
     return v.getBytes(StandardCharsets.UTF_8);
+  }
+
+  @Test
+  void CORE01_copyPreservesContentsTagsAndQuotaAndRejectsOtherUsers() throws Exception {
+    var u = register("copy");
+    String source = folder(u, u.root, "source"), target = folder(u, u.root, "target");
+    String file = upload(u, source, "note.md", text("copy me"));
+    call(
+        u,
+        put("/api/entries/" + file + "/tags"),
+        Map.of("tags", List.of("Important", "important")),
+        200);
+    long before =
+        Db.n(db.one("SELECT storage_used FROM sys_user WHERE id=?", u.id), "storage_used");
+    var result =
+        read(
+            call(
+                u,
+                post("/api/entries/copy"),
+                Map.of("ids", List.of(source, file), "parentId", target),
+                200));
+    assertEquals(2, result.path("count").asInt());
+    assertEquals(
+        before + 7,
+        Db.n(db.one("SELECT storage_used FROM sys_user WHERE id=?", u.id), "storage_used"));
+    var repeated =
+        read(
+            call(
+                u,
+                post("/api/entries/copy"),
+                Map.of("ids", List.of(file), "parentId", source),
+                200));
+    String repeatedId = repeated.path("ids").get(0).asText();
+    assertEquals(
+        "note (副本 1).md",
+        Db.s(db.one("SELECT name FROM drive_entry WHERE id=?", repeatedId), "name"));
+    assertEquals(
+        1,
+        db.count(
+            "SELECT COUNT(*) FROM entry_tag WHERE entry_id=? AND tag='important'", repeatedId));
+    call(b, post("/api/entries/copy"), Map.of("ids", List.of(source), "parentId", b.root), 404);
+    call(u, post("/api/entries/copy"), Map.of("ids", List.of(source), "parentId", source), 400);
+    call(u, get("/api/search").param("tag", "important"), null, 200);
+  }
+
+  @Test
+  void CORE02_overwriteKeepsEntryIdAndPreviousVersionAndRejectsStaleRevision() throws Exception {
+    var u = register("overwrite");
+    String file = upload(u, u.root, "keep.txt", text("old"));
+    long revision = Db.n(db.one("SELECT revision FROM drive_entry WHERE id=?", file), "revision");
+    byte[] bytes = text("new content");
+    var job =
+        read(
+            call(
+                u,
+                post("/api/uploads/init"),
+                Map.of(
+                    "folderId",
+                    u.root,
+                    "name",
+                    "keep.txt",
+                    "size",
+                    bytes.length,
+                    "sha256",
+                    Util.hash(new ByteArrayInputStream(bytes)),
+                    "targetId",
+                    file,
+                    "expectedRevision",
+                    revision),
+                200));
+    if (!job.path("status").asText().equals("COMPLETE")) {
+      String id = job.path("id").asText();
+      call(
+          u,
+          put("/api/uploads/" + id + "/parts/0")
+              .contentType("application/octet-stream")
+              .content(bytes),
+          null,
+          200);
+      job = read(call(u, post("/api/uploads/" + id + "/complete"), null, 200));
+    }
+    assertEquals(file, job.path("fileId").asText());
+    assertEquals(1, db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", file));
+    assertEquals(
+        14, Db.n(db.one("SELECT storage_used FROM sys_user WHERE id=?", u.id), "storage_used"));
+    call(
+        u,
+        post("/api/uploads/init"),
+        Map.of(
+            "folderId",
+            u.root,
+            "name",
+            "keep.txt",
+            "size",
+            3,
+            "sha256",
+            Util.hash(new ByteArrayInputStream(text("old"))),
+            "targetId",
+            file,
+            "expectedRevision",
+            revision),
+        409);
+  }
+
+  @Test
+  void CORE03_webDavAppCredentialsAreIsolatedReadOnlyAndRevocable() throws Exception {
+    var u = register("dav");
+    String username = Db.s(db.one("SELECT username FROM sys_user WHERE id=?", u.id), "username");
+    var credential =
+        read(
+            call(
+                u,
+                post("/api/user/access/dav"),
+                Map.of(
+                    "label",
+                    "test reader",
+                    "readOnly",
+                    true,
+                    "days",
+                    1,
+                    "password",
+                    "correct-password"),
+                200));
+    String basic =
+        "Basic "
+            + Base64.getEncoder()
+                .encodeToString(
+                    (username + ":" + credential.path("password").asText())
+                        .getBytes(StandardCharsets.UTF_8));
+    var list =
+        mvc.perform(
+                request("PROPFIND", java.net.URI.create("/dav/"))
+                    .header("Authorization", basic)
+                    .header("Depth", "0"))
+            .andReturn();
+    assertEquals(207, list.getResponse().getStatus(), list.getResponse().getContentAsString());
+    assertTrue(list.getResponse().getContentAsString().contains("multistatus"));
+    var denied =
+        mvc.perform(put("/dav/no.txt").header("Authorization", basic).content(text("no")))
+            .andReturn();
+    assertEquals(403, denied.getResponse().getStatus());
+    assertEquals(
+        401, mvc.perform(get("/dav/").cookie(u.cookie)).andReturn().getResponse().getStatus());
+    call(u, delete("/api/user/access/dav/" + credential.path("id").asText()), null, 200);
+    assertEquals(
+        401,
+        mvc.perform(get("/dav/").header("Authorization", basic))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+  }
+
+  @Test
+  void CORE04_collectionShareCannotEscapeSelectedRootsAndCollectIsWriteOnly() throws Exception {
+    var u = register("collection");
+    String selected = folder(u, u.root, "selected"), secret = folder(u, u.root, "private");
+    String visible = upload(u, selected, "yes.txt", text("yes"));
+    var share =
+        read(
+            call(
+                u,
+                post("/api/shares/collection"),
+                Map.of(
+                    "fileIds",
+                    List.of(selected),
+                    "title",
+                    "Selection",
+                    "hours",
+                    24,
+                    "allowDownload",
+                    true,
+                    "collect",
+                    false),
+                200));
+    String token = share.path("token").asText();
+    if (token.isBlank()) token = share.path("url").asText().replaceAll(".*/", "");
+    assertFalse(token.isBlank(), share.toString());
+    call(null, get("/api/public/shares/" + token + "/entries"), null, 200);
+    call(
+        null, get("/api/public/shares/" + token + "/entries").param("parentId", secret), null, 404);
+    call(null, get("/api/public/shares/" + token + "/entries/" + visible + "/download"), null, 200);
+    var collection =
+        read(
+            call(
+                u,
+                post("/api/shares/collection"),
+                Map.of(
+                    "fileIds",
+                    List.of(selected),
+                    "title",
+                    "Upload here",
+                    "hours",
+                    24,
+                    "allowDownload",
+                    false,
+                    "collect",
+                    true),
+                200));
+    String collectToken = collection.path("token").asText();
+    call(null, get("/api/public/shares/" + collectToken + "/entries"), null, 403);
+    var uploaded =
+        mvc.perform(
+                multipart("/api/public/shares/" + collectToken + "/collect")
+                    .file(
+                        new MockMultipartFile(
+                            "file", "collected.txt", "text/plain", text("collected")))
+                    .with(csrf()))
+            .andReturn();
+    assertEquals(
+        200, uploaded.getResponse().getStatus(), uploaded.getResponse().getContentAsString());
+    assertEquals(
+        2,
+        db.count("SELECT COUNT(*) FROM drive_entry WHERE parent_id=? AND deleted=FALSE", selected));
+  }
+
+  @Autowired com.cloudnest.security.SecretCipher secretCipher;
+  @Autowired com.cloudnest.auth.MfaService mfa;
+  @Autowired com.cloudnest.file.SearchController searchIndex;
+  @Autowired com.cloudnest.user.RuntimeSettings runtimeSettings;
+
+  @Test
+  void CORE09_verifiedEmailRecoveryRevokesSessionsAndTokenCannotBeReused() throws Exception {
+    var u = register("mail");
+    String username = Db.s(db.one("SELECT username FROM sys_user WHERE id=?", u.id), "username");
+    try (var smtp = new SmtpFixture()) {
+      runtimeSettings.set(
+          "mail",
+          Map.of(
+              "host",
+              "127.0.0.1",
+              "port",
+              Integer.toString(smtp.socket.getLocalPort()),
+              "from",
+              "noreply@example.test",
+              "tls",
+              "false",
+              "ssl",
+              "false",
+              "baseUrl",
+              "http://localhost"));
+      call(
+          u,
+          post("/api/user/access/email"),
+          Map.of("email", username + "@example.test", "password", "correct-password"),
+          200);
+      String verify = smtp.token("verifyEmail");
+      call(null, post("/api/public/auth/verify-email"), Map.of("token", verify), 200);
+      call(null, post("/api/public/auth/verify-email"), Map.of("token", verify), 404);
+      call(null, post("/api/public/auth/forgot"), Map.of("account", username), 200);
+      String reset = smtp.token("reset");
+      call(
+          null,
+          post("/api/public/auth/reset"),
+          Map.of("token", reset, "password", "new-correct-password"),
+          200);
+      call(u, get("/api/user/me"), null, 401);
+      call(
+          null,
+          post("/api/public/auth/reset"),
+          Map.of("token", reset, "password", "new-correct-password"),
+          404);
+      call(
+          null,
+          post("/api/auth/login"),
+          Map.of("username", username, "password", "new-correct-password"),
+          200);
+    } finally {
+      runtimeSettings.set("mail", Map.of());
+    }
+  }
+
+  @Test
+  void CORE10_largeDirectoryPagesAreStableAndZipLimitRejectsBeforeCreatingJob() throws Exception {
+    var u = register("large");
+    String parent = folder(u, u.root, "large directory");
+    String file = upload(u, parent, "0000.txt", text("one"));
+    var original = db.one("SELECT * FROM drive_entry WHERE id=?", file);
+    var batch = new ArrayList<Object[]>();
+    long now = System.currentTimeMillis();
+    for (int n = 1; n <= 1000; n++)
+      batch.add(
+          new Object[] {
+            Util.id(),
+            u.id,
+            parent,
+            String.format(Locale.ROOT, "%04d.txt", n),
+            original.get("blob_id"),
+            3,
+            now,
+            now
+          });
+    jdbc.batchUpdate(
+        "INSERT INTO"
+            + " drive_entry(id,user_id,parent_id,kind,name,blob_id,size,mime,created_at,updated_at)"
+            + " VALUES(?,?,?,'FILE',?,?,?,'text/plain',?,?)",
+        batch);
+    db.update("UPDATE sys_user SET storage_used=3003 WHERE id=?", u.id);
+    Set<String> seen = new HashSet<>();
+    for (int page = 1; page <= 21; page++) {
+      var result =
+          read(
+              call(
+                  u,
+                  get("/api/entries")
+                      .param("parentId", parent)
+                      .param("page", Integer.toString(page))
+                      .param("sort", "name"),
+                  null,
+                  200));
+      for (var item : result.path("items")) assertTrue(seen.add(item.path("id").asText()));
+    }
+    assertEquals(1001, seen.size());
+    call(u, post("/api/downloads/estimate"), Map.of("fileIds", List.of(parent)), 413);
+    assertEquals(0, db.count("SELECT COUNT(*) FROM download_job WHERE user_id=?", u.id));
+  }
+
+  @Test
+  void CORE07_officeSignedCallbacksSaveVersionsAndRejectUntrustedSources() throws Exception {
+    var u = register("office");
+    String file = upload(u, u.root, "document.docx", text("original document"));
+    var server =
+        com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/cache/",
+        exchange -> {
+          byte[] bytes = text("edited document");
+          exchange.sendResponseHeaders(200, bytes.length);
+          exchange.getResponseBody().write(bytes);
+          exchange.close();
+        });
+    server.start();
+    String origin = "http://127.0.0.1:" + server.getAddress().getPort(),
+        secret = "onlyoffice-test-secret-32-characters-minimum";
+    try {
+      runtimeSettings.set(
+          "office", Map.of("url", origin, "baseUrl", "http://localhost", "secret", secret));
+      var editor = call(u, get("/api/office/" + file + "/editor").param("mode", "edit"), null, 200);
+      String html = editor.getResponse().getContentAsString(StandardCharsets.UTF_8);
+      int start =
+          html.indexOf("new DocsAPI.DocEditor('office',")
+              + "new DocsAPI.DocEditor('office',".length();
+      var config = json.readTree(html.substring(start, html.indexOf(");</script>", start)));
+      String ticket = config.path("editorConfig").path("callbackUrl").asText().split("ticket=")[1];
+      assertTrue(
+          editor.getResponse().getHeader("Content-Security-Policy").contains("script-src 'nonce-"));
+      assertEquals(
+          401,
+          mvc.perform(
+                  post("/api/public/office/callback")
+                      .param("ticket", ticket)
+                      .contentType("application/json")
+                      .content("{\"status\":2}"))
+              .andReturn()
+              .getResponse()
+              .getStatus());
+      for (String url :
+          List.of(origin + "/cache/result.docx", "http://invalid.example/cache/document.docx")) {
+        Map<String, Object> payload = Map.of("status", 2, "url", url);
+        var jwt =
+            new com.nimbusds.jwt.SignedJWT(
+                new com.nimbusds.jose.JWSHeader(com.nimbusds.jose.JWSAlgorithm.HS256),
+                com.nimbusds.jwt.JWTClaimsSet.parse(payload));
+        jwt.sign(new com.nimbusds.jose.crypto.MACSigner(secret.getBytes(StandardCharsets.UTF_8)));
+        var response =
+            mvc.perform(
+                    post("/api/public/office/callback")
+                        .param("ticket", ticket)
+                        .header("Authorization", "Bearer " + jwt.serialize())
+                        .contentType("application/json")
+                        .content(json.writeValueAsBytes(payload)))
+                .andReturn();
+        assertEquals(
+            url.startsWith(origin) ? 200 : 403,
+            response.getResponse().getStatus(),
+            response.getResponse().getContentAsString());
+      }
+      assertEquals(1, db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", file));
+      assertEquals(15, Db.n(db.one("SELECT size FROM drive_entry WHERE id=?", file), "size"));
+    } finally {
+      server.stop(0);
+      runtimeSettings.set("office", Map.of());
+    }
+  }
+
+  @Test
+  void CORE08_webDavWriteOverwriteAndCrossOriginDestination() throws Exception {
+    var u = register("davwrite");
+    String username = Db.s(db.one("SELECT username FROM sys_user WHERE id=?", u.id), "username");
+    var credential =
+        read(
+            call(
+                u,
+                post("/api/user/access/dav"),
+                Map.of(
+                    "label",
+                    "writer",
+                    "readOnly",
+                    false,
+                    "days",
+                    1,
+                    "password",
+                    "correct-password"),
+                200));
+    String basic =
+        "Basic "
+            + Base64.getEncoder()
+                .encodeToString(
+                    (username + ":" + credential.path("password").asText())
+                        .getBytes(StandardCharsets.UTF_8));
+    assertEquals(
+        201,
+        mvc.perform(put("/dav/test.txt").header("Authorization", basic).content(text("first")))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    assertEquals(
+        204,
+        mvc.perform(put("/dav/test.txt").header("Authorization", basic).content(text("second")))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    String file =
+        Db.s(db.one("SELECT id FROM drive_entry WHERE user_id=? AND name='test.txt'", u.id), "id");
+    assertEquals(1, db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", file));
+    assertEquals(
+        412,
+        mvc.perform(
+                put("/dav/test.txt")
+                    .header("Authorization", basic)
+                    .header("If-None-Match", "*")
+                    .content(text("denied")))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    assertEquals(
+        400,
+        mvc.perform(
+                request("COPY", java.net.URI.create("/dav/test.txt"))
+                    .header("Authorization", basic)
+                    .header("Destination", "https://evil.example/dav/stolen.txt"))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+  }
+
+  @Test
+  void CORE05_mfaEnrollmentRejectsReplayAndRecoveryCodeIsOneUse() throws Exception {
+    var u = register("mfa");
+    call(u, post("/api/user/access/mfa/setup"), Map.of("password", "correct-password"), 200);
+    String secret =
+        secretCipher.decrypt(
+            Db.s(db.one("SELECT totp_pending FROM sys_user WHERE id=?", u.id), "totp_pending"));
+    String otp = com.cloudnest.auth.MfaService.code(secret, System.currentTimeMillis() / 30000);
+    var result = read(call(u, post("/api/user/access/mfa/confirm"), Map.of("code", otp), 200));
+    assertEquals(10, result.path("recoveryCodes").size());
+    assertThrows(Problem.class, () -> mfa.verify(u.id, otp));
+    String recovery = result.path("recoveryCodes").get(0).asText();
+    mfa.verify(u.id, recovery);
+    assertThrows(Problem.class, () -> mfa.verify(u.id, recovery));
+    call(
+        u,
+        delete("/api/user/access/mfa"),
+        Map.of("password", "correct-password", "otp", result.path("recoveryCodes").get(1).asText()),
+        200);
+    assertNull(db.one("SELECT totp_secret FROM sys_user WHERE id=?", u.id).get("totp_secret"));
+  }
+
+  @Test
+  void CORE06_indexAndMarkdownAttachmentsStayInsideOwnershipAndShareBoundary() throws Exception {
+    var u = register("index");
+    String folder = folder(u, u.root, "docs");
+    String file =
+        upload(u, folder, "note.md", text("# UniqueSearchNeedle\n![image](../private.txt)"));
+    String attachment =
+        upload(
+            u,
+            folder,
+            "image.png",
+            Base64.getDecoder()
+                .decode(
+                    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII="));
+    String privateFile = upload(u, u.root, "private.txt", text("secret"));
+    for (int n = 0;
+        n < 100 && db.count("SELECT COUNT(*) FROM entry_index WHERE entry_id=?", file) == 0;
+        n++) searchIndex.indexBatch();
+    var results =
+        read(
+            call(
+                u,
+                get("/api/search").param("q", "UniqueSearchNeedle").param("content", "true"),
+                null,
+                200));
+    assertTrue(results.path("items").toString().contains(file));
+    assertFalse(
+        read(call(
+                b,
+                get("/api/search").param("q", "UniqueSearchNeedle").param("content", "true"),
+                null,
+                200))
+            .path("items")
+            .toString()
+            .contains(file));
+    call(u, get("/api/files/" + file + "/attachment").param("path", "image.png"), null, 200);
+    call(b, get("/api/files/" + file + "/attachment").param("path", "image.png"), null, 404);
+    var share =
+        read(
+            call(
+                u,
+                post("/api/shares"),
+                Map.of("fileId", folder, "hours", 24, "allowDownload", true),
+                200));
+    call(
+        null,
+        get("/api/public/shares/"
+                + share.path("token").asText()
+                + "/entries/"
+                + file
+                + "/attachment")
+            .param("path", "../private.txt"),
+        null,
+        404);
   }
 
   @Test

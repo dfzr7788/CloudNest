@@ -1,0 +1,11 @@
+**
+!cloudnest-server/
+!cloudnest-server/target/
+!cloudnest-server/target/cloudnest-server-1.0.0.jar
+!cloudnest-web/
+!cloudnest-web/dist/
+!cloudnest-web/dist/**
+!cloudnest-web/nginx.conf
+!deploy/
+!deploy/Dockerfile.server-runtime
+!deploy/Dockerfile.web-runtime

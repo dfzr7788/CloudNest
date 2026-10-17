@@ -9,6 +9,36 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ObjectStorage implements StorageService {
+  @org.springframework.beans.factory.annotation.Autowired private com.cloudnest.common.Db policies;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.security.SecretCipher cipher;
+
+  private record Remote(String fingerprint, MinioClient client, String bucket) {}
+
+  private final java.util.concurrent.ConcurrentHashMap<String, Remote> remotes =
+      new java.util.concurrent.ConcurrentHashMap<>();
+
+  private Remote remote(String backend) throws Exception {
+    if (backend.equals("minio")) return new Remote("legacy", minio(), bucket);
+    if (!backend.matches("s3:[a-f0-9]{12}")) throw new IOException("Unknown storage backend");
+    var p = policies.one("SELECT * FROM storage_policy WHERE id=?", backend.substring(3));
+    String fingerprint = p.toString();
+    var cached = remotes.get(backend);
+    if (cached != null && cached.fingerprint().equals(fingerprint)) return cached;
+    var builder =
+        MinioClient.builder()
+            .endpoint(com.cloudnest.common.Db.s(p, "endpoint"))
+            .credentials(
+                cipher.decrypt(com.cloudnest.common.Db.s(p, "access_key")),
+                cipher.decrypt(com.cloudnest.common.Db.s(p, "secret_key")));
+    String region = com.cloudnest.common.Db.s(p, "region");
+    if (region != null && !region.isBlank()) builder.region(region);
+    var result = new Remote(fingerprint, builder.build(), com.cloudnest.common.Db.s(p, "bucket"));
+    remotes.put(backend, result);
+    return result;
+  }
+
   private final Path root;
   private final String endpoint, access, secret, bucket;
   private volatile MinioClient client;
@@ -69,11 +99,13 @@ public class ObjectStorage implements StorageService {
       } finally {
         Files.deleteIfExists(tmp);
       }
-    } else if (backend.equals("minio")) {
+    } else if (backend.equals("minio") || backend.startsWith("s3:")) {
       try {
-        minio()
+        var remote = remote(backend);
+        remote
+            .client()
             .putObject(
-                PutObjectArgs.builder().bucket(bucket).object(key).stream(
+                PutObjectArgs.builder().bucket(remote.bucket()).object(key).stream(
                         in, size, 10 * 1024 * 1024)
                     .contentType("application/octet-stream")
                     .build());
@@ -96,12 +128,15 @@ public class ObjectStorage implements StorageService {
         throw e;
       }
     }
-    if (!backend.equals("minio")) throw new IOException("Unknown storage backend");
+    if (!backend.equals("minio") && !backend.startsWith("s3:"))
+      throw new IOException("Unknown storage backend");
     try {
-      return minio()
+      var remote = remote(backend);
+      return remote
+          .client()
           .getObject(
               GetObjectArgs.builder()
-                  .bucket(bucket)
+                  .bucket(remote.bucket())
                   .object(key)
                   .offset(offset)
                   .length(Math.max(1, length))
@@ -118,9 +153,12 @@ public class ObjectStorage implements StorageService {
       Path p = path(key);
       Files.deleteIfExists(p);
       Files.deleteIfExists(p.resolveSibling(p.getFileName() + ".writing"));
-    } else if (backend.equals("minio"))
+    } else if (backend.equals("minio") || backend.startsWith("s3:"))
       try {
-        minio().removeObject(RemoveObjectArgs.builder().bucket(bucket).object(key).build());
+        var remote = remote(backend);
+        remote
+            .client()
+            .removeObject(RemoveObjectArgs.builder().bucket(remote.bucket()).object(key).build());
       } catch (Exception e) {
         throw new IOException("MinIO delete failed", e);
       }
@@ -131,9 +169,13 @@ public class ObjectStorage implements StorageService {
   public boolean exists(String backend, String key) throws IOException {
     path(key);
     if (backend.equals("local")) return Files.isRegularFile(path(key));
-    if (!backend.equals("minio")) throw new IOException("Unknown storage backend");
+    if (!backend.equals("minio") && !backend.startsWith("s3:"))
+      throw new IOException("Unknown storage backend");
     try {
-      minio().statObject(StatObjectArgs.builder().bucket(bucket).object(key).build());
+      var remote = remote(backend);
+      remote
+          .client()
+          .statObject(StatObjectArgs.builder().bucket(remote.bucket()).object(key).build());
       return true;
     } catch (io.minio.errors.ErrorResponseException e) {
       if (e.errorResponse().code().equals("NoSuchKey")) return false;

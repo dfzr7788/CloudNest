@@ -5,6 +5,13 @@ import { api, errorText, date } from "../api";
 const props = defineProps<{ active: boolean }>();
 const status = ref<{
   enabled?: boolean;
+  backups?: {
+    id: string;
+    status: string;
+    offsite?: string;
+    verified?: boolean;
+    createdAt?: number;
+  }[];
   pending?: boolean;
   busy?: boolean;
   phase?: string;
@@ -48,13 +55,19 @@ watch(
   { immediate: true },
 );
 onUnmounted(() => clearTimeout(timer));
-async function request(action: "check" | "update") {
+async function request(action: "check" | "update" | "backup") {
   try {
     if (action === "update")
       await ElMessageBox.confirm(
-        "将从 GitHub main 分支构建新版，自动备份数据库与文件后重启服务。重启期间会短暂断开，请暂停上传。",
+        "将从 GitHub main 分支获取预构建镜像（未发布时使用源码构建），自动备份数据库与文件后重启服务。重启期间会短暂断开，请暂停上传。",
         "更新 CloudNest",
         { confirmButtonText: "备份并更新", cancelButtonText: "取消" },
+      );
+    if (action === "backup")
+      await ElMessageBox.confirm(
+        "备份期间将短暂停止文件服务，完成后自动恢复。",
+        "创建备份",
+        { confirmButtonText: "开始备份", cancelButtonText: "取消" },
       );
     sending.value = true;
     await api.post("/admin/updates", { action });
@@ -149,6 +162,24 @@ async function request(action: "check" | "update") {
         >一键更新</el-button
       >
     </div>
+    <el-button
+      :disabled="
+        !status.enabled || status.busy || status.pending || reconnecting
+      "
+      @click="request('backup')"
+      >立即备份</el-button
+    >
+    <el-table
+      v-if="status.backups?.length"
+      :data="status.backups"
+      max-height="240"
+      ><el-table-column prop="id" label="备份" /><el-table-column
+        prop="status"
+        label="状态" /><el-table-column prop="offsite" label="异地副本"
+    /></el-table>
+    <p class="update-footnote">
+      恢复采用独立实例，操作见部署手册的备份恢复部分。
+    </p>
     <p class="update-footnote">
       更新来源：duyan9030-dotcom/CloudNest · main<br />备份保留在服务器，不会自动清理。更新完成后刷新页面。
     </p>

@@ -124,6 +124,7 @@ class StorageContractTest {
 
   @Autowired Db db;
   @Autowired ObjectStorage storage;
+  @Autowired com.cloudnest.storage.StorageController policies;
 
   @AfterAll
   void close() {
@@ -247,5 +248,67 @@ class StorageContractTest {
     Files.writeString(interrupted, "partial data");
     storage.delete("local", key);
     assertFalse(Files.exists(interrupted));
+  }
+
+  @Test
+  void M06_configuredS3PolicyTestsAndMigratesWithVerification() throws Exception {
+    String[] ids = seed();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", ids[0]);
+    var auth =
+        new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            ids[0], null);
+    var policy =
+        policies.policy(
+            auth,
+            new StorageController.Policy(
+                null,
+                "contract policy",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "cloudnest",
+                "fixture-access",
+                "fixture-secret-key-only-for-test",
+                "us-east-1"));
+    String backend = "s3:" + policy.get("id");
+    assertEquals(true, policies.test(auth, new StorageController.Backend(backend)).get("ok"));
+    String encrypted =
+        Db.s(
+            db.one("SELECT secret_key FROM storage_policy WHERE id=?", policy.get("id")),
+            "secret_key");
+    assertFalse(encrypted.contains("fixture-secret"));
+    var migration = policies.migrate(auth, new StorageController.Migration("local", backend));
+    String status = "";
+    for (int n = 0; n < 200; n++) {
+      status =
+          Db.s(
+              db.one("SELECT status FROM maintenance_job WHERE id=?", migration.get("id")),
+              "status");
+      if (Set.of("COMPLETE", "FAILED").contains(status)) break;
+      Thread.sleep(25);
+    }
+    assertEquals("COMPLETE", status);
+    assertEquals(
+        backend, Db.s(db.one("SELECT backend FROM file_blob WHERE id=?", ids[1]), "backend"));
+    assertTrue(storage.exists("local", ids[2]));
+    assertThrows(Problem.class, () -> policies.remove(auth, policy.get("id").toString()));
+  }
+
+  @Test
+  void M07_portableBackupRestoresRemoteObjectsWithoutOriginalBucket() throws Exception {
+    seed();
+    new Maintenance(db, storage, null, "migrate-minio").perform();
+    var export = new Maintenance(db, storage, null, "export-objects");
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        export, "dataDirectory", data.toString());
+    assertEquals(0, ((Number) export.perform().get("problems")).intValue());
+    objects.clear();
+    var restore = new Maintenance(db, storage, null, "restore-local-objects");
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        restore, "dataDirectory", data.toString());
+    assertEquals(0, ((Number) restore.perform().get("problems")).intValue());
+    assertEquals(0, db.count("SELECT COUNT(*) FROM file_blob WHERE backend<>'local'"));
+    assertEquals(
+        0,
+        ((Number) new Maintenance(db, storage, null, "audit").perform().get("problems"))
+            .intValue());
   }
 }

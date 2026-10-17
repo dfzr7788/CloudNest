@@ -53,6 +53,9 @@ public class SystemUpdates {
               directory.resolve("state/status.json").toFile(),
               new TypeReference<Map<String, Object>>() {}));
     result.put("enabled", available());
+    if (directory != null && Files.isRegularFile(directory.resolve("state/backups.json")))
+      result.put(
+          "backups", json.readValue(directory.resolve("state/backups.json").toFile(), List.class));
     result.put(
         "pending", directory != null && Files.exists(directory.resolve("requests/request.json")));
     return result;
@@ -64,7 +67,7 @@ public class SystemUpdates {
   public synchronized Map<String, Object> request(Authentication auth, @RequestBody Action input)
       throws IOException {
     admin(auth);
-    if (!Set.of("check", "update").contains(Objects.toString(input.action(), "")))
+    if (!Set.of("check", "update", "backup").contains(Objects.toString(input.action(), "")))
       throw Problem.invalid("无效的更新操作");
     if (!available()) throw new Problem(503, "UPDATER_UNAVAILABLE", "服务器尚未安装更新服务，或更新服务未运行");
     Map<String, Object> current = status(auth);
@@ -88,7 +91,11 @@ public class SystemUpdates {
           "INSERT INTO activity_log(id,user_id,action,created_at) VALUES(?,?,?,?)",
           Util.id(),
           auth.getName(),
-          input.action().equals("update") ? "SYSTEM_UPDATE_REQUESTED" : "SYSTEM_UPDATE_CHECKED",
+          input.action().equals("update")
+              ? "SYSTEM_UPDATE_REQUESTED"
+              : input.action().equals("backup")
+                  ? "SYSTEM_BACKUP_REQUESTED"
+                  : "SYSTEM_UPDATE_CHECKED",
           System.currentTimeMillis());
     } catch (RuntimeException ignored) {
       // The request is already durable; do not report failure and invite a duplicate submission.

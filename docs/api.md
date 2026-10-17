@@ -90,7 +90,7 @@
 | POST /api/entries/{id}/opened | 拥有者预览成功后记录时间，分享访客不调用 |
 | POST /api/entries/batch | ids 最多 100；action=move/trash/restore/purge；move 需要 parentId；返回 results（id/status/message）、succeeded、failed。祖先成功才计子项 covered；逐项成功，不提供整批回滚 |
 | POST /api/folders/resolve-path | parentId 和 segments 数组（最多 32）；返回最终目录 id，已存在目录复用；非法路径整笔回滚 |
-| POST /api/entries/upload-name | parentId/name/policy=skip或keep；返回 name、skipped；仅预检查，最终上传仍执行并发重名校验 |
+| POST /api/entries/upload-name | parentId/name/policy=skip、keep或replace；返回 name、skipped；仅预检查，最终上传仍执行并发重名校验 |
 | GET /api/files/{id}/versions | 返回 revision 和 items；历史 id/size/mime/created_at，不包含当前内容 |
 | POST /api/files/{id}/versions | sourceId（同用户、有效独立文件）、expectedRevision；将来源内容提交为目标的新版本，原当前内容进入历史，来源独立条目消失；来源有历史或分享时拒绝；旧 revision 返回 409 |
 | POST /api/files/{id}/versions/{version}/restore | expectedRevision；交换当前与所选历史内容，容量不变，revision 自增 |
@@ -115,7 +115,7 @@
 ## 系统更新接口
 
 - `GET /api/admin/updates`：仅启用中的管理员。返回 enabled（30 秒内服务心跳）、pending、busy、phase、message、current/latest 提交摘要、available、backup 备份标识与 updatedAt。未配置宿主机服务时 enabled=false，不执行任何系统操作。
-- `POST /api/admin/updates`：检查管理员和 CSRF，JSON 为 `{"action":"check"}` 或 `{"action":"update"}`。只接受固定动作，不接受命令、仓库 URL、路径或版本参数。成功返回 accepted=true；未知动作 400、重复/执行中 409、服务不可用 503。
+- `POST /api/admin/updates`：检查管理员和 CSRF，JSON 的 action 为 check、update 或 backup。只接受固定动作，不接受命令、仓库 URL、路径或版本参数。成功返回 accepted=true；未知动作 400、重复/执行中 409、服务不可用 503。
 - 后台服务写入只读状态目录；应用只写请求队列。构建、备份、重启、健康检查与失败行为见 [更新说明](system-updates.md)。
 
 
@@ -124,3 +124,48 @@
 现有私有文件、固定分享与目录分享的 preview 接口增加 DOC/DOCX 解析，返回 `application/json`，结构为 `{html}`；下载接口仍返回原始文件。Word 限制为 10 MiB，OOXML 展开上限 32 MiB、4000 项，阅读 HTML 最多约 2M 字符，同时最多两次解析；损坏/加密文档 422、超限 413、繁忙 503。输出只包含转义后的文字与基本段落/表格结构，客户端另行清理 HTML。Word 权限与原预览接口一致，不要求开放下载权限。
 
 Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按扩展名或 Markdown MIME 识别并安全渲染。ZIP 接口及既有数量限制不变，前端跨目录保留最多 100 个入口，不扩大用户或分享权限范围。
+
+## 进阶接口
+
+所有私有写操作仍要求会话和 CSRF；管理员配置另检查管理员身份。完整参数以服务端输入校验为准。
+
+| 接口 | 行为 |
+| --- | --- |
+| POST /api/entries/copy | ids≤100、parentId；事务复制≤10000节点并按逻辑配额计费，去重祖先覆盖项 |
+| POST /api/uploads/init | 可选 targetId/expectedRevision，覆盖同名目标并保留历史；过期修订409 |
+| GET/PUT /api/entries/{id}/tags | 当前有效拥有者；tags≤20，每项≤40字符 |
+| GET /api/tags | 本人有效条目标签及数量 |
+| GET /api/search | q/tag/content/page；每页50，返回items/total/pending，不搜索他人或回收站 |
+| POST /api/search/reindex | 仅重建本人的正文索引 |
+| GET /api/files/{id}/attachment?path= | 相对附件，拥有者和目录边界检查 |
+| POST /api/downloads/estimate | fileIds；展开字节、数量、空间与canPack |
+| DELETE /api/downloads/{id} | 取消本人的ZIP；状态含completedBytes/totalBytes |
+| POST /api/shares/collection | fileIds/title/hours/code/allowDownload/collect；collect仅一个文件夹 |
+| GET /api/shares/{id}/stats | 拥有者查看累计访问、下载请求、收集及最近事件 |
+| POST /api/public/shares/{token}/collect | multipart file；只上传，最多100MiB，不提供目录读取 |
+| GET /api/public/shares/{token}/entries/{id}/attachment | 原分享授权与选中范围内的相对附件 |
+| DELETE /api/public/shares/{token}/downloads/{id} | 当前分享授权且任务绑定该分享，取消ZIP |
+| GET /api/user/access | 本人的邮箱、MFA状态及应用密码元数据，无密钥 |
+| POST /api/user/access/mfa/setup | 当前password，返回仅本次显示的验证器secret/uri |
+| POST /api/user/access/mfa/confirm | code，返回10个一次性recoveryCodes |
+| DELETE /api/user/access/mfa | password与otp/恢复码 |
+| POST /api/user/access/dav | label/readOnly/days/password/otp，返回一次性应用密码 |
+| DELETE /api/user/access/dav/{id} | 撤销本人的应用密码 |
+| POST /api/user/access/email | email/password，发送15分钟邮箱验证链接 |
+| POST /api/public/auth/verify-email | token，一次性绑定邮箱 |
+| POST /api/public/auth/forgot | account，异步发送找回邮件，返回统一提示 |
+| POST /api/public/auth/reset | token/password，撤销会话与应用密码，不移除MFA |
+| /dav/ | 独立Basic应用密码认证，拒绝主密码与Cookie；Class 1方法 |
+| GET/PUT /api/admin/config/{section} | section为mail/office/storage；密钥脱敏，空密钥保留原值 |
+| POST /api/admin/config/{section}/test | SMTP测试收件人或Office健康检查 |
+| GET /api/admin/storage | 策略、后端对象用量、磁盘容量告警、迁移任务 |
+| POST/DELETE /api/admin/storage/policies[/{id}] | 新建/修改S3策略或删除未使用策略 |
+| POST /api/admin/storage/test | backend；写入、读回与清理测试 |
+| POST /api/admin/storage/migrations | source/target，返回持久化任务id |
+| DELETE /api/admin/storage/migrations/{id} | 取消后续迁移，不回退已完成对象 |
+| GET /api/office/status | 当前是否启用Office服务 |
+| GET /api/office/{id}/editor?mode=view或edit | 拥有者打开带受限CSP的编辑页 |
+| GET /api/public/office/file?ticket= | 有时限的签名文档读取授权，不是公开文件直链 |
+| POST /api/public/office/callback?ticket= | 文档服务JWT验证后保存版本；仅此签名回调免CSRF |
+
+Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL 仅接受配置的文档服务 cache 路径且不跟随重定向。外部文件更新导致修订冲突时需重新打开编辑器。部署配置与限制见 [进阶说明](advanced-features.md)。

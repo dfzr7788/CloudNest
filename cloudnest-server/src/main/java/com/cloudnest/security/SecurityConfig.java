@@ -61,6 +61,7 @@ public class SecurityConfig {
   SecurityFilterChain chain(
       HttpSecurity http,
       JwtDecoder decoder,
+      DavAuthentication dav,
       Db db,
       @Value("${cloudnest.secure-cookies}") boolean secure)
       throws Exception {
@@ -75,6 +76,7 @@ public class SecurityConfig {
         .csrf(
             c ->
                 c.csrfTokenRepository(repo)
+                    .ignoringRequestMatchers("/dav", "/dav/**", "/api/public/office/callback")
                     .sessionAuthenticationStrategy(
                         new org.springframework.security.web.authentication.session
                             .NullAuthenticatedSessionStrategy())
@@ -110,6 +112,25 @@ public class SecurityConfig {
               protected void doFilterInternal(
                   HttpServletRequest req, HttpServletResponse res, FilterChain chain)
                   throws ServletException, IOException {
+                if (req.getRequestURI().equals("/dav") || req.getRequestURI().startsWith("/dav/")) {
+                  SecurityContextHolder.clearContext();
+                  org.springframework.security.core.Authentication auth;
+                  try {
+                    auth = dav.authenticate(req);
+                  } catch (Problem p) {
+                    json(res, p.status, p.code, p.getMessage());
+                    return;
+                  }
+                  if (auth == null) {
+                    res.setHeader(
+                        "WWW-Authenticate", "Basic realm=\"CloudNest WebDAV\", charset=\"UTF-8\"");
+                    json(res, 401, "DAV_AUTH_REQUIRED", "请使用独立 WebDAV 应用密码");
+                    return;
+                  }
+                  SecurityContextHolder.getContext().setAuthentication(auth);
+                  chain.doFilter(req, res);
+                  return;
+                }
                 String cookie =
                     Arrays.stream(Optional.ofNullable(req.getCookies()).orElse(new Cookie[0]))
                         .filter(c -> c.getName().equals("CN_AUTH"))
@@ -154,5 +175,28 @@ public class SecurityConfig {
     response.setContentType("application/json;charset=UTF-8");
     new com.fasterxml.jackson.databind.ObjectMapper()
         .writeValue(response.getOutputStream(), Map.of("code", code, "message", message));
+  }
+
+  @Bean
+  org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer
+      davMethods() {
+    var firewall = new org.springframework.security.web.firewall.StrictHttpFirewall();
+    firewall.setAllowedHttpMethods(
+        List.of(
+            "GET",
+            "HEAD",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE",
+            "OPTIONS",
+            "PROPFIND",
+            "PROPPATCH",
+            "MKCOL",
+            "MOVE",
+            "COPY",
+            "LOCK",
+            "UNLOCK"));
+    return web -> web.httpFirewall(firewall);
   }
 }

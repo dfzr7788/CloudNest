@@ -12,6 +12,10 @@ import subprocess
 import sys
 import threading
 import time
+import platform
+import re
+import urllib.request
+import urllib.error
 
 ORIGIN = 'https://github.com/duyan9030-dotcom/CloudNest.git'
 
@@ -75,6 +79,12 @@ class Updater:
         self.publish('BACKUP', '暂停写入并备份数据库与文件，请保持页面打开')
         self.stopped = True
         self.compose('stop', 'web', 'server')
+        remote_count=self.compose('exec','-T','mysql','sh','-c',
+                     'MYSQL_PWD="$MYSQL_PASSWORD" mysql -ucloudnest -Dcloudnest -N -B -e "SELECT COUNT(*) FROM file_blob WHERE status=\'READY\' AND backend<>\'local\'"',log_output=False)
+        if remote_count.strip()!='0':
+            self.compose('run','--rm','--no-deps','server','--server.port=0',
+                         '--cloudnest.maintenance=true','--cloudnest.action=export-objects',
+                         '--cloudnest.index-enabled=false',timeout=3600)
         # Dump through the container environment; passwords are never argv or status data.
         dump = folder / 'database.sql'
         with dump.open('wb') as stream:
@@ -95,7 +105,7 @@ class Updater:
                      '-czf', '/backup/app-data.tar.gz', '-C', '/app/data', '.', timeout=1800)
         shutil.copyfile(self.repo / '.env', folder / '.env')
         for name in ['docker-compose.yml', 'deploy/compose.public.yml',
-                     'deploy/compose.updater.yml', 'deploy/compose.tls.yml']:
+                     'deploy/compose.updater.yml', 'deploy/compose.tls.yml', 'deploy/compose.images.yml']:
             source = self.repo / name
             if source.exists():
                 target = folder / name
@@ -111,6 +121,59 @@ class Updater:
                         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
                     sums.write(f'{digest}  {item.relative_to(folder).as_posix()}\n')
 
+    def prebuilt(self, revision):
+        """Only consume assets from this repository and this exact commit, before stopping service."""
+        if platform.machine().lower() not in ('x86_64', 'amd64'):
+            return False
+        if not re.fullmatch(r'[a-f0-9]{40}', revision):
+            raise RuntimeError('版本号无效')
+        base = f'https://github.com/duyan9030-dotcom/CloudNest/releases/download/build-{revision}/'
+        asset = 'cloudnest-images-linux-amd64.tar.gz'
+        try:
+            with urllib.request.urlopen(base + 'SHA256SUMS', timeout=30) as response:
+                checksums = response.read(8193).decode('ascii')
+        except urllib.error.HTTPError as error:
+            if error.code == 404:
+                return False
+            raise RuntimeError('预构建镜像校验清单下载失败') from error
+        matches = re.findall(r'^([a-f0-9]{64})  '+re.escape(asset)+r'$', checksums, re.M)
+        if len(checksums)>8192 or len(matches)!=1:
+            raise RuntimeError('预构建镜像校验清单无效')
+        archive = self.base / 'images.download'
+        try:
+            digest=hashlib.sha256()
+            size=0
+            with urllib.request.urlopen(base + asset, timeout=60) as response, archive.open('wb') as out:
+                while block:=response.read(1024*1024):
+                    size+=len(block)
+                    if size>2*1024**3 or shutil.disk_usage(self.base).free<3*1024**3:
+                        raise RuntimeError('镜像下载过大或磁盘可用空间不足 3 GiB')
+                    digest.update(block)
+                    out.write(block)
+            if digest.hexdigest()!=matches[0]:
+                raise RuntimeError('预构建镜像 SHA256 校验失败，未导入镜像')
+            self.run('docker','load','--input',str(archive),timeout=900)
+            for service in ('server','web'):
+                self.run('docker','image','inspect',f'cloudnest-{service}:sha-{revision}',log_output=False)
+            return True
+        finally:
+            archive.unlink(missing_ok=True)
+
+    def activate_prebuilt(self, revision):
+        env=self.repo/'.env'
+        text=env.read_text(encoding='utf-8')
+        match=re.search(r'^COMPOSE_FILE=(.*)$',text,re.M)
+        files=match[1].strip().strip('\"\'') if match else 'docker-compose.yml:deploy/compose.public.yml'
+        if 'deploy/compose.images.yml' not in files.split(':'):
+            files+=':deploy/compose.images.yml'
+        for key,value in [('COMPOSE_FILE',files),('DEPLOY_REVISION',revision)]:
+            pattern=r'^'+key+r'=.*$'
+            text=re.sub(pattern,key+'='+value,text,flags=re.M) if re.search(pattern,text,re.M) else text.rstrip()+'\n'+key+'='+value+'\n'
+        temporary=env.with_name('.env.update')
+        temporary.write_text(text,encoding='utf-8')
+        temporary.chmod(0o600)
+        temporary.replace(env)
+
     def perform(self, action):
         self.stopped = False
         self.deploying = False
@@ -123,8 +186,7 @@ class Updater:
             # The supported quick deployment uses a local data volume. Refuse to imply
             # that a remote bucket can be protected by a local-only backup.
             config = json.loads(self.compose('config', '--format', 'json', log_output=False))
-            if config['services']['server']['environment'].get('STORAGE_BACKEND', 'local') != 'local':
-                raise RuntimeError('对象存储部署须先完成远程桶备份，请使用人工更新')
+            # All READY remote objects are exported and verified by the offline maintenance command.
             if shutil.disk_usage(self.base).free < 1024 ** 3:
                 raise RuntimeError('更新盘可用空间不足 1 GiB，请先清理或扩容')
             stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
@@ -141,8 +203,14 @@ class Updater:
             self.run('git', 'merge', '--ff-only', target)
             # Build while the old containers still serve requests.
             self.publish('BUILDING', '正在构建新版，当前服务仍可使用；首次下载可能较慢')
-            self.compose('build', 'server', 'web', timeout=3600)
+            ready=self.prebuilt(target)
+            if not ready:
+                if 'deploy/compose.images.yml' in (self.repo/'.env').read_text(encoding='utf-8'):
+                    raise RuntimeError('该版本预构建镜像尚未就绪，请等待 GitHub Actions 完成后重试')
+                self.compose('build', 'server', 'web', timeout=3600)
             self.backup(folder)
+            if ready:
+                self.activate_prebuilt(target)
             self.deploying = True
             self.publish('RESTARTING', '备份完成，正在切换新版；页面会短暂断开')
             self.compose('up', '-d', '--no-build', '--wait', '--wait-timeout', '180', 'server', 'web', timeout=240)
@@ -196,9 +264,16 @@ class Updater:
                         if not stat.S_ISREG(info.st_mode) or info.st_size > 4096:
                             raise ValueError('Invalid request file')
                         action = json.load(stream).get('action')
-                    if action not in ('check', 'update'):
+                    if action not in ('check', 'update', 'backup'):
                         raise ValueError('Invalid action')
-                    self.perform(action)
+                    if action=='backup':
+                        self.publish('BACKUP','正在创建一致性备份，服务将短暂停止',busy=True)
+                        self.run(sys.executable,str(self.repo/'scripts/backup.py'),'create','--repo',str(self.repo),'--base',str(self.base),timeout=10800)
+                        self.publish('COMPLETE','备份与校验完成；详情见备份列表',busy=False)
+                    else:
+                        with (self.state/'operation.lock').open('w') as operation:
+                            fcntl.flock(operation,fcntl.LOCK_EX|fcntl.LOCK_NB)
+                            self.perform(action)
                     reload_worker = action == 'update' and self.status.get('phase') == 'COMPLETE'
                 except Exception:
                     self.publish('FAILED', '更新请求无效或执行中断，请查看服务器日志', busy=False)

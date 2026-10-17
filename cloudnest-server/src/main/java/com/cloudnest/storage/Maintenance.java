@@ -23,6 +23,9 @@ public class Maintenance implements ApplicationRunner {
   @Value("${cloudnest.operator-username:}")
   private String operatorUsername;
 
+  @Value("${cloudnest.data-dir}")
+  private String dataDirectory;
+
   @Value("${cloudnest.quota}")
   private long defaultQuota;
 
@@ -48,7 +51,10 @@ public class Maintenance implements ApplicationRunner {
   }
 
   public Map<String, Object> perform() {
-    if (Set.of("create-admin", "create-user", "reset-password").contains(action)) return operator();
+    if (Set.of("export-objects", "restore-local-objects").contains(action))
+      return portableObjects();
+    if (Set.of("create-admin", "create-user", "reset-password", "reset-mfa").contains(action))
+      return operator();
     if (!Set.of("audit", "recount", "migrate-minio").contains(action))
       throw new IllegalArgumentException("Action must be audit, recount or migrate-minio");
     List<Map<String, Object>> report = new ArrayList<>();
@@ -139,6 +145,69 @@ public class Maintenance implements ApplicationRunner {
     return Map.of("action", action, "problems", problems, "records", report);
   }
 
+  private Map<String, Object> portableObjects() {
+    try {
+      var directory =
+          java.nio.file.Path.of(dataDirectory).toAbsolutePath().resolve("backup-export");
+      java.nio.file.Files.createDirectories(directory.resolve("objects"));
+      var records = db.list("SELECT * FROM file_blob WHERE status='READY' ORDER BY id");
+      boolean restore = action.equals("restore-local-objects");
+      long required =
+          restore
+              ? 0
+              : records.stream()
+                  .filter(b -> !"local".equals(s(b, "backend")))
+                  .mapToLong(b -> n(b, "size"))
+                  .sum();
+      if (java.nio.file.Files.getFileStore(directory).getUsableSpace() < required + 268435456L)
+        throw new IOException("Insufficient space for portable backup");
+      int migrated = 0;
+      for (var blob : records) {
+        String key = s(blob, "object_key"), backend = s(blob, "backend");
+        if (!key.matches("objects/[a-f0-9-]{36}")) throw new IOException("Invalid object key");
+        if (backend.equals("local")) continue;
+        var file = directory.resolve(key);
+        if (restore) {
+          try (var in = java.nio.file.Files.newInputStream(file)) {
+            if (!Util.hash(in).equals(s(blob, "sha256")))
+              throw new IOException("Backup checksum mismatch");
+          }
+          try (var in = java.nio.file.Files.newInputStream(file)) {
+            storage.put("local", key, in, n(blob, "size"));
+          }
+          try (var in = storage.open("local", key, 0, n(blob, "size"))) {
+            if (!Util.hash(in).equals(s(blob, "sha256")))
+              throw new IOException("Restored object checksum mismatch");
+          }
+          db.update("UPDATE file_blob SET backend='local' WHERE id=?", blob.get("id"));
+          migrated++;
+        } else {
+          var staged = file.resolveSibling(file.getFileName() + ".part");
+          try (var in = storage.open(backend, key, 0, n(blob, "size"));
+              var out = java.nio.file.Files.newOutputStream(staged)) {
+            long copied = in.transferTo(out);
+            if (copied != n(blob, "size")) throw new IOException("Backup object truncated");
+          }
+          try (var in = java.nio.file.Files.newInputStream(staged)) {
+            if (!Util.hash(in).equals(s(blob, "sha256")))
+              throw new IOException("Backup checksum mismatch");
+          }
+          java.nio.file.Files.move(staged, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+          migrated++;
+        }
+      }
+      if (restore) {
+        db.update("UPDATE file_blob SET backend='local' WHERE status<>'READY'");
+        db.update(
+            "UPDATE upload_session SET backend='local' WHERE status IN ('UPLOADING','ASSEMBLING')");
+        db.update("DELETE FROM system_setting WHERE name='storage'");
+      }
+      return Map.of("action", action, "problems", 0, "objects", migrated);
+    } catch (IOException error) {
+      throw new IllegalStateException("Portable object backup/restore failed", error);
+    }
+  }
+
   private Map<String, Object> operator() {
     String username = operatorUsername == null ? "" : operatorUsername.toLowerCase(Locale.ROOT),
         password = System.getenv("CN_OPERATOR_PASSWORD");
@@ -155,11 +224,26 @@ public class Maintenance implements ApplicationRunner {
         () -> {
           var rows = db.list("SELECT * FROM sys_user WHERE username=?", username);
           String uid;
-          if (action.equals("reset-password")) {
+          if (action.equals("reset-mfa")) {
+            if (rows.isEmpty()) throw Problem.missing();
+            var user = rows.getFirst();
+            uid = s(user, "id");
+            if (!new org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder()
+                .matches(password, s(user, "password_hash")))
+              throw new Problem(401, "INVALID_PASSWORD", "需要当前登录密码；忘记密码请先使用维护命令重置");
+            db.update(
+                "UPDATE sys_user SET totp_secret=NULL,totp_pending=NULL,totp_step=-1 WHERE id=?",
+                uid);
+            db.update("DELETE FROM mfa_recovery WHERE user_id=?", uid);
+            db.update("DELETE FROM auth_session WHERE user_id=?", uid);
+            db.update("DELETE FROM dav_credential WHERE user_id=?", uid);
+            db.update("DELETE FROM account_token WHERE user_id=?", uid);
+          } else if (action.equals("reset-password")) {
             if (rows.isEmpty()) throw Problem.missing();
             uid = s(rows.getFirst(), "id");
             db.update("UPDATE sys_user SET password_hash=? WHERE id=?", hash, uid);
             db.update("DELETE FROM auth_session WHERE user_id=?", uid);
+            db.update("DELETE FROM dav_credential WHERE user_id=?", uid);
           } else {
             if (!rows.isEmpty()) throw Problem.conflict("账号已存在");
             uid = Util.id();

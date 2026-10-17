@@ -41,6 +41,7 @@ Requires=docker.service
 [Service]
 Type=simple
 UMask=0077
+EnvironmentFile=-/etc/cloudnest/backup.env
 ExecStart=/usr/bin/python3 /opt/cloudnest-updater/updater.py --repo $repo
 Restart=on-failure
 RestartSec=5
@@ -51,6 +52,10 @@ EOF
 systemctl daemon-reload
 systemctl enable --now cloudnest-updater
 systemctl restart cloudnest-updater
-docker compose up -d --build --wait --wait-timeout 180 server web
+if grep -q 'deploy/compose.images.yml' .env; then
+  docker compose up -d --no-build --wait --wait-timeout 180 server web
+else
+  docker compose up -d --build --wait --wait-timeout 180 server web
+fi
 git rev-parse HEAD > /var/lib/cloudnest-updater/state/deployed
 echo 'Updater installed. Sign in as administrator and open System updates.'

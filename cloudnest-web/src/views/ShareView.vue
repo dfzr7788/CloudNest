@@ -9,6 +9,8 @@ import { useSelection } from "../selection";
 const props = defineProps<{ token: string }>(),
   info = ref<{
     locked: boolean;
+    mode?: string;
+    fileIds?: string[];
     expiresAt: number;
     file?: Entry;
     allowDownload?: boolean;
@@ -17,6 +19,40 @@ const props = defineProps<{ token: string }>(),
   error = ref(""),
   busy = ref(false),
   preview = ref<Entry | null>(null);
+const collectBusy = ref(false),
+  collected = ref(0),
+  zipId = ref(""),
+  zipProgress = ref(0);
+async function cancelZip() {
+  if (zipId.value)
+    try {
+      await api.delete(
+        `/public/shares/${props.token}/downloads/${zipId.value}`,
+      );
+    } catch (e) {
+      error.value = errorText(e);
+    }
+}
+async function collectFiles(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const files = Array.from(input.files || []);
+  collectBusy.value = true;
+  try {
+    for (const file of files) {
+      const form = new FormData();
+      form.append("file", file);
+      await api.post(`/public/shares/${props.token}/collect`, form, {
+        timeout: 600000,
+      });
+      collected.value++;
+    }
+  } catch (e) {
+    error.value = errorText(e);
+  } finally {
+    collectBusy.value = false;
+    input.value = "";
+  }
+}
 const children = ref<Entry[]>([]),
   stack = ref<string[]>([]),
   stackNames = ref<string[]>([]),
@@ -60,10 +96,19 @@ async function zip(entries = selected.value) {
     const { data } = await api.post(`/public/shares/${props.token}/downloads`, {
       fileIds: entries.map((e) => e.id),
     });
+    zipId.value = data.id;
+    zipProgress.value = 0;
     for (let n = 0; n < 600; n++) {
       const status = (
         await api.get(`/public/shares/${props.token}/downloads/${data.id}`)
       ).data;
+      zipProgress.value = status.totalBytes
+        ? Math.min(
+            100,
+            Math.round((status.completedBytes / status.totalBytes) * 100),
+          )
+        : 0;
+      if (status.status === "CANCELLED") return;
       if (status.status === "READY") {
         location.assign(
           `/api/public/shares/${props.token}/downloads/${data.id}/file`,
@@ -78,6 +123,7 @@ async function zip(entries = selected.value) {
     error.value = errorText(e);
   } finally {
     zipBusy.value = false;
+    zipId.value = "";
   }
 }
 async function load() {
@@ -85,7 +131,8 @@ async function load() {
   error.value = "";
   try {
     info.value = (await api.get(`/public/shares/${props.token}`)).data;
-    if (info.value?.file?.kind === "FOLDER") await folder();
+    if (info.value?.file?.kind === "FOLDER" && info.value.mode !== "COLLECT")
+      await folder();
   } catch (e) {
     error.value = errorText(e);
   } finally {
@@ -116,6 +163,10 @@ onMounted(load);
       ><span>让文件自由抵达</span>
     </header>
     <section class="share-card" v-loading="busy">
+      <div v-if="zipBusy" role="status">
+        正在打包 {{ zipProgress }}%
+        <el-button size="small" @click="cancelZip">取消打包</el-button>
+      </div>
       <span class="eyebrow">SHARED WITH YOU</span
       ><template v-if="error && !info"
         ><h1>分享暂时无法访问</h1>
@@ -155,7 +206,7 @@ onMounted(load);
         <p class="muted">
           {{ bytes(info.file.size) }} · 有效期至 {{ date(info.expiresAt) }}
         </p>
-        <div class="share-actions">
+        <div v-if="info.mode !== 'COLLECT'" class="share-actions">
           <template v-if="info.file.kind === 'FOLDER'"
             ><el-button v-if="stack.length" @click="back">返回上级</el-button
             ><el-button
@@ -166,7 +217,14 @@ onMounted(load);
             ><el-button
               v-if="info.allowDownload"
               :loading="zipBusy"
-              @click="zip([info.file!])"
+              @click="
+                zip(
+                  (info.fileIds || [info.file!.id]).map((id) => ({
+                    ...info!.file!,
+                    id,
+                  })),
+                )
+              "
               >下载整个文件夹</el-button
             ></template
           >
@@ -181,7 +239,30 @@ onMounted(load);
             >
           </template>
         </div>
-        <template v-if="info.file.kind === 'FOLDER'"
+        <section v-if="info.mode === 'COLLECT'" class="collect-panel">
+          <p>这是文件收集入口，你的文件将上传给分享者。每文件最多 100 MiB。</p>
+          <input
+            type="file"
+            multiple
+            :disabled="collectBusy"
+            aria-label="提交收集文件"
+            @change="collectFiles"
+          />
+          <p>
+            {{
+              collectBusy
+                ? "正在上传，请保持页面打开"
+                : "已接收 " + collected + " 个文件"
+            }}
+          </p>
+          <el-alert
+            v-if="error"
+            :title="error"
+            type="error"
+            :closable="false"
+          />
+        </section>
+        <template v-else-if="info.file.kind === 'FOLDER'"
           ><p>动态分享：目录内容随分享者整理而变化。</p>
           <div v-if="info.allowDownload" class="share-selection">
             <el-checkbox :model-value="allSelected()" @change="togglePage"
@@ -235,7 +316,7 @@ onMounted(load);
             type="error"
             :closable="false"
         /></template>
-        <p v-if="!info.allowDownload" class="muted">
+        <p v-if="!info.allowDownload && info.mode !== 'COLLECT'" class="muted">
           分享者仅开放了预览权限
         </p></template
       >

@@ -48,6 +48,8 @@ docker compose ps
 
 初始化脚本生成三组独立随机密码，并保留已有 `.env`。新配置的 `COMPOSE_FILE` 自动加载 `deploy/compose.public.yml`，让 Web 监听 `0.0.0.0:8088`。Compose 必须支持 `!override`（2.24.4+）。基础配置本身仍只监听回环地址，便于其他入口方案使用。
 
+Linux amd64 服务器可先执行 `python3 scripts/use-prebuilt.py` 下载当前提交对应的校验镜像，再使用 `docker compose up -d --no-build --wait --wait-timeout 180` 启动，避免在服务器编译。若发布尚未完成则等待 GitHub Actions，或保持源码构建流程。其他架构目前使用源码构建。
+
 首次构建会下载 Java、Node、MySQL 镜像及 Maven/npm 依赖，可能需要几分钟；后续构建会复用缓存。成功后 MySQL、Redis、server 应显示 healthy，web 显示运行中。
 
 ## 创建管理员
@@ -142,30 +144,42 @@ docker compose ps
 
 `mysql_data` 保存数据库，`app_data` 保存文件对象、分片和签名密钥。数据库、对象和密钥必须成套备份。**不要执行 `docker compose down -v`，它会删除业务数据卷。** Redis 只用于限流。
 
-以下命令在项目根目录执行，适用于本流程的 MySQL + 本地对象存储，会短暂停止访问；开始前确认四个服务原本均在运行：
+本流程使用一致性备份脚本：暂停 web/server，导出 MySQL，并将远程对象校验导出到 app_data，然后归档数据、签名密钥、配置和代码版本，生成 SHA256 清单，最后恢复服务。
 
 ```bash
-(
-  set -eu
-  umask 077
-  backup_dir="$PWD/backups/$(date +%Y%m%d-%H%M%S)"
-  mkdir -p "$backup_dir"
-  trap 'docker compose start server web' EXIT
-  docker compose stop web server
-  docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -ucloudnest --single-transaction --no-tablespaces --routines --triggers cloudnest' > "$backup_dir/cloudnest.sql"
-  docker compose run --rm --no-deps --user 0 --entrypoint tar -v "$backup_dir:/backup" server -czf /backup/app-data.tar.gz -C /app/data .
-  cp .env "$backup_dir/.env"
-  cp docker-compose.yml "$backup_dir/docker-compose.yml"
-  cp -r deploy "$backup_dir/deploy"
-  git rev-parse HEAD > "$backup_dir/commit.txt"
-  (cd "$backup_dir" && sha256sum cloudnest.sql app-data.tar.gz .env docker-compose.yml commit.txt > SHA256SUMS)
-  printf 'Backup: %s\n' "$backup_dir"
-)
+python3 scripts/backup.py create --repo "$PWD"
+python3 scripts/backup.py list
+# 用实际时间目录替换下方路径
+python3 scripts/backup.py verify --snapshot /var/lib/cloudnest-updater/backups/时间目录
 ```
 
-任一步报错都不能当作成功备份。备份含私人文件和密码，保存在受保护位置并转移一份到其他机器，不上传 GitHub。若使用远程 S3/MinIO，还必须在同一停写窗口备份对象桶。
+备份期间会短暂停止访问。命令失败不能视为成功，检查服务状态与日志。管理员安装更新服务后，可在“系统更新”点击“立即备份”并查看最近备份状态；更新前备份同样保存在受保护目录，但不一定列入定时备份列表。备份不会自动删除。
 
-恢复应在独立主机或独立 Compose 项目进行：先执行 `sha256sum -c SHA256SUMS`，使用记录的代码版本及配置创建空数据库和对象卷，停止 server/web，导入 SQL、解压对象归档到 `/app/data` 并恢复 UID/GID `10001:10001`，再启动应用。确认登录、文件下载、配额与分享均正常后再切换入口。不要覆盖正在使用的数据；数据库已经迁移后不能仅切换旧镜像回退。
+定时备份（服务器本地时间每天 03:00，最多随机延后十分钟）：
+
+```bash
+bash scripts/install-backups.sh
+systemctl status cloudnest-backup.timer --no-pager
+# 可手动触发，读取相同的异地备份凭据
+systemctl start cloudnest-backup.service
+journalctl -u cloudnest-backup -n 80 --no-pager
+```
+
+异地备份使用 [restic 加密仓库](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html)。先安装 restic 并在服务器初始化自己的 SFTP/S3 等仓库，再将 `RESTIC_REPOSITORY`、`RESTIC_PASSWORD_FILE` 和所需凭据写入仅 root 可读的 `/etc/cloudnest/backup.env`，密码文件也设为 0600。不要将这些值提交到 Git。定时服务自动运行 `restic backup`；未配置显示 NOT_CONFIGURED，异地上传失败显示 PARTIAL/FAILED，本地快照仍保留。修改凭据后重启 cloudnest-updater，使网页手动备份读取新配置。远程保留策略由管理员配置，脚本不会擅自执行 forget/prune。
+
+恢复先检查计划，默认不执行写入：
+
+```bash
+python3 scripts/backup.py restore \
+  --snapshot /var/lib/cloudnest-updater/backups/时间目录 \
+  --target /root/CloudNest-restore-check \
+  --project cloudnest-restore-check --port 18088
+# 确认计划后，在同一命令末尾加 --execute 执行
+```
+
+执行只允许尚不存在的目标目录和独立 `cloudnest-restore-*` Compose 项目；先验证清单及归档路径，再使用快照记录的代码版本创建空卷、导入数据库与对象。远程对象恢复到独立实例的本地存储，经内容校验和离线审计后启动；入口只监听 `127.0.0.1:18088`。可用 SSH 端口转发检查登录、下载、分享、历史版本与配额，再由维护人员切换正式入口。恢复不会覆盖原生产卷。旧版远程存储快照若未包含 portable 导出不能按此恢复，需先备份并恢复原桶。新版数据库迁移后不能仅切旧镜像回退。
+
+备份包含私人文件及密码，应保护并保留至少一份异机副本。磁盘需要容纳本地对象、远程导出和完整归档。未完成真实恢复演练前，不要删除原始数据与旧备份。
 
 开发 H2 数据使用停止后端后的完整目录备份，可使用 `scripts/backup-local.ps1` 与 `scripts/restore-local.ps1`，不混用 MySQL 的 SQL 恢复流程。
 

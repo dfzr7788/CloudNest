@@ -38,6 +38,12 @@ cloudnest:
   quota: ${USER_QUOTA:5368709120}
   max-file-size: ${MAX_FILE_SIZE:2147483648}
   part-size: ${PART_SIZE:8388608}
+  zip:
+    max-bytes: ${ZIP_MAX_BYTES:536870912}
+    max-files: ${ZIP_MAX_FILES:1000}
+    max-entries: ${ZIP_MAX_ENTRIES:2000}
+    hours: ${ZIP_RETENTION_HOURS:1}
+    reserve-bytes: ${ZIP_RESERVE_BYTES:268435456}
   session-hours: 12
   upload-hours: 24
   secure-cookies: ${SECURE_COOKIES:false}

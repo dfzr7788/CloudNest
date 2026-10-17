@@ -20,11 +20,17 @@ public class UploadController {
   }
 
   public record Init(
-      String folderId, @NotBlank String name, @Min(0) long size, @NotBlank String sha256) {}
+      String folderId,
+      @NotBlank String name,
+      @Min(0) long size,
+      @NotBlank String sha256,
+      String targetId,
+      Long expectedRevision) {}
 
   @PostMapping("/uploads/init")
   public Map<String, Object> init(Authentication a, @Valid @RequestBody Init in) {
-    return upload.init(a.getName(), in.folderId, in.name, in.size, in.sha256);
+    return upload.init(
+        a.getName(), in.folderId, in.name, in.size, in.sha256, in.targetId, in.expectedRevision);
   }
 
   @GetMapping("/uploads")
