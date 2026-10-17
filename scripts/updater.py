@@ -94,7 +94,8 @@ class Updater:
                      '-v', str(folder) + ':/backup', 'server',
                      '-czf', '/backup/app-data.tar.gz', '-C', '/app/data', '.', timeout=1800)
         shutil.copyfile(self.repo / '.env', folder / '.env')
-        for name in ['docker-compose.yml', 'deploy/compose.updater.yml', 'deploy/compose.tls.yml']:
+        for name in ['docker-compose.yml', 'deploy/compose.public.yml',
+                     'deploy/compose.updater.yml', 'deploy/compose.tls.yml']:
             source = self.repo / name
             if source.exists():
                 target = folder / name

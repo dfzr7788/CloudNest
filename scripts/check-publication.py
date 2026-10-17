@@ -24,7 +24,7 @@ for name in paths:
     if (private_dirs.intersection(rel.parts)
         or rel.suffix.lower() in private_suffixes
         or (rel.name.startswith(".env") and rel.name != ".env.example")
-        or (name.startswith("docs/evidence/") and name != "docs/evidence/README.md")):
+        or name.startswith("docs/evidence/")):
         problems.append((name, "private/runtime file"))
         continue
     if not file.is_file():

@@ -4,7 +4,7 @@
 
 ## 认证与 CSRF
 
-浏览器先 GET `/auth/csrf`，取得 `{token,headerName}` 和 XSRF-TOKEN Cookie。所有写请求将当前 token 放在 X-XSRF-TOKEN，携带 Cookie。登录后 token 可能轮换，应重新获取。认证 Cookie CN_AUTH 为 HttpOnly，仅用于 `/api`；生产必须 Secure。
+浏览器先 GET `/auth/csrf`，取得 `{token,headerName}` 和 XSRF-TOKEN Cookie。所有写请求将当前 token 放在 X-XSRF-TOKEN，携带 Cookie。登录后 token 可能轮换，应重新获取。认证 Cookie CN_AUTH 为 HttpOnly，仅用于 `/api`；HTTPS 部署启用 Secure，普通 HTTP 部署须设置 SECURE_COOKIES=false。
 
 | 方法与路径 | 输入 | 成功结果/主要失败 |
 | --- | --- | --- |

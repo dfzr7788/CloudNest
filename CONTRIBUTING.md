@@ -4,4 +4,4 @@
 
 开发环境和验证命令见 README。后端变更运行 Maven 测试，前端变更执行类型检查及生产构建；涉及用户流程时运行相关浏览器测试。数据库变更新增 Flyway 迁移，不修改已经发布的迁移文件。
 
-提交前运行 `python scripts/check-publication.py`，并人工查看 `git diff --cached`。功能变更同步更新使用说明和验收记录。代码贡献采用本项目 MIT 许可证；第三方依赖仍适用各自许可证。
+提交前运行 `python scripts/check-publication.py`，并人工查看 `git diff --cached`。功能变更同步更新使用说明；在 Pull Request 中说明验证结果。构建日志、截图、开发计划和原始测试报告留在本机，不提交到仓库。代码贡献采用本项目 MIT 许可证；第三方依赖仍适用各自许可证。

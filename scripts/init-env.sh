@@ -17,6 +17,6 @@ set -o noclobber
   printf 'DATABASE_PASSWORD=%s\n' "$database_password"
   printf 'MYSQL_ROOT_PASSWORD=%s\n' "$root_password"
   printf 'REDIS_PASSWORD=%s\n' "$redis_password"
-  printf '%s\n' 'WEB_PORT=8088' 'SECURE_COOKIES=false' 'STORAGE_BACKEND=local' 'REGISTRATION_OPEN=false'
+  printf '%s\n' 'COMPOSE_FILE=docker-compose.yml:deploy/compose.public.yml' 'WEB_PORT=8088' 'SECURE_COOKIES=false' 'STORAGE_BACKEND=local' 'REGISTRATION_OPEN=false'
 } > .env
 echo 'Created .env with independent random passwords. Keep this file private and backed up.'

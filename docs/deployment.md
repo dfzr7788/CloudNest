@@ -1,152 +1,209 @@
-# 部署、备份与运维
+# Linux 服务器部署
 
-## 1. 开发运行
+本流程将云盘部署为 `http://服务器公网IP:8088`，不需要域名、证书或 Cloudflare。只发布 Web 端口，MySQL、Redis 和后端不对公网开放。以下命令在 Debian 12/13 的 root 终端执行；普通用户先运行 `sudo -i`。
 
-见 README 的两个终端启动步骤。默认 `.data` 路径相对后端工作目录；开发默认文件型 H2 使用 WRITE_DELAY=0，使成功提交同步写入。自定义 DATABASE_URL 时保留此设置，避免进程被强制结束后丢失最近提交。
+## 安装 Docker
 
-端口：后端 8080，Vite 5173。默认容量 5 GiB，文件上限 2 GiB，分片 8 MiB。可通过 USER_QUOTA、MAX_FILE_SIZE、PART_SIZE、DATA_DIR、PORT 调整。生产仅运行一个后端实例；多实例需要重新设计会话锁、目录并发和共享分片存储。
+已有 Docker 和 Compose 2.24.4 以上版本可跳过安装，先检查：
 
-Windows 不要在 Java 正在运行的 target/*.jar 上重新打包。停止进程后替换发布包，或复制到独立的运行目录。
+```bash
+docker --version
+docker compose version
+```
 
-## 2. Linux Docker Compose
+未安装时，按 [Docker 官方 Debian 安装说明](https://docs.docker.com/engine/install/debian/) 使用官方软件源：
 
-首次部署可使用 `bash scripts/init-env.sh` 自动生成独立随机密码（保留已有 `.env`），再按下方启动。服务健康后执行 `bash scripts/create-admin.sh owner` 交互创建管理员。完整克隆、启动、访问步骤见 [公开发布指南](publishing.md)；不需要上传开发数据库，应用会自动执行建表迁移。
+```bash
+apt update
+apt install -y ca-certificates curl git openssl python3
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+cat > /etc/apt/sources.list.d/docker.sources <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/debian
+Suites: $(. /etc/os-release && echo "$VERSION_CODENAME")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+apt update
+apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+systemctl enable --now docker
+docker run --rm hello-world
+```
 
-前置条件：Linux 主机、Docker Engine、Compose 2.24.4+（TLS 叠加配置使用 !override）、足够磁盘和可用域名/证书。当前工作环境没有 Docker，配置尚未在 Linux 实际部署，不能把本手册当作已部署证明。
+若已有其他来源的 Docker，先按官方说明处理冲突的软件包，不要直接删除现有业务数据。建议至少 2 核、2 GiB 内存，并为构建、文件、上传临时数据和备份留出磁盘空间。
 
-```sh
-cp .env.example .env
-# 将三组密码替换为不同的随机值；不提交 .env
+## 下载并启动
+
+```bash
+git clone https://github.com/duyan9030-dotcom/CloudNest.git
+cd CloudNest
+bash scripts/init-env.sh
 docker compose config --quiet
-docker compose up -d --build
+docker compose up -d --build --wait --wait-timeout 180
 docker compose ps
-docker compose logs --tail=100 server
-curl -f http://127.0.0.1:8088/healthz
 ```
 
-默认仅 web 监听宿主机回环端口，MySQL、Redis、后端均不发布宿主机端口。服务端健康检查路径为 `/actuator/health`，通过容器内网络访问。MySQL/Redis 使用健康依赖；应用启动执行 Flyway，版本与校验不一致会停止启动。
+初始化脚本生成三组独立随机密码，并保留已有 `.env`。新配置的 `COMPOSE_FILE` 自动加载 `deploy/compose.public.yml`，让 Web 监听 `0.0.0.0:8088`。Compose 必须支持 `!override`（2.24.4+）。基础配置本身仍只监听回环地址，便于其他入口方案使用。
 
-持久数据：mysql_data 保存数据库，app_data 保存对象、分片、ZIP 临时产物与 jwt.key。Redis 仅作限流，不保存关键业务状态。容器重建不能删除卷；`docker compose down -v` 会销毁业务数据，不用于日常升级。
+首次构建会下载 Java、Node、MySQL 镜像及 Maven/npm 依赖，可能需要几分钟；后续构建会复用缓存。成功后 MySQL、Redis、server 应显示 healthy，web 显示运行中。
 
-推荐基础资源：2 核、2 GiB 内存起步，按实际并发测量调整。预留空间需覆盖数据库、逻辑文件、上传分片、合并副本及 ZIP；1 GiB 文件上传过程中可能同时存在分片、合并临时文件和最终对象。已对分片剩余可用空间做检查，但这不能代替磁盘监控。磁盘用量超过 80% 时安排清理或扩容。
+## 创建管理员
 
-## 3. HTTPS
+在同一个项目目录执行：
 
-将域名对应的完整证书链和私钥放到 `deploy/certs/fullchain.pem`、`privkey.pem`，该目录已忽略。DNS 指向目标服务器后：
-
-```sh
-docker compose -f docker-compose.yml -f deploy/compose.tls.yml config --quiet
-docker compose -f docker-compose.yml -f deploy/compose.tls.yml up -d --build
+```bash
+bash scripts/create-admin.sh owner
 ```
 
-该配置绑定 80/443，HTTP 跳转 HTTPS，启用 Secure Cookie 与 HSTS。生产前验证证书链、域名、分享链接、PDF Range、分片上传、代理超时与 Cookie；确认后再开放访问。不要在普通 HTTP 环境设置 Secure Cookie，否则浏览器不会发送登录凭证。
+按提示输入两次自定义密码，输入时不显示字符。密码为 8～64 个字符，UTF-8 编码不超过 72 字节。脚本临时停止应用写入，创建账号后恢复原先运行的服务。确认输出 `CLOUDNEST_MAINTENANCE_RESULT` 中 `problems` 为 `0`、`action` 为 `create-admin`。
 
-前端 CSP 限制外部脚本与对象，后端预览禁止脚本执行。Nginx 将 X-Forwarded-For 覆盖为真实连接地址，后端 Compose 启用 Tomcat native 可信内部代理解析，且不暴露后端端口。直接运行后端时默认不信任转发头。生产前仍应在实际容器网络中验证代理地址和按用户来源的限流，不能盲目信任任意 X-Forwarded-For。
+登录账号是 `owner`，密码是刚才输入的内容，没有内置的 admin 默认密码。不要把数据库密码当作登录密码。账号已存在时不要重复创建；忘记密码见下方重置步骤。
 
-## 4. 本地备份恢复
+## 用 IP 和端口访问
 
-H2 文件备份必须停止写入进程。整个数据目录与 jwt.key 一起备份，不只复制数据库文件。
+在云服务器控制台的防火墙/安全组放行入站 TCP **8088**。如果主机已经启用 UFW，也添加对应规则：
 
-```powershell
-# 停止后端后
-./scripts/backup-local.ps1 -DataDir cloudnest-server/.data -Destination backups
-# 恢复到全新目录，不覆盖原目录
-./scripts/restore-local.ps1 -Archive backups/cloudnest-时间.zip -Target G:/CloudNest/restored-data
+```bash
+ufw status
+# 仅在 UFW 已启用时添加；无需为本流程额外启用它
+ufw allow 8088/tcp
 ```
 
-恢复后将 DATA_DIR 和 DATABASE_URL 同时指向新目录。先执行核对工具，再启动正常服务，验证账号、目录、文件摘要、配额与回收站。归档包含私人文件和签名密钥，应保存在受保护的位置。
+保留 SSH 访问规则，不要关闭整个防火墙。浏览器打开：
 
-## 5. MySQL + 本地对象一致性备份
-
-本轮采用维护窗口，停止应用写入，再同时备份 MySQL 和 app_data。下面命令在项目根目录运行，备份目录与数据库实例属于当前 Compose 项目：
-
-```sh
-mkdir -p backups
-docker compose stop web server
-docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -ucloudnest --single-transaction --no-tablespaces --routines --triggers cloudnest' > backups/cloudnest.sql
-docker compose run --rm --no-deps --user 0 --entrypoint tar -v "$PWD/backups:/backup" server -czf /backup/app-data.tar.gz -C /app/data .
-sha256sum backups/cloudnest.sql backups/app-data.tar.gz > backups/SHA256SUMS
-docker compose start server web
+```text
+http://你的服务器公网IP:8088
 ```
 
-备份元信息另记代码版本、数据库迁移版本、时间、对象后端及摘要清单。MinIO 后端需要同一维护窗口的对象桶备份；本地 app_data 不能替代远程桶备份。
+这里使用 `http`，不是 `https`。普通 HTTP 的 `SECURE_COOKIES` 必须保持 `false`，否则浏览器不会发送登录凭证。HTTP 不加密账号与文件传输；需要加密时可另行配置 HTTPS。
 
-恢复在独立的 Compose 项目/主机进行，先验证备份摘要；创建空库和空卷后导入 SQL、解压对象目录并恢复 UID 10001 所有权，再启动 server/web。不要向正在运行或含有新数据的实例直接覆盖。执行完整核对、登录和下载后才切换入口。Linux 的这套命令尚待真实环境演练；本次本地 H2 备份恢复有独立实际报告。
+本机检查：
 
-## 6. 核对与迁移工具
-
-停止普通后端后，用同一 DATABASE_URL/DATA_DIR 和不同临时端口运行维护命令，避免两个实例并发操作同一文件数据库：
-
-```sh
-java -jar cloudnest-server/target/cloudnest-server-1.0.0.jar --server.port=18089 --cloudnest.maintenance=true --cloudnest.action=audit
-# 校正逻辑配额（先检查 audit 输出）
-java -jar cloudnest-server/target/cloudnest-server-1.0.0.jar --server.port=18089 --cloudnest.maintenance=true --cloudnest.action=recount
+```bash
+curl --noproxy '*' -I http://127.0.0.1:8088/
+curl --noproxy '*' -f http://127.0.0.1:8088/api/auth/csrf
 ```
 
-输出以 `CLOUDNEST_MAINTENANCE_RESULT=` 开头的 JSON，包含预期/实际容量和每个对象的校验结果。无问题退出 0，有问题退出 2。recount 更新配额；audit 只读检查。
+首页 200 表示 Web 可用，CSRF 接口成功表示 API 路由可用；后端状态还应以 `docker compose ps` 的健康状态为准。IP 可以打开而域名不行时，不必改动云盘或数据库配置。
 
-如已有独立维护的私有 MinIO/S3 兼容服务，设置 MINIO_ENDPOINT、MINIO_ACCESS_KEY、MINIO_SECRET_KEY、MINIO_BUCKET 后：
+## 邀请用户
 
-```sh
-java -jar cloudnest-server/target/cloudnest-server-1.0.0.jar --server.port=18089 --cloudnest.maintenance=true --cloudnest.action=migrate-minio
+默认 `REGISTRATION_OPEN=false`，公众不能自行注册。管理员登录后打开“账号与安全 → 系统管理”，点击“邀请新用户”，复制完整邀请链接给对方。链接只在创建时显示，一次有效，48 小时过期。通过 IP 访问创建的链接会包含当前 IP 和端口。
+
+## 修改端口
+
+修改 `.env` 中 `WEB_PORT=8088`，例如改成 `WEB_PORT=8090`，然后执行：
+
+```bash
+docker compose config --quiet
+docker compose up -d --no-deps web
 ```
 
-迁移逐对象读取本地文件、验证摘要、写入目标、再次读取验证，最后更新 blob.backend。失败时保留原引用与源文件；已成功部分可重复运行跳过。迁移后设 STORAGE_BACKEND=minio，使新上传使用目标存储；旧本地副本仅在人工确认及备份后清理。
+同时放行新端口，浏览器改用新地址。不要开放 MySQL 的 3306 或 Redis 的 6379。
 
-2026-10-16 官方社区 MinIO 二进制地址返回 410（归档且停止分发），因此默认 Compose 不依赖不可获取的社区镜像，也不下载不明来源程序。适配代码已编译，但真实 MinIO 和迁移尚未验收。
+## 已有部署启用 IP 访问
 
-## 7. 升级、回退与排障
+已经可以用 IP 和端口访问的部署无需修改。已有 HTTPS 或 Tunnel 的部署也无需套用此步骤。
 
-管理员网页“一键更新”须先安装宿主机配套服务，步骤与备份/失败处理见 [系统更新](system-updates.md)。原有手动升级方式仍然可用。
+旧版 `.env` 不会被初始化脚本覆盖。仅对于仍绑定回环地址的普通 HTTP 部署，在 `.env` 中设置：
 
-新版增加历史版本、收藏、会话和邀请等迁移（H2 到 V6，MySQL 到 V7）。升级前停写并备份数据库、对象与签名密钥；请勿直接用旧程序连接已迁移的新库。升级会将旧的临时 ZIP 任务标记失败，用户需重新打包。已有文件、账号和配额保留。
-
-目录压缩下载另外新增 H2 V7、MySQL V8 的 archive_manifest 字段，保存压缩包创建时的目录与文件快照；原有 ZIP 任务采用旧格式兼容读取，不修改之前已经执行的迁移。
-
-### 初始管理员、邀请和密码重置
-
-生产 Compose 默认 `REGISTRATION_OPEN=false`，通过维护命令创建初始管理员，之后管理员可在“账号与安全 → 系统管理”生成一次有效、48 小时过期的邀请链接。开发配置默认开放注册；普通注册绝不会自动获得管理员权限。
-
-维护命令支持 `create-admin`、`create-user`、`reset-password`；用户名用 `--cloudnest.operator-username`，密码仅通过当前进程的 `CN_OPERATOR_PASSWORD` 环境变量输入。重置不会启用一个已禁用的账号，会撤销该账号的全部会话。维护期间停止正常后端，避免与 H2 文件或后台任务竞争。
-
-本机 PowerShell 示例（在项目根目录，先停止后端，确认使用的是现有数据目录）：
-
-```powershell
-$operatorSecret = Read-Host '输入新密码' -AsSecureString
-$env:CN_OPERATOR_PASSWORD = [Net.NetworkCredential]::new('', $operatorSecret).Password
-try {
-  java -jar cloudnest-server/target/cloudnest-server-1.0.0.jar --server.port=0 --cloudnest.maintenance=true --cloudnest.action=create-admin --cloudnest.operator-username=owner --cloudnest.data-dir=G:/CloudNest/cloudnest-server/.data '--spring.datasource.url=jdbc:h2:file:G:/CloudNest/cloudnest-server/.data/cloudnest;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0'
-} finally { Remove-Item Env:CN_OPERATOR_PASSWORD }
+```dotenv
+COMPOSE_FILE=docker-compose.yml:deploy/compose.public.yml
+SECURE_COOKIES=false
 ```
 
-已存在账号需要重置时，把 action 改成 `reset-password` 并填写该账号名。命令成功输出 `CLOUDNEST_MAINTENANCE_RESULT` 且退出码为 0；请检查输出，失败不得当成已创建。
+已经安装更新服务时保留其叠加文件：
 
-Linux Compose 示例（数据库与 Redis 保持运行；下列是待目标服务器实测的部署步骤）：
-
-```sh
-docker compose stop web server
-read -rs -p 'New password: ' CN_OPERATOR_PASSWORD
-export CN_OPERATOR_PASSWORD
-docker compose run --rm --no-deps -e CN_OPERATOR_PASSWORD server --server.port=0 --cloudnest.maintenance=true --cloudnest.action=create-admin --cloudnest.operator-username=owner
-unset CN_OPERATOR_PASSWORD
-docker compose up -d server web
+```dotenv
+COMPOSE_FILE=docker-compose.yml:deploy/compose.public.yml:deploy/compose.updater.yml
 ```
 
-密码不要写进 `.env`、Git、执行日志或命令参数；系统管理员可通过本机维护权限创建账号，普通用户只能持邀请码注册。当前用户选择后续自行填写服务器连接、域名、证书等配置，本轮不修改任何远程服务器。
+然后运行 `docker compose config --quiet` 和 `docker compose up -d --no-deps web`。不要直接覆盖包含其他部署配置的 COMPOSE_FILE；先核对其用途。显式使用 `-f` 会覆盖环境变量选择，日常直接使用 `docker compose`。
 
-1. 记录版本并备份数据库与对象，检查磁盘容量。
-2. 构建并测试新版本；暂停写入，替换代码/镜像并启动。
-3. 检查 Flyway、健康、注册登录、上传/下载/预览和回收站。
-4. 回退须考虑迁移兼容性；无法直接回退时恢复同一快照的数据库和对象，不能只回退一个部分。
+## 更新项目
 
-| 现象 | 检查与处理 |
+先完成下一节的一致性备份，再执行：
+
+```bash
+git pull --ff-only
+docker compose config --quiet
+docker compose up -d --build --wait --wait-timeout 180
+docker compose ps
+```
+
+本地修改导致 Git 拒绝更新时，先检查差异，不要强制覆盖。配置放在 `.env`，私有资料不要放进源码目录。更新后检查登录、上传、下载和分享。
+
+网页“一键更新”需要首次安装宿主机更新服务，见 [系统更新](system-updates.md)。它会在切换前备份数据库和对象。更新不会自动覆盖已有 `.env`。
+
+## 备份与恢复
+
+`mysql_data` 保存数据库，`app_data` 保存文件对象、分片和签名密钥。数据库、对象和密钥必须成套备份。**不要执行 `docker compose down -v`，它会删除业务数据卷。** Redis 只用于限流。
+
+以下命令在项目根目录执行，适用于本流程的 MySQL + 本地对象存储，会短暂停止访问；开始前确认四个服务原本均在运行：
+
+```bash
+(
+  set -eu
+  umask 077
+  backup_dir="$PWD/backups/$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$backup_dir"
+  trap 'docker compose start server web' EXIT
+  docker compose stop web server
+  docker compose exec -T mysql sh -c 'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -ucloudnest --single-transaction --no-tablespaces --routines --triggers cloudnest' > "$backup_dir/cloudnest.sql"
+  docker compose run --rm --no-deps --user 0 --entrypoint tar -v "$backup_dir:/backup" server -czf /backup/app-data.tar.gz -C /app/data .
+  cp .env "$backup_dir/.env"
+  cp docker-compose.yml "$backup_dir/docker-compose.yml"
+  cp -r deploy "$backup_dir/deploy"
+  git rev-parse HEAD > "$backup_dir/commit.txt"
+  (cd "$backup_dir" && sha256sum cloudnest.sql app-data.tar.gz .env docker-compose.yml commit.txt > SHA256SUMS)
+  printf 'Backup: %s\n' "$backup_dir"
+)
+```
+
+任一步报错都不能当作成功备份。备份含私人文件和密码，保存在受保护位置并转移一份到其他机器，不上传 GitHub。若使用远程 S3/MinIO，还必须在同一停写窗口备份对象桶。
+
+恢复应在独立主机或独立 Compose 项目进行：先执行 `sha256sum -c SHA256SUMS`，使用记录的代码版本及配置创建空数据库和对象卷，停止 server/web，导入 SQL、解压对象归档到 `/app/data` 并恢复 UID/GID `10001:10001`，再启动应用。确认登录、文件下载、配额与分享均正常后再切换入口。不要覆盖正在使用的数据；数据库已经迁移后不能仅切换旧镜像回退。
+
+开发 H2 数据使用停止后端后的完整目录备份，可使用 `scripts/backup-local.ps1` 与 `scripts/restore-local.ps1`，不混用 MySQL 的 SQL 恢复流程。
+
+## 重置管理员密码
+
+在项目根目录执行，确认当前 server/web 正常运行。此操作撤销该账号全部登录会话，不会自动启用已禁用账号：
+
+```bash
+(
+  read -r -s -p '输入新密码: ' CN_OPERATOR_PASSWORD
+  printf '\n'
+  read -r -s -p '再次输入: ' confirmation
+  printf '\n'
+  if [ "$CN_OPERATOR_PASSWORD" != "$confirmation" ]; then
+    echo '两次输入不同，请重新执行。'
+    exit 1
+  fi
+  export CN_OPERATOR_PASSWORD
+  trap 'unset CN_OPERATOR_PASSWORD; docker compose start server web' EXIT
+  docker compose stop web server &&
+  docker compose run --rm --no-deps -e CN_OPERATOR_PASSWORD server \
+    --server.port=0 --cloudnest.maintenance=true \
+    --cloudnest.action=reset-password --cloudnest.operator-username=owner
+)
+```
+
+等待维护结果 `problems: 0` 后再登录。维护命令的正常退出不是服务故障；检查随后 server/web 已恢复运行。密码不要放入命令参数、`.env` 或截图。
+
+## 常见问题
+
+| 现象 | 排查 |
 | --- | --- |
-| 登录后写请求 403 | 重新取得 /api/auth/csrf，检查同源代理及 Secure Cookie；不要关闭 CSRF |
-| 上传 409 | 检查同名、配额、会话过期和目标目录是否仍有效 |
-| 上传 422 | 内容摘要或分片被修改；取消任务并重选原文件 |
-| 上传 507 | 检查临时盘可用空间；清理已过期任务或扩容 |
-| 反向代理 413/504 | 核对 Nginx 101m、普通上传 100 MiB、分片大小和 600s 合并超时 |
-| 连接 Redis 失败 | 启用 Redis 时限流失败返回 503；恢复 Redis，不静默放开限制 |
-| 已用空间与预期不符 | 回收站仍计费；查看预留会话；停止服务运行 audit/recount |
-| Flyway 校验失败 | 不修改已执行迁移；新增迁移或从一致性备份恢复 |
-| 旧登录凭证失效 | 检查 jwt.key 是否随数据恢复，数据库会话是否仍未过期 |
+| 外部打不开，本机 curl 成功 | 安全组、主机防火墙、WEB_PORT、实际端口映射；客户端代理可先关闭测试 |
+| 首页能打开，API 失败 | `docker compose ps` 与 `docker compose logs --tail=100 server web` |
+| 登录失败 | 核对登录账号，检查维护结果；需要时重置密码；HTTP 使用 SECURE_COOKIES=false |
+| 构建很慢 | 首次依赖下载较多；查看正在执行的阶段及磁盘/内存，保留构建缓存 |
+| 等待健康超时 | 查看 MySQL/server 日志和磁盘内存；修复后重新执行 up，不删除卷 |
+| 上传或 ZIP 失败 | 查看界面具体错误、剩余配额与磁盘；文件和目录打包限制见使用说明 |
+| 数据库迁移校验失败 | 不修改已执行的迁移；从配套备份恢复或新增迁移处理 |
+
+排障日志仅保存在本机，分享前去除密码、Cookie、邀请链接和私人文件信息。

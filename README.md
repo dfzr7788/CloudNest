@@ -1,100 +1,97 @@
 # CloudNest 私人云盘
 
-Vue 3 + TypeScript / Java 21 + Spring Boot 的多用户私人云盘。包含目录管理、文件上传下载、图片/PDF/文本预览、回收站、配额、分片续传、同用户秒传、带提取码的分享与批量 ZIP 下载。
+基于 Vue 3、TypeScript、Java 21 和 Spring Boot 的多用户私人云盘。支持独立存储空间、文件管理、目录上传、分片续传、在线预览、文件分享、回收站、历史版本及文件夹 ZIP 下载。
 
-现已按改进计划增加账号密码与会话管理、目录上传、批量整理与撤销、收藏/最近使用/筛选、文件夹分享、历史版本、缩略图、回收站保留策略及管理员邀请/配额/禁用。使用方法见 [新版使用说明](docs/improvement-usage.md)，最新实际验证见 [改进版报告](docs/improvement-report.md)。
+## 服务器快速部署
 
-## 本机启动
+需要 Linux 服务器、Git、OpenSSL、Docker Engine 和 Docker Compose 2.24.4+。无需预装 Java、Node.js、MySQL，也无需上传数据库。没有 Docker 时，先按 [完整部署手册](docs/deployment.md) 安装。
 
-需要 Java 21、Maven 3.9+、Node.js 22.13+ 或 24+（本次验证使用 Node 24）。打开两个终端：
+在服务器终端执行：
 
-```powershell
-# 终端 1：项目根目录
-./scripts/dev.ps1 server
-
-# 终端 2
-cd cloudnest-web
-npm ci
-npm run dev
-```
-
-访问 <http://127.0.0.1:5173>，自行注册账号。没有默认管理员和默认账号。前端将 `/api` 代理到本机 8080。
-
-默认使用 H2 文件数据库和本地磁盘，不依赖 MySQL、Redis 或对象存储即可开发。数据、对象、上传分片和会话签名密钥保存在 `cloudnest-server/.data/`；请连同数据库一起备份，不要删除 `jwt.key`。服务重启后已提交文件与未完成上传会话继续保留。
-
-## 构建与验证
-
-```powershell
-./scripts/dev.ps1 test
-./scripts/dev.ps1 build
-
-# 前后端启动后执行浏览器测试，需要本机 Chrome
-cd cloudnest-web
-npm run test:e2e
-```
-
-后端发布包：`cloudnest-server/target/cloudnest-server-1.0.0.jar`。前端发布目录：`cloudnest-web/dist/`。
-
-```powershell
-# 独立运行后端；工作目录影响默认 .data 位置，建议明确指定
-java -jar cloudnest-server/target/cloudnest-server-1.0.0.jar --cloudnest.data-dir=G:/CloudNest/cloudnest-server/.data '--spring.datasource.url=jdbc:h2:file:G:/CloudNest/cloudnest-server/.data/cloudnest;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0'
-```
-
-## 容器部署
-
-服务器安装 Docker Engine 与 Docker Compose 2.24.4+ 后，在克隆的仓库根目录运行。无需预装 Java、Node.js、MySQL 或导入数据库备份：
-
-```sh
+```bash
 git clone https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
 bash scripts/init-env.sh
 docker compose config --quiet
-docker compose up -d --build
-docker compose ps
+docker compose up -d --build --wait --wait-timeout 180
 bash scripts/create-admin.sh owner
 ```
 
-初始化脚本生成三组独立随机密码，已有 `.env` 不会被覆盖。创建管理员时交互输入密码，默认关闭公开注册。数据库表由 Flyway 首次启动自动创建；源码中的 SQL 迁移文件需要上传，真实数据库和用户文件不上传。
+最后一条命令交互设置管理员密码，输入时不会显示字符。成功结果应包含 `"problems":0` 和 `"action":"create-admin"`。没有默认密码，管理员用户名为 `owner`。
 
-默认只发布服务器本机 `127.0.0.1:8088`，生产使用 MySQL 8.4、Redis 7.4 和本地私有对象卷。远程试用可在自己电脑执行 `ssh -L 8088:127.0.0.1:8088 用户@服务器地址`，保持连接后打开 `http://127.0.0.1:8088`。公网 HTTPS、持久卷、备份恢复和升级见 [部署手册](docs/deployment.md)。首次部署需要下载基础镜像与依赖并构建，耗时取决于服务器网络；Linux 容器部署仍需目标环境实际验收。
+在云服务器防火墙放行 **TCP 8088** 后，用浏览器打开：
 
-## 开源与发布
+```text
+http://你的服务器公网IP:8088
+```
 
-管理员面板提供邀请链接复制、分区用户管理和“系统更新”。首次在服务器执行 `bash scripts/install-updater.sh` 启用配套服务，此后可从网页检查 GitHub main 并一键备份、更新、查看结果；详见 [一键更新说明](docs/system-updates.md)。
+使用 `owner` 和刚设置的密码登录。普通用户由管理员在“账号与安全 → 系统管理”生成邀请链接注册，默认关闭自由注册。
 
-项目采用 [MIT 许可证](LICENSE)，第三方依赖保留各自许可证。欢迎阅读 [贡献说明](CONTRIBUTING.md) 和 [安全反馈说明](SECURITY.md)。上传 GitHub 的具体步骤与排除范围见 [公开发布指南](docs/publishing.md)。
+首次构建会下载镜像与依赖。初始化脚本生成独立随机密码，并通过 `.env` 选择公网端口配置，仅开放云盘 Web 端口；数据库、Redis 和后端端口不向宿主机发布。已有 `.env` 不会被覆盖。HTTP 不加密传输，公网长期使用可另行配置 HTTPS；基础部署不需要域名、证书或 Cloudflare。
 
-## 功能边界
+完整步骤包括 Docker 安装、放行端口、修改端口、密码重置、备份和排障，见 [部署手册](docs/deployment.md)。
 
-- 默认每用户 5 GiB；按逻辑文件大小累计，回收站仍占空间。
-- 普通上传最大 100 MiB；前端统一使用分片接口，默认单文件最大 2 GiB，8 MiB 分片、3 路并发。
-- 暂停与刷新后续传：重新选择原文件，浏览器在 Worker 中核验 SHA-256，仅上传缺失分片。
-- 秒传和去重只发生在同一用户范围，服务器重新校验首次上传内容。
-- 支持 PNG/JPEG/GIF/WebP/BMP、PDF、2 MiB 内纯文本预览。其他文件仍可保存下载；HTML/SVG 不直接执行。
-- 分享最长 30 天，可选提取码、仅预览/可下载、随时撤销；删除源文件会撤销分享。
-- 批量 ZIP 可选择文件或文件夹，保留目录树和空目录；最多选择 100 项，展开后最多 1000 文件、2000 个文件与目录，总大小 512 MiB；每用户同时最多两个任务，产物保留一小时。
-- 文件夹可以从“…”菜单选择“压缩下载”，或勾选后点击“打包下载”，详见 [文件夹下载说明](docs/folder-downloads.md)。
-- 运行一个后端实例，暂不支持多实例部署、客户端同步、Office 编辑与跨用户去重。
-- 文件夹是动态分享，单文件分享固定创建时的内容；历史版本计入配额，最多保留 20 份。具体改进边界见新版使用说明。
-- MinIO 适配和迁移工具已提供；2026-10-16 官方社区下载地址返回 410，真实 MinIO 验证状态和替代部署方式见测试报告及部署手册。
+## 功能
 
-## 项目记录
+- 文件与目录：多级目录、搜索、筛选、收藏、最近使用、列表/网格、批量移动和删除。
+- 上传：目录上传、SHA-256 校验、同用户秒传、分片并发、暂停与断点续传。
+- 下载：单文件下载、整文件夹和多文件夹 ZIP，保留子目录与空目录。
+- 预览：图片、PDF、文本；部分音视频可由浏览器原生播放。
+- 分享：文件/文件夹链接、有效期、提取码、下载权限与撤销。
+- 数据管理：回收站恢复、保留策略、历史版本、容量配额。
+- 账号管理：密码与登录会话、管理员邀请、用户配额和禁用。
+- 系统更新：可选安装宿主机更新服务，从管理员页面检查 GitHub 并备份更新。
 
-| 文档 | 用途 |
+详细入口及限制见 [使用说明](docs/usage.md)。默认每用户 5 GiB、单文件最大 2 GiB；回收站及历史版本占用配额。ZIP 展开最多 1000 个文件、2000 个文件与目录、总大小 512 MiB，产物保留 1 小时。当前只支持一个后端实例。
+
+## 更新与数据
+
+服务器数据保存在 Docker 的 `mysql_data`、`app_data` 命名卷中；`.env` 保存部署密码。重建容器保留数据，**不要执行 `docker compose down -v`**。
+
+手动升级前按 [部署手册](docs/deployment.md#备份与恢复) 备份，再执行：
+
+```bash
+git pull --ff-only
+docker compose up -d --build --wait --wait-timeout 180
+```
+
+浏览器一键更新需要在服务器安装一次配套服务，详见 [系统更新说明](docs/system-updates.md)。已有部署拉取代码不会重写 `.env`；旧部署若仍仅监听回环地址，按部署手册的“已有部署启用 IP 访问”配置。
+
+## 本机开发
+
+需要 Java 21、Maven 3.9+、Node.js 22.13+ 或 24+。Windows 打开两个 PowerShell 窗口，在项目根目录分别执行：
+
+```powershell
+# 窗口 1
+.\scripts\dev.ps1 server
+
+# 窗口 2
+.\scripts\dev.ps1 web
+```
+
+如果使用 CMD，执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 server`，另一个窗口将最后的 `server` 换成 `web`。
+
+打开 <http://127.0.0.1:5173>，开发环境默认开放注册，使用 H2 与本地磁盘；数据保存在 `cloudnest-server/.data/`。Linux/macOS 开发可在 `cloudnest-server` 中执行 `mvn spring-boot:run`，另一个终端在 `cloudnest-web` 中执行 `npm ci`、`npm run dev`。
+
+```bash
+# 后端测试
+mvn -f cloudnest-server/pom.xml test
+# 前端类型检查及生产构建
+cd cloudnest-web
+npm ci
+npm run build
+# 前后端启动后执行浏览器测试，需要本机 Chrome
+npm run test:e2e
+```
+
+## 文档与开源
+
+| 文档 | 内容 |
 | --- | --- |
-| [plan.md](plan.md) | 原计划、实施状态及后续执行依据 |
-| [改进与新增功能计划](docs/improvement-plan.md) | 下一版优先级、功能边界、阶段安排与逐项预期结果 |
-| [新版使用说明](docs/improvement-usage.md) | 新增功能的入口、操作和限制 |
-| [改进版验收报告](docs/improvement-report.md) | 本轮真实测试、恢复结果与未覆盖项 |
-| [改进版验收预期](docs/improvement-acceptance.md) | 每个新增用例的输入、预期和数据检查 |
-| [验收清单](docs/acceptance.md) | 每项预期结果、操作、实际状态和测试对应关系 |
-| [测试报告](docs/test-report.md) | 实际通过项、失败修复及环境限制 |
-| [执行日志](docs/execution-log.md) | 开发过程与发现的问题 |
-| [设计说明](docs/design.md) | 数据模型、流程、状态机和页面结构 |
-| [API 说明](docs/api.md) | 请求、响应、权限和错误语义 |
-| [OpenAPI](docs/openapi.json) | 可导入 Apifox 的接口清单 |
-| [部署手册](docs/deployment.md) | 启动、TLS、备份恢复、迁移与维护 |
-| [实施决策](docs/decisions.md) | 与原计划的差异及原因 |
+| [部署手册](docs/deployment.md) | 从安装 Docker 到 IP＋端口访问、维护和备份 |
+| [使用说明](docs/usage.md) | 上传、下载、分享、邀请和账号管理 |
+| [系统更新](docs/system-updates.md) | 一键更新的安装、流程和故障处理 |
+| [API](docs/api.md) / [OpenAPI](docs/openapi.json) | 接口和权限约定 |
+| [贡献说明](CONTRIBUTING.md) / [安全反馈](SECURITY.md) | 开发贡献与问题报告 |
 
-详细原始验证产物保存在开发者本机 `docs/evidence/`，不随公开仓库分发；报告中的原始证据链接在其他克隆中可能不可用，见该目录说明。待验证环境不会标为通过。
-
+项目采用 [MIT 许可证](LICENSE)。仓库只包含源代码、部署配置、测试及必要说明；数据库、私人文件、密码、备份、构建产物和开发过程日志不上传。

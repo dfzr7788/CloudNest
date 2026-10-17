@@ -36,5 +36,12 @@ secrets/
 .vscode/
 __pycache__/
 # Raw evidence contains machine paths, environment properties and test accounts.
-docs/evidence/*
-!docs/evidence/README.md
+docs/evidence/
+# Development history and generated reports are local artifacts.
+/plan.md
+/docs/*-report.md
+/docs/*-acceptance.md
+/docs/acceptance.md
+/docs/execution-log.md
+/docs/improvement-plan.md
+/docs/release-manifest.json

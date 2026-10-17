@@ -1,0 +1,4 @@
+# Selected by the generated .env for IP:port access. Other services stay private.
+services:
+  web:
+    ports: !override ["0.0.0.0:${WEB_PORT:-8088}:80"]
