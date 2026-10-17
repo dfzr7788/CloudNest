@@ -1427,4 +1427,60 @@ class CloudNestIntegrationTest {
     call(u, post("/api/downloads"), Map.of("fileIds", List.of(root)), 413);
     assertEquals(0, db.count("SELECT COUNT(*) FROM download_job WHERE user_id=?", u.id));
   }
+
+  @Test
+  void P01_wordAndMarkdownPreviewPreserveAuthorizationAndDownload() throws Exception {
+    byte[] bytes;
+    try (var doc = new org.apache.poi.xwpf.usermodel.XWPFDocument();
+        var out = new ByteArrayOutputStream()) {
+      doc.createParagraph().createRun().setText("Private Word preview");
+      doc.write(out);
+      bytes = out.toByteArray();
+    }
+    String file = upload(a, a.root, unique() + ".docx", bytes);
+    assertTrue(
+        read(call(a, get("/api/files/" + file + "/preview"), null, 200))
+            .path("html")
+            .asText()
+            .contains("Private Word preview"));
+    call(b, get("/api/files/" + file + "/preview"), null, 404);
+    assertArrayEquals(
+        bytes,
+        call(a, get("/api/files/" + file + "/download"), null, 200)
+            .getResponse()
+            .getContentAsByteArray());
+    String token =
+        read(call(
+                a,
+                post("/api/shares"),
+                Map.of("fileId", file, "hours", 1, "allowDownload", false),
+                200))
+            .path("token")
+            .asText();
+    assertTrue(
+        read(call(null, get("/api/public/shares/" + token + "/preview"), null, 200))
+            .path("html")
+            .asText()
+            .contains("Private Word preview"));
+    call(null, get("/api/public/shares/" + token + "/download"), null, 403);
+    String md = upload(a, a.root, unique() + ".md", text("# Markdown heading"));
+    assertEquals(
+        "# Markdown heading",
+        call(a, get("/api/files/" + md + "/preview"), null, 200)
+            .getResponse()
+            .getContentAsString());
+    String htmlMd =
+        upload(
+            a,
+            a.root,
+            unique() + ".markdown",
+            text("<html><script>alert(1)</script></html>\n\n# Markdown"));
+    assertTrue(
+        call(a, get("/api/files/" + htmlMd + "/preview"), null, 200)
+            .getResponse()
+            .getContentType()
+            .startsWith("text/plain"));
+    String bad = upload(a, a.root, unique() + ".doc", text("broken document"));
+    call(a, get("/api/files/" + bad + "/preview"), null, 422);
+  }
 }

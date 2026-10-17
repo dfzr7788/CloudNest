@@ -118,3 +118,9 @@
 - `POST /api/admin/updates`：检查管理员和 CSRF，JSON 为 `{"action":"check"}` 或 `{"action":"update"}`。只接受固定动作，不接受命令、仓库 URL、路径或版本参数。成功返回 accepted=true；未知动作 400、重复/执行中 409、服务不可用 503。
 - 后台服务写入只读状态目录；应用只写请求队列。构建、备份、重启、健康检查与失败行为见 [更新说明](system-updates.md)。
 
+
+## 文档预览
+
+现有私有文件、固定分享与目录分享的 preview 接口增加 DOC/DOCX 解析，返回 `application/json`，结构为 `{html}`；下载接口仍返回原始文件。Word 限制为 10 MiB，OOXML 展开上限 32 MiB、4000 项，阅读 HTML 最多约 2M 字符，同时最多两次解析；损坏/加密文档 422、超限 413、繁忙 503。输出只包含转义后的文字与基本段落/表格结构，客户端另行清理 HTML。Word 权限与原预览接口一致，不要求开放下载权限。
+
+Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按扩展名或 Markdown MIME 识别并安全渲染。ZIP 接口及既有数量限制不变，前端跨目录保留最多 100 个入口，不扩大用户或分享权限范围。

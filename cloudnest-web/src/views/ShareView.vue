@@ -4,6 +4,8 @@ import { api, errorText, bytes, date, type Entry } from "../api";
 import { Cloudy, Lock, Download, View } from "@element-plus/icons-vue";
 import FileMark from "../components/FileMark.vue";
 import PreviewDialog from "../components/PreviewDialog.vue";
+import SelectionBasket from "../components/SelectionBasket.vue";
+import { useSelection } from "../selection";
 const props = defineProps<{ token: string }>(),
   info = ref<{
     locked: boolean;
@@ -17,10 +19,14 @@ const props = defineProps<{ token: string }>(),
   preview = ref<Entry | null>(null);
 const children = ref<Entry[]>([]),
   stack = ref<string[]>([]),
-  selected = ref<Entry[]>([]),
+  stackNames = ref<string[]>([]),
   page = ref(1),
   total = ref(0),
   zipBusy = ref(false);
+const { selected, isSelected, allSelected, toggle, togglePage } = useSelection(
+  children,
+  () => [info.value?.file?.name || "分享根目录", ...stackNames.value].join("/"),
+);
 async function folder(id?: string) {
   try {
     const { data } = await api.get(`/public/shares/${props.token}/entries`, {
@@ -28,7 +34,6 @@ async function folder(id?: string) {
     });
     children.value = data.items;
     total.value = data.total;
-    selected.value = [];
   } catch (e) {
     error.value = errorText(e);
   }
@@ -36,20 +41,24 @@ async function folder(id?: string) {
 function enter(e: Entry) {
   if (e.kind === "FOLDER") {
     stack.value.push(e.id);
+    stackNames.value.push(e.name);
     page.value = 1;
     folder(e.id);
   } else preview.value = e;
 }
 function back() {
   stack.value.pop();
+  stackNames.value.pop();
   page.value = 1;
   folder(stack.value.at(-1));
 }
-async function zip() {
+async function zip(entries = selected.value) {
+  if (!entries.length || zipBusy.value) return;
+  error.value = "";
   zipBusy.value = true;
   try {
     const { data } = await api.post(`/public/shares/${props.token}/downloads`, {
-      fileIds: selected.value.filter((e) => e.kind === "FILE").map((e) => e.id),
+      fileIds: entries.map((e) => e.id),
     });
     for (let n = 0; n < 600; n++) {
       const status = (
@@ -150,12 +159,15 @@ onMounted(load);
           <template v-if="info.file.kind === 'FOLDER'"
             ><el-button v-if="stack.length" @click="back">返回上级</el-button
             ><el-button
-              v-if="
-                info.allowDownload && selected.some((e) => e.kind === 'FILE')
-              "
+              v-if="info.allowDownload && selected.length > 0"
               :loading="zipBusy"
-              @click="zip"
-              >打包选中文件</el-button
+              @click="zip()"
+              >打包选中项目 ({{ selected.length }})</el-button
+            ><el-button
+              v-if="info.allowDownload"
+              :loading="zipBusy"
+              @click="zip([info.file!])"
+              >下载整个文件夹</el-button
             ></template
           >
           <template v-else>
@@ -171,13 +183,25 @@ onMounted(load);
         </div>
         <template v-if="info.file.kind === 'FOLDER'"
           ><p>动态分享：目录内容随分享者整理而变化。</p>
-          <el-table :data="children" @selection-change="selected = $event"
-            ><el-table-column
-              v-if="info.allowDownload"
-              type="selection"
-              width="45"
-              :selectable="(e: Entry) => e.kind === 'FILE'"
-            /><el-table-column label="名称"
+          <div v-if="info.allowDownload" class="share-selection">
+            <el-checkbox :model-value="allSelected()" @change="togglePage"
+              >全选当前页</el-checkbox
+            ><span>已选 {{ selected.length }} 项（跨目录保留）</span
+            ><SelectionBasket v-model="selected" /><el-button
+              v-if="selected.length"
+              size="small"
+              @click="selected = []"
+              >取消选择</el-button
+            >
+          </div>
+          <el-table :data="children"
+            ><el-table-column v-if="info.allowDownload" width="45"
+              ><template #default="{ row }"
+                ><el-checkbox
+                  :model-value="isSelected(row)"
+                  :aria-label="'选择 ' + row.name"
+                  @change="toggle(row)" /></template></el-table-column
+            ><el-table-column label="名称"
               ><template #default="{ row }"
                 ><el-button text @click="enter(row)"
                   >{{ row.kind === "FOLDER" ? "📁 " : ""
@@ -190,6 +214,12 @@ onMounted(load);
                   v-if="info.allowDownload && row.kind === 'FILE'"
                   :href="`/api/public/shares/${token}/entries/${row.id}/download`"
                   >下载</a
+                ><el-button
+                  v-else-if="info.allowDownload"
+                  text
+                  :disabled="zipBusy"
+                  @click="zip([row])"
+                  >打包</el-button
                 ></template
               ></el-table-column
             ></el-table
@@ -224,3 +254,14 @@ onMounted(load);
     />
   </main>
 </template>
+
+<style scoped>
+.share-selection {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 16px 0;
+  text-align: left;
+}
+</style>

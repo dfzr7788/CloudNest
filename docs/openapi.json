@@ -1066,12 +1066,31 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "description": "预览：Word 返回阅读 HTML 的 JSON，Markdown/文本返回 UTF-8 文本，其他支持类型返回原始内容",
             "content": {
               "application/octet-stream": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "html": {
+                      "type": "string",
+                      "description": "转义后的 Word 阅读内容；客户端仍须清理 HTML"
+                    }
+                  },
+                  "required": [
+                    "html"
+                  ]
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1093,6 +1112,18 @@
           },
           "429": {
             "description": "请求过于频繁"
+          },
+          "413": {
+            "description": "预览大小或复杂度超限"
+          },
+          "415": {
+            "description": "不支持的预览类型"
+          },
+          "422": {
+            "description": "文档损坏、已加密或无法解析"
+          },
+          "503": {
+            "description": "文档预览繁忙"
           }
         },
         "security": [
@@ -2170,12 +2201,31 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "description": "预览：Word 返回阅读 HTML 的 JSON，Markdown/文本返回 UTF-8 文本，其他支持类型返回原始内容",
             "content": {
               "application/octet-stream": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "html": {
+                      "type": "string",
+                      "description": "转义后的 Word 阅读内容；客户端仍须清理 HTML"
+                    }
+                  },
+                  "required": [
+                    "html"
+                  ]
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -2197,6 +2247,18 @@
           },
           "429": {
             "description": "请求过于频繁"
+          },
+          "413": {
+            "description": "预览大小或复杂度超限"
+          },
+          "415": {
+            "description": "不支持的预览类型"
+          },
+          "422": {
+            "description": "文档损坏、已加密或无法解析"
+          },
+          "503": {
+            "description": "文档预览繁忙"
           }
         },
         "security": []
@@ -3755,12 +3817,31 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "description": "预览：Word 返回阅读 HTML 的 JSON，Markdown/文本返回 UTF-8 文本，其他支持类型返回原始内容",
             "content": {
               "application/octet-stream": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "html": {
+                      "type": "string",
+                      "description": "转义后的 Word 阅读内容；客户端仍须清理 HTML"
+                    }
+                  },
+                  "required": [
+                    "html"
+                  ]
+                }
+              },
+              "text/plain": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -3782,6 +3863,18 @@
           },
           "429": {
             "description": "请求过于频繁"
+          },
+          "413": {
+            "description": "预览大小或复杂度超限"
+          },
+          "415": {
+            "description": "不支持的预览类型"
+          },
+          "422": {
+            "description": "文档损坏、已加密或无法解析"
+          },
+          "503": {
+            "description": "文档预览繁忙"
           }
         },
         "security": []

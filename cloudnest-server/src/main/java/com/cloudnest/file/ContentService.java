@@ -16,11 +16,20 @@ public class ContentService {
   private final Db db;
   private final DriveService drive;
   private final StorageService storage;
+  private final WordPreview word;
+  private final com.fasterxml.jackson.databind.ObjectMapper json;
 
-  public ContentService(Db db, DriveService drive, StorageService storage) {
+  public ContentService(
+      Db db,
+      DriveService drive,
+      StorageService storage,
+      WordPreview word,
+      com.fasterxml.jackson.databind.ObjectMapper json) {
     this.db = db;
     this.drive = drive;
     this.storage = storage;
+    this.word = word;
+    this.json = json;
   }
 
   public Map<String, Object> blob(String uid, String id) {
@@ -52,7 +61,24 @@ public class ContentService {
       throws IOException {
     String mime = s(b, "mime");
     long size = n(b, "size");
+    // Markdown may be detected as HTML (for example when it starts with an HTML block).
+    // Always serve it as inert text; the client renders and sanitizes it separately.
+    if (preview && s(e, "name").toLowerCase(Locale.ROOT).matches(".*\\.(md|markdown)"))
+      mime = "text/plain";
     if (preview) {
+      if (WordPreview.supported(s(e, "name"), mime)) {
+        if (size > WordPreview.MAX_SIZE)
+          throw new Problem(413, "PREVIEW_TOO_LARGE", "Word 文档超过 10 MiB，请下载后查看");
+        String html;
+        try (InputStream input = open(b)) {
+          html = word.render(input, s(e, "name"), mime);
+        }
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setContentType("application/json;charset=UTF-8");
+        json.writeValue(res.getOutputStream(), Map.of("html", html));
+        return;
+      }
       if (!Set.of(
               "image/png",
               "image/jpeg",
@@ -66,9 +92,11 @@ public class ContentService {
               "audio/ogg",
               "video/mp4",
               "video/webm",
-              "text/plain")
+              "text/plain",
+              "text/markdown",
+              "text/x-markdown")
           .contains(mime)) throw new Problem(415, "PREVIEW_UNSUPPORTED", "该类型暂不支持预览，请下载后查看");
-      if (mime.equals("text/plain") && size > 2 * 1024 * 1024)
+      if (mime.startsWith("text/") && size > 2 * 1024 * 1024)
         throw new Problem(413, "PREVIEW_TOO_LARGE", "文本超过 2 MiB，请下载后查看");
     }
     long offset = 0, length = size;
@@ -110,7 +138,7 @@ public class ContentService {
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setContentType(
           preview
-              ? (mime.equals("text/plain") ? "text/plain;charset=UTF-8" : mime)
+              ? (mime.startsWith("text/") ? "text/plain;charset=UTF-8" : mime)
               : "application/octet-stream");
       res.setHeader(
           "Content-Disposition",

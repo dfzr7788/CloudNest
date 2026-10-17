@@ -24,6 +24,11 @@ def endpoint(method,path,summary,body=None,queries=None,public=False,binary=Fals
     if method=='delete' or method=='put' or path=='/auth/logout':success={'description':'成功，空响应体'}
     responses={'200':success,'400':{'description':'参数无效'},'401':{'description':'未登录'},'403':{'description':'授权或 CSRF 校验失败'},'404':{'description':'资源不存在或不可访问'},'409':{'description':'名称、配额或状态冲突'},'429':{'description':'请求过于频繁'}}
     if method=='post' and path.endswith('/downloads'): responses['413']={'description':'递归展开数量或总大小超过打包上限'}
+    if method=='get' and path.endswith('/preview'):
+        success['description']='预览：Word 返回阅读 HTML 的 JSON，Markdown/文本返回 UTF-8 文本，其他支持类型返回原始内容'
+        success['content']['application/json']={'schema':obj({'html':field(description='转义后的 Word 阅读内容；客户端仍须清理 HTML')})}
+        success['content']['text/plain']={'schema':field()}
+        responses.update({'413':{'description':'预览大小或复杂度超限'},'415':{'description':'不支持的预览类型'},'422':{'description':'文档损坏、已加密或无法解析'},'503':{'description':'文档预览繁忙'}})
     operation=dict(summary=summary,operationId=method+'_'+path.replace('/','_').replace('{','').replace('}',''),parameters=parameters,responses=responses,security=[] if public else [{'cookieAuth':[]}])
     if body: operation['requestBody']={'required':True,'content':{'multipart/form-data' if multipart else 'application/octet-stream' if binary and method=='put' else 'application/json':{'schema':body}}}
     paths.setdefault(path,{})[method]=operation

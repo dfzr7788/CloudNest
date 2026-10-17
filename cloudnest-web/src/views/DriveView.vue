@@ -46,6 +46,8 @@ import VersionHistory from "../components/VersionHistory.vue";
 import Thumbnail from "../components/Thumbnail.vue";
 import ShareSettings from "../components/ShareSettings.vue";
 import DownloadCenter from "../components/DownloadCenter.vue";
+import SelectionBasket from "../components/SelectionBasket.vue";
+import { useSelection } from "../selection";
 const editingShare = ref<{
     id: string;
     expiresAt: number;
@@ -92,11 +94,16 @@ const section = ref("drive"),
   grid = ref(localStorage.getItem("cloudnest-grid") === "true"),
   busy = ref(false),
   failure = ref(""),
-  selected = ref<Entry[]>([]),
   preview = ref<Entry | null>(null),
   moving = ref<Entry | null>(null),
   fileInput = ref<HTMLInputElement>(),
   drop = ref(false);
+const {
+  selected,
+  allSelected,
+  toggle: selectCard,
+  togglePage,
+} = useSelection(items, () => crumbs.value.map((c) => c.name).join("/"));
 const undoIds = ref<string[]>([]);
 let undoTimer: ReturnType<typeof setTimeout> | undefined;
 function rememberDelete(ids: string[]) {
@@ -160,7 +167,6 @@ async function load() {
   const thisRequest = ++requestId;
   busy.value = true;
   failure.value = "";
-  selected.value = [];
   try {
     if (section.value === "drive") {
       const [list, path] = await Promise.all([
@@ -216,6 +222,7 @@ function navigate(id: string) {
   load();
 }
 function tab(value: string) {
+  if (section.value !== value) selected.value = [];
   section.value = value;
   query.value = "";
   page.value = 1;
@@ -428,6 +435,12 @@ async function batch(action: string, parentId?: string) {
       action,
       parentId,
     });
+    const done = new Set(
+      data.results
+        .filter((r: { status: string }) => r.status === "success")
+        .map((r: { id: string }) => r.id),
+    );
+    selected.value = selected.value.filter((e) => !done.has(e.id));
     await load();
     if (action === "trash")
       rememberDelete(
@@ -605,11 +618,6 @@ function command(c: string, e: Entry) {
   if (c === "move") moving.value = e;
   if (c === "delete") remove(e);
   if (c === "share") share(e);
-}
-function selectCard(e: Entry) {
-  selected.value = selected.value.some((v) => v.id === e.id)
-    ? selected.value.filter((v) => v.id !== e.id)
-    : [...selected.value, e];
 }
 </script>
 <template>
@@ -920,15 +928,12 @@ function selectCard(e: Entry) {
           v-if="section !== 'shares'"
           style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0"
         >
-          <el-checkbox
-            :model-value="items.length > 0 && selected.length === items.length"
-            @change="
-              selected = selected.length === items.length ? [] : [...items]
-            "
+          <el-checkbox :model-value="allSelected()" @change="togglePage"
             >全选当前页</el-checkbox
           >
-          <span>已选 {{ selected.length }} 项</span
-          ><el-button size="small" @click="selected = []">取消选择</el-button>
+          <span>已选 {{ selected.length }} 项（跨目录保留）</span>
+          <SelectionBasket v-model="selected" />
+          <el-button size="small" @click="selected = []">取消选择</el-button>
           <template v-if="selected.length"
             ><template v-if="section === 'drive'"
               ><el-button
@@ -1113,7 +1118,6 @@ function selectCard(e: Entry) {
           ><el-table
             v-else
             :data="items"
-            @selection-change="selected = $event"
             :empty-text="
               section === 'trash'
                 ? '回收站是空的'

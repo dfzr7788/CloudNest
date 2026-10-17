@@ -6,8 +6,9 @@ import {
   type PDFDocumentProxy,
   type RenderTask,
 } from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-GlobalWorkerOptions.workerSrc = workerUrl;
+import PdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?worker";
+// Vite emits a JavaScript worker bundle; no production .mjs MIME mapping is required.
+GlobalWorkerOptions.workerPort ||= new PdfWorker();
 const props = defineProps<{ url: string }>();
 const emit = defineEmits<{ loaded: [] }>(),
   scale = ref(1.5);
