@@ -14,7 +14,7 @@ DOC/DOCX、XLS/XLSX、PPT/PPTX 提供文字和基本表格阅读预览，原文�
 
 ## OnlyOffice
 
-管理员在“账号与安全 → 服务配置”填写自行部署的 Document Server URL、至少 32 字符 JWT 密钥，以及 CloudNest 的完整访问地址。Document Server 和浏览器都必须能访问 CloudNest 地址；CloudNest 必须能访问文档服务。HTTPS 页面应配 HTTPS 文档服务，二者 JWT 密钥须相同。
+管理员在“账号与安全 → 服务与存储”填写自行部署的 Document Server URL、至少 32 字符 JWT 密钥，以及 CloudNest 的完整访问地址。Document Server 和浏览器都必须能访问 CloudNest 地址；CloudNest 必须能访问文档服务。HTTPS 页面应配 HTTPS 文档服务，二者 JWT 密钥须相同。
 
 保存并测试连接后，自己的 Office 文件预览中出现“Office 查看/编辑”入口。编辑保存验证文档服务签名、回调来源和文件修订号，保留旧版本；外部改动后需要重新打开。共享访客不获得编辑入口。编辑授权最长 12 小时；禁用账号、删除文件或外部修改修订号会使其失效。
 
@@ -32,7 +32,7 @@ DOC/DOCX、XLS/XLSX、PPT/PPTX 提供文字和基本表格阅读预览，原文�
 
 ## WebDAV、双重验证和邮件找回
 
-“账号与安全 → 访问与恢复”可创建具名应用密码，选择只读或读写、1～365 天有效期。客户端地址为 `http(s)://服务器地址/dav/`，账号为登录用户名，密码为仅创建时显示的应用密码。最多 20 个，可单独撤销；登录密码和浏览器 Cookie 不能用于 WebDAV。支持 Class 1 的 PROPFIND、GET/HEAD、PUT、MKCOL、MOVE、COPY、DELETE，不提供 LOCK 和无限深度遍历。客户端应使用支持 Class 1 的方式；公网建议 HTTPS。
+“账号与安全 → 验证与客户端”可创建具名应用密码，选择只读或读写、1～365 天有效期。客户端地址为 `http(s)://服务器地址/dav/`，账号为登录用户名，密码为仅创建时显示的应用密码。最多 20 个，可单独撤销；登录密码和浏览器 Cookie 不能用于 WebDAV。支持 Class 1 的 PROPFIND、GET/HEAD、PUT、MKCOL、MOVE、COPY、DELETE，不提供 LOCK 和无限深度遍历。客户端应使用支持 Class 1 的方式；公网建议 HTTPS。
 
 身份验证器支持标准六位 TOTP。启用时手动录入密钥并验证，立即保存十个一次性恢复码。使用过的时间步或恢复码不能重复使用；启用后登录需填写验证代码。丢失验证器和所有恢复码时，服务器维护人员可执行 `bash scripts/reset-mfa.sh 用户名`，输入该账号当前密码清除 MFA 并撤销全部会话及应用密码。忘记密码先按部署手册离线重置。邮件重置不会绕过双重验证。
 

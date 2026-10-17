@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
 import { docx, pdfFixture } from "./document-fixtures";
 
 async function account(page: Page) {
@@ -150,6 +151,72 @@ test("COREUI Markdown 数学代码与相对图片、复制粘贴和搜索入口"
       .getByRole("dialog")
       .getByRole("button", { name: "formula.md", exact: true }),
   ).toHaveCount(2);
+});
+
+test("ACCESSUI 身份验证器与应用密码创建撤销", async ({ page }) => {
+  await account(page);
+  await page.getByRole("button", { name: "账号与安全", exact: true }).click();
+  await page.getByRole("tab", { name: "验证与客户端", exact: true }).click();
+  await page
+    .getByLabel("验证当前密码", { exact: true })
+    .fill("Preview-Test-123");
+  await page.getByRole("button", { name: "设置双重验证", exact: true }).click();
+  const base32 = await page
+    .getByLabel("验证器密钥", { exact: true })
+    .inputValue();
+  let buffer = 0,
+    bits = 0;
+  const bytes: number[] = [];
+  for (const char of base32) {
+    buffer = (buffer << 5) | "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567".indexOf(char);
+    bits += 5;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes.push((buffer >> bits) & 255);
+    }
+  }
+  const counter = Buffer.alloc(8);
+  counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const hash = createHmac("sha1", Buffer.from(bytes)).update(counter).digest();
+  const offset = hash.at(-1)! & 15;
+  const otp = String(
+    (hash.readUInt32BE(offset) & 0x7fffffff) % 1000000,
+  ).padStart(6, "0");
+  await page.getByLabel("双重验证代码", { exact: true }).fill(otp);
+  await page
+    .getByRole("button", { name: "验证代码并启用", exact: true })
+    .click();
+  await expect(page.locator(".access-settings pre")).toContainText("CNREC_");
+  const recovery = (
+    await page.locator(".access-settings pre").innerText()
+  ).split("\n")[0]!;
+  await page
+    .getByLabel("验证当前密码", { exact: true })
+    .fill("Preview-Test-123");
+  await page.getByLabel("双重验证代码", { exact: true }).fill(recovery);
+  await page.getByRole("button", { name: "关闭双重验证", exact: true }).click();
+  await page.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "设置双重验证", exact: true }),
+  ).toBeVisible();
+  await page
+    .getByLabel("验证当前密码", { exact: true })
+    .fill("Preview-Test-123");
+  await page
+    .getByLabel("应用密码名称", { exact: true })
+    .fill("Chrome test device");
+  await page.getByRole("button", { name: "创建应用密码", exact: true }).click();
+  await expect(page.getByLabel("新应用密码", { exact: true })).toHaveValue(
+    /^dav_/,
+  );
+  await page
+    .getByRole("row")
+    .filter({ hasText: "Chrome test device" })
+    .getByRole("button", { name: "撤销", exact: true })
+    .click();
+  await expect(
+    page.getByRole("row").filter({ hasText: "Chrome test device" }),
+  ).toHaveCount(0);
 });
 
 test("PREVIEW01 生产构建 PDF、Markdown 安全渲染及 DOCX 阅读预览", async ({

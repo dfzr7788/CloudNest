@@ -385,6 +385,101 @@ class CloudNestIntegrationTest {
   @Autowired com.cloudnest.user.RuntimeSettings runtimeSettings;
 
   @Test
+  void CORE11_adminConfigurationMasksSecretsAndRejectsOrdinaryUsers() throws Exception {
+    var u = register("config");
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", u.id);
+    call(b, get("/api/admin/config/mail"), null, 403);
+    call(null, get("/api/admin/config/mail"), null, 401);
+    try {
+      call(
+          u,
+          put("/api/admin/config/mail"),
+          Map.of(
+              "host",
+              "smtp.example.test",
+              "port",
+              "587",
+              "password",
+              " secret with spaces ",
+              "from",
+              "test@example.test",
+              "baseUrl",
+              "http://localhost"),
+          200);
+      var config = read(call(u, get("/api/admin/config/mail"), null, 200));
+      assertFalse(config.has("password"));
+      assertEquals("true", config.path("passwordConfigured").asText());
+      call(u, put("/api/admin/config/mail"), Map.of("password", ""), 200);
+      assertEquals(" secret with spaces ", runtimeSettings.get("mail").get("password"));
+      assertFalse(
+          Db.s(
+                  db.one("SELECT setting_value FROM system_setting WHERE name='mail'"),
+                  "setting_value")
+              .contains("secret with spaces"));
+      call(u, put("/api/admin/config/storage"), Map.of("defaultBackend", "s3:000000000000"), 400);
+      call(u, get("/api/admin/storage"), null, 200);
+      call(b, get("/api/admin/storage"), null, 403);
+    } finally {
+      runtimeSettings.set("mail", Map.of());
+    }
+  }
+
+  @Test
+  void CORE12_cancelBuildingZipDoesNotReviveAndCannotCancelAnotherUsersJob() throws Exception {
+    var u = register("cancelzip");
+    String file = upload(u, u.root, "cancel.txt", text("cancel payload"));
+    String key =
+        Db.s(
+            db.one(
+                "SELECT b.object_key FROM file_blob b JOIN drive_entry e ON e.blob_id=b.id WHERE"
+                    + " e.id=?",
+                file),
+            "object_key");
+    var entered = new CountDownLatch(1);
+    var release = new CountDownLatch(1);
+    doAnswer(
+            invocation -> {
+              InputStream input = (InputStream) invocation.callRealMethod();
+              return new FilterInputStream(input) {
+                @Override
+                public int read(byte[] bytes, int offset, int length) throws IOException {
+                  entered.countDown();
+                  try {
+                    if (!release.await(5, TimeUnit.SECONDS))
+                      throw new IOException("Test release timed out");
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IOException(e);
+                  }
+                  return super.read(bytes, offset, length);
+                }
+              };
+            })
+        .when(storage)
+        .open(eq("local"), eq(key), anyLong(), anyLong());
+    try {
+      String id =
+          read(call(u, post("/api/downloads"), Map.of("fileIds", List.of(file)), 200))
+              .path("id")
+              .asText();
+      assertTrue(entered.await(5, TimeUnit.SECONDS));
+      call(b, delete("/api/downloads/" + id), null, 404);
+      call(u, delete("/api/downloads/" + id), null, 200);
+      release.countDown();
+      Path archive = data.resolve("downloads").resolve(id + ".zip");
+      for (int n = 0; n < 200 && Files.exists(archive); n++) Thread.sleep(25);
+      assertFalse(Files.exists(archive));
+      assertEquals(
+          "CANCELLED",
+          read(call(u, get("/api/downloads/" + id), null, 200)).path("status").asText());
+      call(u, get("/api/downloads/" + id + "/file"), null, 409);
+    } finally {
+      release.countDown();
+      doCallRealMethod().when(storage).open(eq("local"), eq(key), anyLong(), anyLong());
+    }
+  }
+
+  @Test
   void CORE09_verifiedEmailRecoveryRevokesSessionsAndTokenCannotBeReused() throws Exception {
     var u = register("mail");
     String username = Db.s(db.one("SELECT username FROM sys_user WHERE id=?", u.id), "username");
