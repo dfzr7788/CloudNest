@@ -59,6 +59,7 @@ test("ZIPUI01 勾选多个文件夹打包并校验 ZIP 目录和文件内容", a
   mkdirSync(resolve(directory, "算法"), { recursive: true });
   writeFileSync(resolve(directory, "算法/笔记.txt"), "中文内容");
   const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "更多上传选项", exact: true }).click();
   await page.getByRole("button", { name: "上传文件夹", exact: true }).click();
   await (await chooser).setFiles(directory);
   await page.getByRole("button", { name, exact: true }).click();
@@ -106,7 +107,7 @@ test("ZIPUI01 勾选多个文件夹打包并校验 ZIP 目录和文件内容", a
     page.locator("#download-tasks .el-table__body tbody tr"),
   ).toHaveCount(2);
   await page.screenshot({
-    path: "../docs/evidence/folder-zip-download.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/folder-zip-download.png",
     fullPage: true,
   });
 });

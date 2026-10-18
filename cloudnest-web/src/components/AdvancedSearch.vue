@@ -62,7 +62,7 @@ onUnmounted(stopPolling);
 </script>
 <template>
   <el-button size="small" @click="show">标签与正文搜索</el-button
-  ><el-dialog
+  ><el-dialog class="cn-dialog"
     v-model="open"
     title="搜索全部目录"
     width="min(900px,94vw)"
@@ -146,7 +146,7 @@ onUnmounted(stopPolling);
 }
 p {
   font-size: 13px;
-  color: #7d8aa1;
+  color: var(--cn-muted);
   line-height: 1.8;
 }
 </style>

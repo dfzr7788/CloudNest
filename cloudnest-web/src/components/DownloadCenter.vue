@@ -78,23 +78,12 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section
-    id="download-tasks"
-    style="
-      margin-top: 18px;
-      padding: 18px;
-      border: 1px solid #e5eaf6;
-      border-radius: 12px;
-      background: white;
-    "
-  >
-    <div
-      style="display: flex; justify-content: space-between; align-items: center"
-    >
+  <section id="download-tasks" class="download-center">
+    <div class="download-heading">
       <strong>下载任务</strong
       ><el-button size="small" @click="load">刷新任务</el-button>
     </div>
-    <p style="margin: 10px 0; color: #8991a5">
+    <p class="muted" v-if="jobs.length">
       ZIP
       任务保留一小时，可在刷新页面后继续查看；下载到本机的完成状态由浏览器管理。
     </p>
@@ -144,6 +133,6 @@ onBeforeUnmount(() => {
         ></el-table-column
       ></el-table
     >
-    <p v-else>暂无下载任务。</p>
+    <p v-else class="muted">暂无下载任务 · ZIP 任务完成后可在这里下载</p>
   </section>
 </template>

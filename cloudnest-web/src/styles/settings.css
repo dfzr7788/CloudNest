@@ -1,0 +1,121 @@
+.account-dialog .el-dialog__body {
+  max-height: calc(85dvh - 80px);
+}
+.account-tabs.el-tabs--left {
+  display: flex;
+  min-height: 400px;
+}
+.account-tabs.el-tabs--left > .el-tabs__header {
+  flex-shrink: 0;
+  width: 164px;
+  margin: 0 24px 0 0;
+}
+.account-tabs.el-tabs--left .el-tabs__nav-wrap::after {
+  width: 1px;
+  background: var(--cn-border);
+}
+.account-tabs.el-tabs--left .el-tabs__item {
+  justify-content: flex-start;
+  text-align: left;
+  height: 44px;
+  padding: 0 16px;
+  font-size: 14px;
+  color: var(--cn-muted);
+}
+.account-tabs.el-tabs--left .el-tabs__item.is-active {
+  color: #3f51cb;
+  background: var(--cn-selected);
+  border-radius: 8px 0 0 8px;
+  font-weight: 600;
+}
+.account-tabs > .el-tabs__content {
+  flex: 1;
+  min-width: 0;
+  overflow: visible;
+}
+.settings-mobile-nav.el-select {
+  display: none;
+}
+.account-dialog .el-tab-pane {
+  color: var(--cn-text);
+  line-height: 1.7;
+}
+.account-dialog .el-tab-pane > p {
+  margin: 0 0 16px;
+}
+.account-dialog
+  :is(.ai-settings, .knowledge, .organize, .server-settings, .access-settings)
+  h3 {
+  font-size: 18px;
+  margin: 28px 0 12px;
+  font-weight: 600;
+}
+.account-dialog
+  :is(.ai-settings, .knowledge, .organize, .server-settings, .access-settings)
+  h3:first-child {
+  margin-top: 0;
+}
+.account-dialog :is(.connection-card, .knowledge .card, .organize .card) {
+  border: 1px solid var(--cn-border);
+  border-radius: 12px;
+  padding: 20px;
+  background: white;
+}
+.account-dialog .settings-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+}
+.account-dialog .server-settings > :is(.el-input, .el-select) {
+  max-width: 100%;
+  margin-inline: 0;
+}
+.account-dialog :is(.knowledge, .organize, .ai-settings, .access-settings) p {
+  font-size: 14px;
+  margin-block: 12px;
+}
+.account-dialog :is(.knowledge, .organize, .ai-settings) .el-button {
+  white-space: normal;
+  height: auto;
+  min-height: 40px;
+  line-height: 1.5;
+}
+.account-dialog .el-form {
+  max-width: 100%;
+}
+.account-trigger .el-icon + .account-trigger-label {
+  margin-left: 6px;
+}
+@media (max-width: 767px) {
+  .settings-mobile-nav.el-select {
+    display: block;
+    width: 100%;
+    margin-bottom: 24px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+  .account-tabs.el-tabs--left > .el-tabs__header {
+    display: none;
+  }
+  .account-tabs.el-tabs--left {
+    min-height: 0;
+  }
+  .account-dialog .el-dialog__body {
+    max-height: calc(85dvh - 80px);
+  }
+  .account-dialog :is(.connection-card, .knowledge .card, .organize .card) {
+    padding: 16px;
+  }
+  .account-dialog .el-table {
+    max-width: 100%;
+  }
+  .account-dialog :is(.knowledge, .organize, .ai-settings) .el-button {
+    min-height: 44px;
+  }
+  .account-dialog .admin-section-heading {
+    flex-wrap: wrap;
+  }
+  .account-dialog .el-input-number {
+    max-width: 100%;
+  }
+}

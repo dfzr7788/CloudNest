@@ -200,8 +200,8 @@ async function request(action: "check" | "update" | "backup") {
   gap: 12px;
 }
 .eyebrow {
-  color: #858eab;
-  font-size: 10px;
+  color: var(--cn-muted);
+  font-size: 12px;
   letter-spacing: 2px;
 }
 h3 {
@@ -211,7 +211,7 @@ h3 {
 }
 .update-description,
 .update-footnote {
-  color: #7e879d;
+  color: var(--cn-muted);
   line-height: 1.7;
   font-size: 13px;
 }
@@ -231,7 +231,7 @@ h3 {
   display: block;
 }
 .version-grid span {
-  color: #7e879d;
+  color: var(--cn-muted);
   font-size: 12px;
   margin-bottom: 10px;
 }
@@ -258,7 +258,7 @@ code {
 }
 .update-message small {
   display: block;
-  color: #7e879d;
+  color: var(--cn-muted);
   margin-top: 8px;
 }
 .update-actions {

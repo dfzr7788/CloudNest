@@ -17,7 +17,7 @@ test("UI01 完整浏览器流程：注册、目录、上传预览、分享、恢
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "欢迎回来" })).toBeVisible();
   await page.screenshot({
-    path: "../docs/evidence/login-desktop.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/login-desktop.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "创建账号", exact: true }).click();
@@ -106,15 +106,15 @@ test("UI01 完整浏览器流程：注册、目录、上传预览、分享、恢
   await page.getByLabel("搜索文件名称").clear();
   await page.getByRole("button", { name: "我的云盘", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "浏览器验收 文件夹" }),
+    page.getByRole("button", { name: "浏览器验收", exact: true }),
   ).toBeVisible();
   await page.screenshot({
-    path: "../docs/evidence/drive-desktop.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/drive-desktop.png",
     fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
-    path: "../docs/evidence/drive-mobile.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/drive-mobile.png",
     fullPage: true,
   });
   expect(
@@ -237,7 +237,7 @@ test("UI04 图片与 PDF 双页实际渲染", async ({ page }) => {
   await expect(page.getByText("第 2 / 2 页", { exact: true })).toBeVisible();
   await expect(page.locator("canvas[data-rendered=true]")).toBeVisible();
   await page.screenshot({
-    path: "../docs/evidence/pdf-preview.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/pdf-preview.png",
     fullPage: true,
   });
   await page

@@ -75,7 +75,7 @@ test("SETUI01 管理面板分区、邀请复制及一键更新任务", async ({ 
   await page.getByRole("button", { name: "复制链接", exact: true }).click();
   await expect(page.getByText("邀请链接已复制", { exact: true })).toBeVisible();
   await page.screenshot({
-    path: "../docs/evidence/settings-admin-desktop.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/settings-admin-desktop.png",
     fullPage: true,
   });
   await page.getByRole("tab", { name: "系统更新", exact: true }).click();
@@ -88,7 +88,7 @@ test("SETUI01 管理面板分区、邀请复制及一键更新任务", async ({ 
     page.getByRole("button", { name: "一键更新", exact: true }),
   ).toBeEnabled({ timeout: 10000 });
   await page.screenshot({
-    path: "../docs/evidence/settings-update-desktop.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/settings-update-desktop.png",
     fullPage: true,
   });
   await page.getByRole("button", { name: "一键更新", exact: true }).click();
@@ -107,7 +107,7 @@ test("SETUI01 管理面板分区、邀请复制及一键更新任务", async ({ 
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.screenshot({
-    path: "../docs/evidence/settings-update-mobile.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/settings-update-mobile.png",
     fullPage: true,
   });
   expect(

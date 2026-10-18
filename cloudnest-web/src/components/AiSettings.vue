@@ -403,7 +403,7 @@ onBeforeUnmount(() => {
     >
     <h3>使用记录</h3>
     <AiUsage :active="active && !busy" />
-    <el-dialog
+    <el-dialog class="cn-dialog"
       v-model="connectionEditor"
       append-to-body
       title="API 连接"
@@ -441,7 +441,7 @@ onBeforeUnmount(() => {
         >
       </el-form>
     </el-dialog>
-    <el-dialog
+    <el-dialog class="cn-dialog"
       v-model="modelEditor"
       append-to-body
       :title="modelForm.purpose === 'EMBEDDING' ? '向量模型' : '聊天模型'"

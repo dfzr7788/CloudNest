@@ -43,6 +43,6 @@ onBeforeUnmount(() => {
     v-if="url"
     :src="url"
     :alt="file.name"
-    style="width: 72px; height: 72px; object-fit: contain"
+    class="cn-thumbnail"
   /><FileMark v-else :kind="file.kind" :mime="file.mime" />
 </template>

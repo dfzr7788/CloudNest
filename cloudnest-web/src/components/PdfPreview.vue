@@ -155,10 +155,11 @@ async function turn(delta: number) {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 18px;
+  gap: 8px;
+  flex-wrap: wrap;
   margin-bottom: 16px;
   font-size: 12px;
-  color: #8794ad;
+  color: var(--cn-muted);
 }
 .pdf-preview canvas {
   display: block;

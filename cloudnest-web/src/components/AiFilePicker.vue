@@ -90,7 +90,7 @@ watch(open, (value) => {
         >{{ names[id] || "已选项目" }}</el-tag
       >
     </div>
-    <el-dialog
+    <el-dialog class="cn-dialog"
       v-model="open"
       title="选择 AI 处理范围"
       width="650px"

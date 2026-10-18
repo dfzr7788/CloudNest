@@ -84,7 +84,7 @@ async function selected(e: Event) {
 }
 </script>
 <template>
-  <el-dialog
+  <el-dialog class="cn-dialog"
     :model-value="!!file"
     title="文件版本历史"
     width="min(720px,94vw)"

@@ -33,7 +33,7 @@ watch(
 );
 </script>
 <template>
-  <el-dialog
+  <el-dialog class="cn-dialog"
     :model-value="open"
     title="移动到文件夹"
     width="500px"

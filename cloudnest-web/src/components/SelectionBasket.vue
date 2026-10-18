@@ -8,7 +8,7 @@ const open = ref(false);
   <el-button v-if="selected.length" size="small" @click="open = true"
     >查看已选 ({{ selected.length }})</el-button
   >
-  <el-dialog
+  <el-dialog class="cn-dialog"
     v-model="open"
     title="跨目录已选项目"
     width="min(640px,94vw)"

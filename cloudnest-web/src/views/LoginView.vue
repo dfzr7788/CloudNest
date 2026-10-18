@@ -2,9 +2,10 @@
 import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
+import CloudNestLogo from "../components/brand/CloudNestLogo.vue";
 import { api, errorText } from "../api";
 import { useUser } from "../stores/user";
-import { Cloudy, FolderOpened, Lock, Share } from "@element-plus/icons-vue";
+import { Lock } from "@element-plus/icons-vue";
 const registering = ref(false),
   otp = ref(""),
   forgot = ref(false),
@@ -96,31 +97,36 @@ async function reset() {
 <template>
   <main class="login-page">
     <section class="login-story">
-      <div class="brand light">
-        <el-icon><Cloudy /></el-icon> CloudNest
+      <CloudNestLogo light />
+      <div class="login-story-copy">
+        <span class="eyebrow">你的私人云端工作空间</span>
+        <h1>重要的文件，<br />安心放在这里。</h1>
+        <p>从日常记录到长期项目。<br />有序收纳，随时取用。</p>
       </div>
-      <span class="eyebrow">YOUR PERSONAL CLOUD</span>
-      <h1>让每一份珍贵，<br />都有自己的归处。</h1>
-      <p>
-        从灵感到成果，从日常到回忆。<br />在你的私人空间里，安心收藏，自由分享。
-      </p>
-      <div class="orbit">
-        <div class="orbit-inner">
-          <el-icon><Cloudy /></el-icon>
+      <div class="auth-geometry" aria-hidden="true">
+        <div class="geometry-folder">
+          <svg viewBox="0 0 240 180" fill="none">
+            <path
+              d="M24 48a16 16 0 0 1 16-16h57l23 24h80a16 16 0 0 1 16 16v76a16 16 0 0 1-16 16H40a16 16 0 0 1-16-16V48Z"
+              fill="#FFFFFF0C"
+              stroke="#FFFFFF66"
+              stroke-width="2"
+            />
+            <path
+              d="M58 94h120M58 116h78"
+              stroke="#FFFFFF55"
+              stroke-width="2"
+              stroke-linecap="round"
+            />
+          </svg>
         </div>
-        <span class="floating folder-float"
-          ><el-icon><FolderOpened /></el-icon> 工作与灵感</span
-        ><span class="floating secure-float"
-          ><el-icon><Lock /></el-icon> 只属于你的空间</span
-        ><span class="floating share-float"
-          ><el-icon><Share /></el-icon> 轻松分享</span
-        >
       </div>
-      <small>CloudNest · 每一份文件，都值得好好安放</small>
+      <small>CloudNest · 文件由你掌握</small>
     </section>
     <section class="login-form">
       <div class="login-card">
-        <span class="eyebrow">WELCOME TO CLOUDNEST</span>
+        <CloudNestLogo class="login-mobile-logo" />
+        <span class="eyebrow">CLOUDNEST</span>
         <h2>{{ registering ? "创建你的云盘" : "欢迎回来" }}</h2>
         <p class="muted">
           {{
@@ -156,7 +162,10 @@ async function reset() {
             :autocomplete="registering ? 'new-password' : 'current-password'"
             size="large"
             maxlength="64"
-          /><el-input
+          /><label v-if="!registering" for="login-otp"
+            >双重验证 <span class="muted">（未启用可留空）</span></label
+          ><el-input
+            id="login-otp"
             v-if="!registering"
             v-model="otp"
             placeholder="双重验证代码 / 恢复码（未启用可留空）"
@@ -202,14 +211,18 @@ async function reset() {
         </div>
       </div>
     </section>
-    <el-dialog v-model="forgot" title="找回密码" width="min(480px,94vw)"
+    <el-dialog
+      class="cn-dialog"
+      v-model="forgot"
+      title="找回密码"
+      width="min(480px,94vw)"
       ><p>使用账号或已验证的邮箱接收重置链接。</p>
       <el-input
         v-model="recoveryAccount"
         placeholder="账号或邮箱"
         aria-label="找回账号"
       />
-      <p>{{ recoveryMessage }}</p>
+      <p role="status" aria-live="polite">{{ recoveryMessage }}</p>
       <template #footer
         ><el-button :loading="busy" @click="recover"
           >发送重置链接</el-button
@@ -217,6 +230,7 @@ async function reset() {
       ></el-dialog
     >
     <el-dialog
+      class="cn-dialog"
       :model-value="!!resetToken"
       title="设置新密码"
       width="min(480px,94vw)"
@@ -235,7 +249,7 @@ async function reset() {
         placeholder="再次输入新密码"
         aria-label="确认重置密码"
       />
-      <p>{{ recoveryMessage }}</p>
+      <p role="status" aria-live="polite">{{ recoveryMessage }}</p>
       <template #footer
         ><el-button :loading="busy" @click="reset"
           >保存新密码</el-button

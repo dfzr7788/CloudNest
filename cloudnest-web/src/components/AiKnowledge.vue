@@ -466,7 +466,7 @@ onBeforeUnmount(stop);
         >
       </div>
     </template>
-    <el-dialog
+    <el-dialog class="cn-dialog"
       v-model="editor"
       :title="editId ? '修改知识库' : '新建知识库'"
       width="680px"
@@ -493,7 +493,7 @@ onBeforeUnmount(stop);
         ></el-form
       ></el-dialog
     >
-    <el-dialog
+    <el-dialog class="cn-dialog"
       :model-value="!!citation"
       title="知识库来源原文"
       width="650px"

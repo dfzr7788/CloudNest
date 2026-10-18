@@ -1,0 +1,325 @@
+.app-shell {
+  height: 100dvh;
+  display: flex;
+  overflow: hidden;
+}
+.sidebar {
+  width: 232px;
+  flex: 0 0 232px;
+  display: flex;
+  flex-direction: column;
+  padding: 28px 16px 20px;
+  background: var(--cn-surface);
+  border-right: 1px solid var(--cn-border);
+}
+.sidebar-brand {
+  padding: 0 12px;
+}
+.workspace-caption {
+  margin: 40px 16px 16px;
+  font-size: 12px;
+  color: var(--cn-muted);
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar nav button {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--cn-muted);
+  background: transparent;
+  text-align: left;
+  transition:
+    background var(--cn-duration),
+    color var(--cn-duration);
+}
+.sidebar nav .el-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.sidebar nav button:hover {
+  background: var(--cn-subtle);
+  color: var(--cn-heading);
+}
+.sidebar nav button.active {
+  background: var(--cn-selected);
+  color: #3f51cb;
+  font-weight: 600;
+}
+.nav-divider {
+  height: 1px;
+  background: var(--cn-border);
+  margin: 16px;
+}
+.storage-card {
+  margin-top: auto;
+  padding: 32px 12px 24px;
+}
+.storage-card > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+.storage-card strong {
+  color: var(--cn-muted);
+  font-weight: 500;
+}
+.storage-card p {
+  font-size: 13px;
+  margin: 12px 0 4px;
+}
+.storage-card small {
+  display: block;
+  font-size: 12px;
+  color: var(--cn-muted);
+  line-height: 1.6;
+}
+.sidebar-profile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  width: 100%;
+  padding: 20px 8px 0;
+  border: 0;
+  border-top: 1px solid var(--cn-border);
+  background: none;
+  text-align: left;
+}
+.avatar {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  color: #495ac7;
+  background: var(--cn-selected);
+  font-weight: 600;
+}
+.profile-copy {
+  flex: 1;
+  min-width: 0;
+}
+.sidebar-profile strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  color: var(--cn-text);
+}
+.sidebar-profile small {
+  color: var(--cn-muted);
+  font-size: 12px;
+}
+.main-shell {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+.topbar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 72px;
+  padding: 12px 32px;
+  background: var(--cn-surface);
+  border-bottom: 1px solid var(--cn-border);
+  z-index: var(--cn-z-toolbar);
+}
+.topbar-context {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--cn-muted);
+  white-space: nowrap;
+}
+.topbar-context strong {
+  font-size: 14px;
+  font-weight: 500;
+}
+.topbar-search {
+  flex: 1;
+  min-width: 0;
+  max-width: 640px;
+  margin-left: auto;
+}
+.file-search {
+  display: flex;
+  min-width: 0;
+  gap: 8px;
+}
+.file-search > .el-input {
+  flex: 1;
+  min-width: 80px;
+}
+.file-search > .el-select {
+  width: 116px;
+  flex-shrink: 0;
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.topbar-right .el-button + .el-button {
+  margin-left: 0;
+}
+.mobile-menu.el-button,
+.topbar .topbar-context .mobile-brand {
+  display: none;
+}
+.drive-main {
+  padding: 32px 32px 40px;
+  position: relative;
+}
+.app-footer {
+  display: flex;
+  justify-content: space-between;
+  padding: 0 32px 24px;
+  color: var(--cn-muted);
+  font-size: 12px;
+}
+.cn-nav-drawer .el-drawer__body {
+  padding: 0;
+}
+.cn-nav-drawer .sidebar {
+  height: 100%;
+  width: 100%;
+  border: 0;
+}
+@media (min-width: 1600px) {
+  .drive-main {
+    padding: 32px 40px 40px;
+  }
+  .topbar {
+    padding-inline: 40px;
+  }
+  .app-footer {
+    padding-inline: 40px;
+  }
+}
+@media (min-width: 768px) and (max-width: 1199px) {
+  .sidebar {
+    width: 72px;
+    flex-basis: 72px;
+    padding: 24px 10px;
+    align-items: center;
+  }
+  .sidebar-brand {
+    padding: 0;
+  }
+  .app-shell .sidebar .cn-logo-name,
+  .sidebar .workspace-caption,
+  .sidebar nav button > span:not(.el-icon),
+  .sidebar .storage-card,
+  .sidebar .profile-copy,
+  .sidebar-profile > .el-icon {
+    display: none;
+  }
+  .sidebar nav {
+    margin-top: 32px;
+    width: 100%;
+  }
+  .sidebar nav button {
+    padding: 12px;
+    justify-content: center;
+  }
+  .sidebar-profile {
+    margin-top: auto;
+    justify-content: center;
+    padding: 20px 0 0;
+  }
+  .nav-divider {
+    margin: 12px 4px;
+  }
+  .drive-main {
+    padding: 24px;
+  }
+  .topbar {
+    padding-inline: 24px;
+    gap: 16px;
+  }
+  .desktop-context {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .topbar {
+    min-height: 56px;
+    padding: 8px 16px 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .topbar-context {
+    flex: 1;
+  }
+  .desktop-context {
+    display: none;
+  }
+  .mobile-menu.el-button {
+    display: inline-flex;
+    width: 40px;
+    padding: 0;
+  }
+  .topbar .topbar-context .mobile-brand {
+    display: inline-flex;
+  }
+  .topbar .mobile-brand svg {
+    width: 28px;
+    height: 28px;
+  }
+  .topbar .mobile-brand .cn-logo-name {
+    font-size: 18px;
+  }
+  .topbar-right {
+    gap: 4px;
+  }
+  .topbar-right > .el-button {
+    padding: 0 8px !important;
+    font-size: 12px;
+  }
+  .topbar-right .cn-icon-button {
+    width: 36px;
+  }
+  .topbar-right .account-trigger {
+    width: 36px !important;
+    padding: 0 !important;
+  }
+  .topbar-right .account-trigger .account-trigger-label {
+    display: none;
+  }
+  .topbar-search {
+    flex-basis: 100%;
+    max-width: none;
+    order: 3;
+  }
+  .file-search > .el-select {
+    width: 110px;
+  }
+  .drive-main {
+    padding: 24px 16px 32px;
+  }
+  .app-footer {
+    padding: 0 16px 24px;
+  }
+  .cn-nav-drawer .cn-logo-name,
+  .cn-nav-drawer .workspace-caption,
+  .cn-nav-drawer .storage-card,
+  .cn-nav-drawer .profile-copy {
+    display: block;
+  }
+}

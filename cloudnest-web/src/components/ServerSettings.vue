@@ -289,7 +289,7 @@ function clean(config: Record<string, string>) {
 }
 .server-settings p {
   line-height: 1.7;
-  color: #77859d;
+  color: var(--cn-muted);
 }
 .settings-form {
   display: grid;

@@ -1,25 +1,29 @@
 <script setup lang="ts">
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
+import PageHeading from "../components/common/PageHeading.vue";
+import DriveFilesSection from "../components/drive/DriveFilesSection.vue";
+import SharesSection from "../components/drive/SharesSection.vue";
+import FileCollectionTabs from "../components/files/FileCollectionTabs.vue";
+import FileFilters from "../components/files/FileFilters.vue";
+import BatchActionBar from "../components/files/BatchActionBar.vue";
+import type { FileAction } from "../components/files/actions";
+import AppSidebar from "../components/layout/AppSidebar.vue";
+import AppTopbar from "../components/layout/AppTopbar.vue";
+import IconButton from "../components/common/IconButton.vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
-  Cloudy,
   FolderOpened,
   Delete,
-  Share,
   Search,
   Upload,
   Plus,
   Grid,
   List,
   Refresh,
-  ArrowRight,
   Download,
-  View,
-  Edit,
   MoreFilled,
   Rank,
-  User,
   SwitchButton,
   Document,
   Picture,
@@ -43,12 +47,46 @@ import UploadPanel from "../components/UploadPanel.vue";
 import FolderPicker from "../components/FolderPicker.vue";
 import AccountSecurity from "../components/AccountSecurity.vue";
 import VersionHistory from "../components/VersionHistory.vue";
-import Thumbnail from "../components/Thumbnail.vue";
 import ShareSettings from "../components/ShareSettings.vue";
 import DownloadCenter from "../components/DownloadCenter.vue";
 import SelectionBasket from "../components/SelectionBasket.vue";
 import AdvancedSearch from "../components/AdvancedSearch.vue";
 import CollectionShare from "../components/CollectionShare.vue";
+const navOpen = ref(false),
+  isMobile = ref(window.innerWidth < 768);
+function resizeLayout() {
+  isMobile.value = window.innerWidth < 768;
+  if (!isMobile.value) navOpen.value = false;
+}
+onMounted(() => window.addEventListener("resize", resizeLayout));
+onBeforeUnmount(() => window.removeEventListener("resize", resizeLayout));
+function showProfile() {
+  nickname.value = store.user?.nickname || "";
+  profile.value = true;
+}
+function chooseCollection(value: string) {
+  if (section.value !== "drive") selected.value = [];
+  section.value = "drive";
+  collection.value = value;
+  query.value = "";
+  page.value = 1;
+  sort.value =
+    value === "opened"
+      ? "lastOpened"
+      : value === "uploaded"
+        ? "createdAt"
+        : "name";
+  direction.value = value === "all" || value === "favorites" ? "asc" : "desc";
+  navOpen.value = false;
+  void load();
+}
+function searchDrive() {
+  if (section.value !== "drive") {
+    selected.value = [];
+    section.value = "drive";
+    items.value = [];
+  }
+}
 const collectionFiles = ref<Entry[] | null>(null),
   collecting = ref(false);
 import { useSelection } from "../selection";
@@ -84,6 +122,15 @@ const collection = ref("all"),
   copyMode = ref(false),
   clipboard = ref<{ ids: string[]; cut: boolean } | null>(null),
   batchBusy = ref(false);
+const fileTypeLabel = computed(
+  () =>
+    (
+      ({ image: "图片", document: "文档", folder: "文件夹" }) as Record<
+        string,
+        string
+      >
+    )[fileType.value],
+);
 const router = useRouter(),
   store = useUser(),
   uploads = useUploads();
@@ -156,19 +203,10 @@ const titles: Record<string, string> = {
   trash: "回收站",
   shares: "我的分享",
 };
-const storagePercent = computed(() =>
-  store.user
-    ? Math.min(
-        100,
-        Math.round(
-          ((store.user.used + store.user.reserved) / store.user.quota) * 100,
-        ),
-      )
-    : 0,
-);
 let requestId = 0,
   searchTimer: ReturnType<typeof setTimeout> | undefined;
 async function load() {
+  clearTimeout(searchTimer);
   if (!current.value && store.user) current.value = store.user.rootId;
   const thisRequest = ++requestId;
   busy.value = true;
@@ -230,21 +268,26 @@ function navigate(id: string) {
 function tab(value: string) {
   if (section.value !== value) selected.value = [];
   section.value = value;
+  navOpen.value = false;
+  drop.value = false;
+  dragDepth = 0;
+  items.value = [];
+  shares.value = [];
   query.value = "";
   page.value = 1;
   load();
 }
-watch([query, scope, collection, fileType, minMiB, rangeDays], () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => {
-    page.value = 1;
-    load();
-  }, 300);
-});
-watch([sort, direction], () => {
-  page.value = 1;
-  load();
-});
+watch(
+  [query, scope, collection, fileType, minMiB, rangeDays, sort, direction],
+  () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      page.value = 1;
+      load();
+    }, 300);
+  },
+  { flush: "sync" },
+);
 watch(grid, (v) => localStorage.setItem("cloudnest-grid", String(v)));
 watch(
   () => uploads.revision,
@@ -456,7 +499,9 @@ function putClipboard(cut: boolean) {
 function shortcut(event: KeyboardEvent) {
   const node = event.target as HTMLElement;
   if (
-    node.closest("input, textarea, [contenteditable=true], [role=dialog]") ||
+    node.closest(
+      "input, textarea, [contenteditable=true], [role=dialog], [role=menu], [role=listbox], .el-popper, .upload-panel",
+    ) ||
     section.value !== "drive"
   )
     return;
@@ -538,7 +583,19 @@ function filesSelected(e: Event) {
   addFiles(Array.from(input.files || []));
   input.value = "";
 }
+let dragDepth = 0;
+function dragEnter(e: DragEvent) {
+  if (section.value !== "drive" || !e.dataTransfer?.types.includes("Files"))
+    return;
+  dragDepth++;
+  drop.value = true;
+}
+function dragLeave() {
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (!dragDepth) drop.value = false;
+}
 async function dropped(e: DragEvent) {
+  dragDepth = 0;
   drop.value = false;
   if (section.value !== "drive") return;
   const entries = Array.from(e.dataTransfer?.items || [])
@@ -700,7 +757,12 @@ async function editTags(e: Entry) {
       ElMessage.error(errorText(error));
   }
 }
-function command(c: string, e: Entry) {
+function command(c: FileAction, e: Entry) {
+  if (c === "download" && e.kind === "FILE")
+    location.assign(`/api/files/${e.id}/download`);
+  if (c === "restore") void restore(e);
+  if (c === "purge") void purge(e);
+  if (c === "locate" && e.parentId) navigate(e.parentId);
   if (c === "tags") void editTags(e);
   if (c === "collect") {
     collecting.value = true;
@@ -717,153 +779,130 @@ function command(c: string, e: Entry) {
 </script>
 <template>
   <div class="app-shell">
-    <aside class="sidebar">
-      <router-link to="/" class="brand"
-        ><span class="brand-symbol"
-          ><el-icon><Cloudy /></el-icon></span
-        >CloudNest</router-link
-      >
-      <div class="workspace-caption">个人工作空间</div>
-      <nav>
-        <button :class="{ active: section === 'drive' }" @click="tab('drive')">
-          <el-icon><FolderOpened /></el-icon>我的文件<el-icon class="nav-arrow"
-            ><ArrowRight
-          /></el-icon></button
-        ><button
-          :class="{ active: section === 'shares' }"
-          @click="tab('shares')"
-        >
-          <el-icon><Share /></el-icon>我的分享</button
-        ><button :class="{ active: section === 'trash' }" @click="tab('trash')">
-          <el-icon><Delete /></el-icon>回收站
-        </button>
-      </nav>
-      <div class="sidebar-tip">
-        <span class="tip-graphic"
-          ><el-icon><Cloudy /></el-icon
-        ></span>
-        <h3>为你的数字生活<br />留一片自由空间</h3>
-        <p>随时整理，安心收藏。</p>
-      </div>
-      <div class="storage-card">
-        <div>
-          <span>存储空间</span><strong>{{ storagePercent }}%</strong>
-        </div>
-        <el-progress
-          :percentage="storagePercent"
-          :show-text="false"
-          :stroke-width="6"
-          :color="storagePercent > 90 ? '#e99c42' : '#6679ef'"
-        />
-        <p>
-          {{ bytes(store.user?.used || 0) }} /
-          {{ bytes(store.user?.quota || 0) }}
-        </p>
-        <small v-if="store.user?.reserved"
-          >上传预留 {{ bytes(store.user.reserved) }}</small
-        ><small v-else>回收站文件仍占用存储空间</small>
-      </div>
-      <button
-        class="sidebar-profile"
-        @click="
-          nickname = store.user?.nickname || '';
-          profile = true;
+    <el-drawer
+      v-if="isMobile"
+      v-model="navOpen"
+      class="cn-drawer cn-nav-drawer"
+      title="工作空间导航"
+      direction="ltr"
+      size="280px"
+      :with-header="false"
+    >
+      <AppSidebar
+        :section="section"
+        :collection="collection"
+        :user="store.user"
+        @collection="chooseCollection"
+        @section="tab"
+        @profile="
+          showProfile();
+          navOpen = false;
         "
-      >
-        <span class="avatar">{{
-          store.user?.nickname?.[0]?.toUpperCase() || "C"
-        }}</span
-        ><span
-          ><strong>{{ store.user?.nickname }}</strong
-          ><small>个人账户</small></span
-        ><el-icon><MoreFilled /></el-icon>
-      </button>
-    </aside>
+      />
+    </el-drawer>
+    <AppSidebar
+      v-else
+      :section="section"
+      :collection="collection"
+      :user="store.user"
+      @collection="chooseCollection"
+      @section="tab"
+      @profile="showProfile"
+    />
     <div class="main-shell">
-      <header class="topbar">
-        <div class="topbar-context">
-          <span>工作空间</span><el-icon><ArrowRight /></el-icon
-          ><strong>{{ titles[section] }}</strong>
-        </div>
-        <div class="topbar-right">
-          <AccountSecurity />
-          <span class="private-badge"><span />私人空间</span
-          ><el-tooltip content="刷新"
-            ><el-button
-              circle
-              :icon="Refresh"
-              aria-label="刷新"
-              @click="load" /></el-tooltip
-          ><el-tooltip content="退出登录"
-            ><el-button
-              circle
-              :icon="SwitchButton"
-              aria-label="退出登录"
-              @click="logout"
-          /></el-tooltip>
-        </div>
-      </header>
+      <AppTopbar :title="titles[section]" @menu="navOpen = true">
+        <template #search
+          ><div class="file-search">
+            <el-input
+              v-model="query"
+              :prefix-icon="Search"
+              placeholder="搜索文件名称"
+              clearable
+              aria-label="搜索文件名称"
+              @input="searchDrive"
+            /><el-select v-model="scope" aria-label="搜索范围"
+              ><el-option label="全部目录" value="all" /><el-option
+                label="当前目录"
+                value="current"
+            /></el-select></div
+        ></template>
+        <AccountSecurity />
+        <IconButton :icon="Refresh" label="刷新" @click="load" />
+        <IconButton :icon="SwitchButton" label="退出登录" @click="logout" />
+      </AppTopbar>
       <main
         class="drive-main"
         :class="{ dragging: drop }"
-        @dragover.prevent="drop = true"
-        @dragleave.self="drop = false"
+        @dragenter.prevent="dragEnter"
+        @dragover.prevent
+        @dragleave.prevent="dragLeave"
         @drop.prevent="dropped"
       >
         <div v-if="drop && section === 'drive'" class="drop-zone">
           <el-icon><Upload /></el-icon>
           <h2>松开以上传文件</h2>
         </div>
-        <div class="page-heading">
-          <div>
-            <span class="eyebrow">{{
-              section === "drive"
-                ? "YOUR DIGITAL HOME"
-                : section === "trash"
-                  ? "A SECOND CHANCE"
-                  : "SHARING MADE SIMPLE"
-            }}</span>
-            <h1>{{ titles[section] }}<span class="heading-dot">.</span></h1>
-            <p>
-              {{
-                section === "drive"
-                  ? "把重要的事物，放在触手可及的地方。"
-                  : section === "trash"
-                    ? "找回误删的文件，或清理空间，重新出发。"
-                    : "每一次分享，都由你掌握。"
-              }}
-            </p>
-          </div>
-          <div v-if="section === 'drive'" class="heading-actions">
-            <el-button @click="folderInput?.click()">上传文件夹</el-button>
-            <el-button :icon="Plus" @click="createFolder">新建文件夹</el-button
-            ><el-button
-              type="primary"
-              :icon="Upload"
-              @click="fileInput?.click()"
+        <PageHeading
+          :title="titles[section] + '.'"
+          :description="
+            section === 'drive'
+              ? '有序收纳，随时取用。'
+              : section === 'trash'
+                ? '恢复误删内容，或永久释放空间。'
+                : '管理链接、访问权限与有效期。'
+          "
+        >
+          <template v-if="section === 'drive'">
+            <el-button :icon="Plus" @click="createFolder">新建文件夹</el-button>
+            <el-button type="primary" :icon="Upload" @click="fileInput?.click()"
               >上传文件</el-button
             >
-          </div>
-        </div>
-        <template v-if="section === 'drive'"
-          ><div class="stat-grid">
+            <el-popover
+              placement="bottom-end"
+              trigger="click"
+              :width="290"
+              popper-class="cn-upload-popover"
+              ><template #reference
+                ><el-button aria-label="更多上传选项" :icon="MoreFilled"
+              /></template>
+              <div class="filter-fields">
+                <el-button @click="folderInput?.click()">上传文件夹</el-button
+                ><label
+                  >遇到同名文件<el-select
+                    :teleported="false"
+                    v-model="conflictPolicy"
+                    aria-label="上传同名处理"
+                    ><el-option
+                      label="覆盖并保留历史"
+                      value="replace" /><el-option
+                      label="保留两份"
+                      value="keep" /><el-option
+                      label="跳过"
+                      value="skip" /></el-select
+                ></label>
+                <p class="muted">
+                  目录结构会完整保留，上传任务支持暂停与恢复。
+                </p>
+              </div></el-popover
+            >
+          </template>
+        </PageHeading>
+        <template v-if="section === 'drive'">
+          <div class="stat-grid" aria-label="文件概况">
             <div class="stat-card">
               <span class="stat-icon all"
                 ><el-icon><Files /></el-icon
               ></span>
               <div>
-                <span>全部文件</span
-                ><strong>{{ stats.files }}<small> 个文件</small></strong>
+                <span>文件</span><strong>{{ stats.files }}</strong>
               </div>
-              <span class="stat-spark">✧</span>
             </div>
             <div class="stat-card">
               <span class="stat-icon image"
                 ><el-icon><Picture /></el-icon
               ></span>
               <div>
-                <span>图片收藏</span
-                ><strong>{{ stats.images }}<small> 个文件</small></strong>
+                <span>图片</span><strong>{{ stats.images }}</strong>
               </div>
             </div>
             <div class="stat-card">
@@ -871,8 +910,7 @@ function command(c: string, e: Entry) {
                 ><el-icon><Document /></el-icon
               ></span>
               <div>
-                <span>文档资料</span
-                ><strong>{{ stats.documents }}<small> 个文件</small></strong>
+                <span>文档</span><strong>{{ stats.documents }}</strong>
               </div>
             </div>
             <div class="stat-card">
@@ -880,217 +918,177 @@ function command(c: string, e: Entry) {
                 ><el-icon><FolderOpened /></el-icon
               ></span>
               <div>
-                <span>文件夹</span
-                ><strong>{{ stats.folders }}<small> 个目录</small></strong>
+                <span>文件夹</span><strong>{{ stats.folders }}</strong>
               </div>
             </div>
           </div>
-          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0">
-            <el-select
-              v-model="collection"
-              aria-label="文件集合"
-              style="width: 140px"
-              @change="
-                sort =
-                  collection === 'opened'
-                    ? 'lastOpened'
-                    : collection === 'uploaded'
-                      ? 'createdAt'
-                      : 'name';
-                direction =
-                  collection === 'all' || collection === 'favorites'
-                    ? 'asc'
-                    : 'desc';
-              "
-              ><el-option label="当前目录" value="all" /><el-option
-                label="我的收藏"
-                value="favorites" /><el-option
-                label="最近上传"
-                value="uploaded" /><el-option label="最近打开" value="opened"
-            /></el-select>
-            <el-select
-              v-model="fileType"
-              aria-label="文件类型"
-              style="width: 120px"
-              ><el-option label="全部类型" value="all" /><el-option
-                label="图片"
-                value="image" /><el-option
-                label="文档"
-                value="document" /><el-option label="文件夹" value="folder"
-            /></el-select>
-            <el-select
-              v-model="minMiB"
-              aria-label="文件大小"
-              style="width: 140px"
-              ><el-option label="全部大小" :value="0" /><el-option
-                label="至少 10 MiB"
-                :value="10" /><el-option label="至少 100 MiB" :value="100"
-            /></el-select>
-            <el-select
-              v-model="rangeDays"
-              aria-label="修改时间筛选"
-              style="width: 140px"
-              ><el-option label="全部时间" :value="0" /><el-option
-                label="近 7 天修改"
-                :value="7" /><el-option label="近 30 天修改" :value="30"
-            /></el-select>
-            <el-select
-              v-model="conflictPolicy"
-              aria-label="上传同名处理"
-              style="width: 160px"
-              ><el-option
-                label="同名：覆盖并保留历史"
-                value="replace" /><el-option
-                label="同名：保留两份"
-                value="keep" /><el-option label="同名：跳过" value="skip"
-            /></el-select>
-          </div>
+          <FileCollectionTabs
+            :model-value="collection"
+            :nested="crumbs.length > 1"
+            @update:model-value="chooseCollection"
+          />
           <div class="files-toolbar">
-            <el-breadcrumb separator="/"
+            <el-breadcrumb separator="/" aria-label="目录路径"
               ><el-breadcrumb-item v-for="c in crumbs" :key="c.id"
-                ><button class="crumb-button" @click="navigate(c.id)">
+                ><button
+                  class="crumb-button"
+                  :title="c.name"
+                  @click="navigate(c.id)"
+                >
                   {{ c.name }}
                 </button></el-breadcrumb-item
               ></el-breadcrumb
-            >
-            <div class="file-search">
-              <el-input
-                v-model="query"
-                :prefix-icon="Search"
-                placeholder="搜索文件名称"
-                clearable
-                aria-label="搜索文件名称"
-              /><el-select
-                v-model="scope"
-                aria-label="搜索范围"
-                style="width: 112px"
-                ><el-option label="全部目录" value="all" /><el-option
-                  label="当前目录"
-                  value="current"
-              /></el-select>
-            </div>
+            ><AdvancedSearch
+              @choose="preview = $event"
+              @folder="navigate($event)"
+            />
           </div>
-          <AdvancedSearch
-            v-if="section === 'drive'"
-            @choose="preview = $event"
-            @folder="navigate($event)" />
           <div class="list-toolbar">
             <div>
-              <strong>{{ query ? "搜索结果" : "全部内容" }}</strong
+              <strong>{{
+                query
+                  ? "搜索结果"
+                  : collection === "favorites"
+                    ? "我的收藏"
+                    : collection === "opened"
+                      ? "最近打开"
+                      : collection === "uploaded"
+                        ? "最近上传"
+                        : "全部内容"
+              }}</strong
               ><span class="muted">{{ total }} 项</span
               ><el-button
-                v-if="section === 'drive'"
                 :disabled="!selected.length"
                 :icon="Download"
-                size="small"
                 :loading="packaging"
                 @click="zip()"
                 >打包下载 ({{ selected.length }})</el-button
               >
             </div>
             <div class="list-controls">
-              <el-select
+              <FileFilters
+                v-model:type="fileType"
+                v-model:size="minMiB"
+                v-model:days="rangeDays"
+              /><el-select
                 v-model="sort"
                 aria-label="排序方式"
-                style="width: 118px"
+                class="sort-select"
                 ><el-option label="按名称" value="name" /><el-option
                   label="按修改时间"
                   value="updatedAt" /><el-option
                   label="按大小"
-                  value="size" /></el-select
+                  value="size" /><el-option
+                  v-if="collection === 'opened'"
+                  label="按最近打开"
+                  value="lastOpened" /><el-option
+                  v-if="collection === 'uploaded'"
+                  label="按最近上传"
+                  value="createdAt" /></el-select
               ><el-button
                 :icon="Rank"
                 aria-label="切换排序方向"
                 @click="direction = direction === 'asc' ? 'desc' : 'asc'"
                 >{{ direction === "asc" ? "升序" : "降序" }}</el-button
               >
-              <div class="view-toggle">
+              <div class="view-toggle" role="group" aria-label="文件视图">
                 <button
                   :class="{ active: !grid }"
+                  :aria-pressed="!grid"
                   aria-label="列表视图"
                   @click="grid = false"
                 >
                   <el-icon><List /></el-icon></button
                 ><button
                   :class="{ active: grid }"
+                  :aria-pressed="grid"
                   aria-label="网格视图"
                   @click="grid = true"
                 >
                   <el-icon><Grid /></el-icon>
                 </button>
               </div>
-            </div></div
-        ></template>
+            </div>
+          </div>
+          <div
+            v-if="query || fileType !== 'all' || minMiB || rangeDays"
+            class="filter-chips"
+            aria-label="已生效条件"
+          >
+            <el-tag v-if="query" closable @close="query = ''"
+              >{{ scope === "all" ? "全部目录" : "当前目录" }}：{{
+                query
+              }}</el-tag
+            ><el-tag
+              v-if="fileType !== 'all'"
+              closable
+              @close="fileType = 'all'"
+              >类型：{{ fileTypeLabel }}</el-tag
+            ><el-tag v-if="minMiB" closable @close="minMiB = 0"
+              >至少 {{ minMiB }} MiB</el-tag
+            ><el-tag v-if="rangeDays" closable @close="rangeDays = 0"
+              >近 {{ rangeDays }} 天</el-tag
+            ><el-button
+              link
+              @click="
+                query = '';
+                fileType = 'all';
+                minMiB = 0;
+                rangeDays = 0;
+              "
+              >重置条件</el-button
+            >
+          </div>
+        </template>
         <div v-else-if="section === 'trash'" class="trash-note">
           <el-icon><Delete /></el-icon
           >回收站中的文件继续占用配额。彻底删除后无法恢复。
         </div>
-        <div
-          v-if="section !== 'shares'"
-          style="display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0"
-        >
+        <div v-if="section !== 'shares'" class="selection-row">
           <el-checkbox :model-value="allSelected()" @change="togglePage"
             >全选当前页</el-checkbox
-          >
-          <span>已选 {{ selected.length }} 项（跨目录保留）</span>
-          <SelectionBasket v-model="selected" /><el-button
-            v-if="section === 'drive' && selected.length"
-            size="small"
-            @click="
-              collecting = false;
-              collectionFiles = [...selected];
-            "
-            >分享选中项目</el-button
-          >
-          <el-button
-            v-if="section === 'drive' && selected.length"
-            size="small"
-            @click="putClipboard(false)"
-            >复制</el-button
-          >
-          <el-button
-            v-if="section === 'drive' && selected.length"
-            size="small"
-            @click="putClipboard(true)"
-            >剪切</el-button
-          >
-          <el-button
+          ><span v-if="selected.length"
+            >已选 {{ selected.length }} 项（跨目录保留）</span
+          ><el-button
             v-if="section === 'drive' && clipboard"
-            size="small"
             :disabled="batchBusy"
             @click="copyTo(current)"
             >粘贴到当前目录</el-button
           >
-          <el-button size="small" @click="selected = []">取消选择</el-button>
-          <template v-if="selected.length"
-            ><template v-if="section === 'drive'"
-              ><el-button
-                size="small"
-                :disabled="batchBusy"
-                @click="batchMoving = true"
-                >批量移动</el-button
-              ><el-button
-                size="small"
-                :disabled="batchBusy"
-                @click="batch('trash')"
-                >批量删除</el-button
-              ></template
-            ><template v-else
-              ><el-button
-                size="small"
-                :disabled="batchBusy"
-                @click="batch('restore')"
-                >批量恢复</el-button
-              ><el-button
-                size="small"
-                type="danger"
-                :disabled="batchBusy"
-                @click="batch('purge')"
-                >批量彻底删除</el-button
-              ></template
-            ></template
-          >
         </div>
+        <BatchActionBar :count="selected.length"
+          ><strong>已选 {{ selected.length }} 项</strong
+          ><SelectionBasket v-model="selected" /><template
+            v-if="section === 'drive'"
+            ><el-button
+              @click="
+                collecting = false;
+                collectionFiles = [...selected];
+              "
+              >分享选中项目</el-button
+            ><el-button @click="putClipboard(false)">复制</el-button
+            ><el-button @click="putClipboard(true)">剪切</el-button
+            ><el-button :disabled="batchBusy" @click="batchMoving = true"
+              >批量移动</el-button
+            ><el-button :disabled="batchBusy" @click="batch('trash')"
+              >批量删除</el-button
+            ></template
+          ><template v-else
+            ><el-button
+              type="primary"
+              :disabled="batchBusy"
+              @click="batch('restore')"
+              >批量恢复</el-button
+            ><el-button
+              type="danger"
+              :disabled="batchBusy"
+              @click="batch('purge')"
+              >批量彻底删除</el-button
+            ></template
+          ><el-button @click="selected = []"
+            >取消选择</el-button
+          ></BatchActionBar
+        >
         <el-button
           v-if="undoIds.length"
           type="primary"
@@ -1106,260 +1104,59 @@ function command(c: string, e: Entry) {
           :closable="false"
           class="load-error"
         />
-        <div class="file-content" v-loading="busy">
-          <template v-if="section === 'shares'"
-            ><el-select
-              v-model="shareFilter"
-              style="width: 150px"
-              aria-label="分享状态筛选"
-              ><el-option label="全部分享" value="all" /><el-option
-                label="生效中"
-                value="active" /><el-option
-                label="已过期"
-                value="expired" /><el-option
-                label="已撤销"
-                value="revoked" /></el-select
-            ><el-table
-              :data="visibleShares"
-              empty-text="还没有分享，从文件菜单创建一个吧"
-              ><el-table-column
-                prop="name"
-                label="文件名称"
-                min-width="200"
-              /><el-table-column label="权限" width="160"
-                ><template #default="{ row }"
-                  ><el-tag size="small">{{
-                    row.allowDownload ? "预览和下载" : "仅预览"
-                  }}</el-tag
-                  ><span class="small-note">{{
-                    row.hasCode ? "有提取码" : ""
-                  }}</span></template
-                ></el-table-column
-              ><el-table-column label="有效期至" min-width="170"
-                ><template #default="{ row }">{{
-                  date(row.expiresAt)
-                }}</template></el-table-column
-              ><el-table-column label="状态" width="110"
-                ><template #default="{ row }"
-                  ><el-tag
-                    :type="
-                      row.revoked || row.expiresAt < Date.now()
-                        ? 'info'
-                        : 'success'
-                    "
-                    >{{
-                      row.revoked
-                        ? "已撤销"
-                        : row.expiresAt < Date.now()
-                          ? "已过期"
-                          : "生效中"
-                    }}</el-tag
-                  ></template
-                ></el-table-column
-              ><el-table-column label="操作" width="170"
-                ><template #default="{ row }"
-                  ><el-button
-                    v-if="!row.revoked && row.expiresAt > Date.now()"
-                    text
-                    @click="editShare(row.id)"
-                    >修改设置</el-button
-                  ><el-button
-                    v-if="!row.revoked"
-                    text
-                    type="danger"
-                    @click="revoke(row.id)"
-                    >撤销</el-button
-                  ></template
-                ></el-table-column
-              ></el-table
-            >
-            <p class="muted share-help">
-              分享链接仅在创建时展示，请及时复制保存。遗失后可撤销并重新创建。
-            </p></template
-          ><template v-else-if="grid && section === 'drive'"
-            ><div v-if="items.length" class="file-grid">
-              <article
-                v-for="e in items"
-                :key="e.id"
-                class="file-tile"
-                :class="{ selected: selected.some((v) => v.id === e.id) }"
-              >
-                <el-checkbox
-                  :model-value="selected.some((v) => v.id === e.id)"
-                  :aria-label="'选择 ' + e.name"
-                  @change="selectCard(e)"
-                /><el-dropdown class="tile-more" @command="command($event, e)"
-                  ><el-button
-                    text
-                    :icon="MoreFilled"
-                    :aria-label="e.name + '的操作'"
-                  /><template #dropdown
-                    ><el-dropdown-menu
-                      ><el-dropdown-item command="tags"
-                        >编辑标签</el-dropdown-item
-                      ><el-dropdown-item
-                        v-if="e.kind === 'FOLDER'"
-                        command="collect"
-                        >收集文件</el-dropdown-item
-                      ><el-dropdown-item command="zip"
-                        >压缩下载</el-dropdown-item
-                      ><el-dropdown-item command="favorite">{{
-                        e.favorite ? "取消收藏" : "收藏"
-                      }}</el-dropdown-item
-                      ><el-dropdown-item command="rename"
-                        >重命名</el-dropdown-item
-                      ><el-dropdown-item command="move">移动</el-dropdown-item
-                      ><el-dropdown-item command="share">分享</el-dropdown-item
-                      ><el-dropdown-item command="delete" divided
-                        >移入回收站</el-dropdown-item
-                      ><el-dropdown-item
-                        v-if="e.kind === 'FILE'"
-                        command="versions"
-                        >版本历史</el-dropdown-item
-                      ></el-dropdown-menu
-                    ></template
-                  ></el-dropdown
-                ><button class="tile-open" @click="open(e)">
-                  <Thumbnail :file="e" /><strong :title="e.name">{{
-                    e.name
-                  }}</strong
-                  ><small>{{
-                    e.kind === "FOLDER" ? "文件夹" : bytes(e.size)
-                  }}</small>
-                </button>
-              </article>
-            </div>
-            <div v-else class="empty-state">
-              <el-icon><FolderOpened /></el-icon>
-              <h3>
-                {{ query ? "没有找到匹配的文件" : "给这个空间，放一点灵感" }}
-              </h3>
-              <p>
-                {{
-                  query
-                    ? "试试其他关键词，或切换搜索范围。"
-                    : "上传文件或创建文件夹，开始整理你的数字生活。"
-                }}
-              </p>
-              <el-button
-                v-if="!query"
-                type="primary"
-                :icon="Upload"
-                @click="fileInput?.click()"
-                >上传第一个文件</el-button
-              >
-            </div></template
-          ><el-table
-            v-else
-            :data="items"
-            :empty-text="
-              section === 'trash'
-                ? '回收站是空的'
-                : '这里还没有文件，点击上传开始吧'
-            "
-            row-key="id"
-            ><el-table-column v-if="section !== 'shares'" width="45"
-              ><template #default="{ row }"
-                ><el-checkbox
-                  :model-value="selected.some((e) => e.id === row.id)"
-                  :aria-label="'选择 ' + row.name"
-                  @change="selectCard(row)" /></template></el-table-column
-            ><el-table-column label="名称" min-width="280"
-              ><template #default="{ row }"
-                ><button
-                  class="entry-name"
-                  :aria-label="(row.favorite ? '★ ' : '') + row.name"
-                  @click="section === 'drive' && open(row)"
-                >
-                  <FileMark :kind="row.kind" :mime="row.mime" /><span
-                    ><strong
-                      >{{ row.favorite ? "★ " : "" }}{{ row.name }}</strong
-                    ><small v-if="row.path">{{ row.path }}</small></span
-                  ></button
-                ><el-button
-                  v-if="row.path"
-                  text
-                  size="small"
-                  @click="navigate(row.parentId)"
-                  >打开所在目录</el-button
-                ></template
-              ></el-table-column
-            ><el-table-column label="大小" width="120"
-              ><template #default="{ row }"
-                ><span class="cell-muted">{{
-                  row.kind === "FOLDER" ? "—" : bytes(row.size)
-                }}</span></template
-              ></el-table-column
-            ><el-table-column
-              :label="section === 'trash' ? '删除时间' : '修改时间'"
-              min-width="170"
-              ><template #default="{ row }"
-                ><span class="cell-muted">{{
-                  date(section === "trash" ? row.deletedAt : row.updatedAt)
-                }}</span></template
-              ></el-table-column
-            ><el-table-column label="操作" width="166" align="right"
-              ><template #default="{ row }"
-                ><template v-if="section === 'trash'"
-                  ><el-button text type="primary" @click="restore(row)"
-                    >恢复</el-button
-                  ><el-button text type="danger" @click="purge(row)"
-                    >彻底删除</el-button
-                  ></template
-                ><template v-else
-                  ><el-tooltip v-if="row.kind === 'FILE'" content="下载"
-                    ><a
-                      :href="`/api/files/${row.id}/download`"
-                      class="row-icon"
-                      :aria-label="'下载 ' + row.name"
-                      ><el-icon><Download /></el-icon></a></el-tooltip
-                  ><el-button
-                    text
-                    :icon="Share"
-                    :aria-label="'分享 ' + row.name"
-                    @click="share(row)"
-                  /><el-dropdown @command="command($event, row)"
-                    ><el-button
-                      text
-                      :icon="MoreFilled"
-                      :aria-label="row.name + '的操作'"
-                    /><template #dropdown
-                      ><el-dropdown-menu
-                        ><el-dropdown-item command="tags"
-                          >编辑标签</el-dropdown-item
-                        ><el-dropdown-item
-                          v-if="row.kind === 'FOLDER'"
-                          command="collect"
-                          >收集文件</el-dropdown-item
-                        ><el-dropdown-item command="zip" :icon="Download"
-                          >压缩下载</el-dropdown-item
-                        ><el-dropdown-item command="favorite">{{
-                          row.favorite ? "取消收藏" : "收藏"
-                        }}</el-dropdown-item
-                        ><el-dropdown-item command="rename" :icon="Edit"
-                          >重命名</el-dropdown-item
-                        ><el-dropdown-item command="move" :icon="FolderOpened"
-                          >移动</el-dropdown-item
-                        ><el-dropdown-item
-                          v-if="row.kind === 'FILE'"
-                          command="versions"
-                          >版本历史</el-dropdown-item
-                        ><el-dropdown-item
-                          command="delete"
-                          :icon="Delete"
-                          divided
-                          >移入回收站</el-dropdown-item
-                        ></el-dropdown-menu
-                      ></template
-                    ></el-dropdown
-                  ></template
-                ></template
-              ></el-table-column
-            ></el-table
-          >
-        </div>
+        <SharesSection
+          v-if="section === 'shares'"
+          v-model:filter="shareFilter"
+          :shares="visibleShares"
+          :busy="busy"
+          @edit="editShare"
+          @revoke="revoke"
+        />
+        <DriveFilesSection
+          v-else
+          :items="items"
+          :selected="selected"
+          :grid="grid"
+          :busy="busy"
+          :failure="failure"
+          :trash="section === 'trash'"
+          :empty-title="
+            section === 'trash'
+              ? '回收站是空的'
+              : query || fileType !== 'all' || minMiB || rangeDays
+                ? '没有找到匹配的文件'
+                : collection === 'favorites'
+                  ? '还没有收藏'
+                  : collection === 'opened'
+                    ? '还没有打开记录'
+                    : collection === 'uploaded'
+                      ? '还没有上传记录'
+                      : '这个目录还没有文件'
+          "
+          :empty-description="
+            section === 'trash'
+              ? '删除的文件会在这里保留，直到你恢复或彻底删除。'
+              : query || fileType !== 'all' || minMiB || rangeDays
+                ? '试试其他关键词，或重置筛选条件。'
+                : collection === 'favorites'
+                  ? '在文件菜单中收藏，让常用内容触手可及。'
+                  : '上传文件或创建文件夹，开始整理。'
+          "
+          @toggle="selectCard"
+          @open="open"
+          @action="command"
+          @retry="load"
+          ><template #empty-action
+            ><el-button
+              v-if="section === 'drive' && collection === 'all' && !query"
+              type="primary"
+              @click="fileInput?.click()"
+              >上传第一个文件</el-button
+            ></template
+          ></DriveFilesSection
+        >
         <div v-if="section === 'drive'" class="list-footer">
-          <span>你的文件，由你掌握。</span
+          <span>每页 30 项 · 选择可跨目录保留</span
           ><el-pagination
             v-if="total > 30"
             v-model:current-page="page"
@@ -1416,6 +1213,7 @@ function command(c: string, e: Entry) {
       "
       @choose="moveTo"
     /><el-dialog
+      class="cn-dialog"
       :model-value="!!sharing"
       title="分享文件"
       width="480px"
@@ -1479,7 +1277,11 @@ function command(c: string, e: Entry) {
           >创建分享</el-button
         ></template
       ></el-dialog
-    ><el-dialog v-model="profile" title="个人资料" width="420px"
+    ><el-dialog
+      class="cn-dialog"
+      v-model="profile"
+      title="个人资料"
+      width="420px"
       ><el-form label-position="top" @submit.prevent="editProfile"
         ><el-form-item label="账号"
           ><el-input

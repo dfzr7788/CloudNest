@@ -1,0 +1,24 @@
+:root {
+  --cn-canvas: #f6f8fc;
+  --cn-surface: #fff;
+  --cn-subtle: #f1f4f9;
+  --cn-brand: #5266f1;
+  --cn-brand-hover: #4256dd;
+  --cn-brand-pressed: #3548c8;
+  --cn-selected: #eef1ff;
+  --cn-heading: #182338;
+  --cn-text: #334155;
+  --cn-muted: #627189;
+  --cn-border: #e5eaf2;
+  --cn-focus: #3548c8;
+  --cn-danger: #c63849;
+  --cn-radius-control: 10px;
+  --cn-radius-card: 16px;
+  --cn-radius-dialog: 20px;
+  --cn-shadow: 0 12px 40px #18233814;
+  --cn-duration: 180ms;
+  --cn-z-toolbar: 10;
+  --cn-z-batch: 30;
+  --cn-z-transfer: 40;
+  --cn-z-nav: 50;
+}

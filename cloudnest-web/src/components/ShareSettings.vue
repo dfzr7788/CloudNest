@@ -56,7 +56,7 @@ async function save() {
 }
 </script>
 <template>
-  <el-dialog
+  <el-dialog class="cn-dialog"
     :model-value="!!share"
     title="修改分享设置"
     width="min(480px,94vw)"

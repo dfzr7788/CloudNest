@@ -146,8 +146,8 @@ test("AI 配置保存不调用模型，预览显式生成、恢复、净化和�
   await expect(page.locator(".answer img, .answer script")).toHaveCount(0);
   await page.screenshot({ path: test.info().outputPath("ai-desktop.png") });
   expect(calls).toBe(1);
-  const drawer = page.getByRole("dialog", { name: "AI 阅读助手", exact: true });
-  await drawer.locator(".el-drawer__close-btn").click();
+  const drawer = page.getByRole("region", { name: "AI 阅读助手", exact: true });
+  await drawer.getByRole("button", { name: "关闭阅读助手", exact: true }).click();
   await page.getByRole("button", { name: "AI 阅读助手", exact: true }).click();
   await expect(page.locator(".answer")).toContainText("事实要点。");
   expect(calls).toBe(1);
@@ -177,7 +177,7 @@ test("AI 配置保存不调用模型，预览显式生成、恢复、净化和�
   await expect(page.locator(".ai-panel")).toBeVisible();
   await expect
     .poll(async () => {
-      const box = await page.locator(".el-drawer").boundingBox();
+      const box = await page.locator(".reading-assistant").boundingBox();
       return !!box && box.x >= 0 && box.x + box.width <= 391;
     })
     .toBeTruthy();
@@ -476,8 +476,8 @@ test("单文档问答：创建、确认发送、引用、历史恢复、只读�
   const cite = page.getByRole("dialog", { name: "引用原文", exact: true });
   await expect(cite.locator("pre")).toHaveText("负责人是小王。");
   await cite.locator(".el-dialog__headerbtn").click();
-  const drawer = page.getByRole("dialog", { name: "AI 阅读助手", exact: true });
-  await drawer.locator(".el-drawer__close-btn").click();
+  const drawer = page.getByRole("region", { name: "AI 阅读助手", exact: true });
+  await drawer.getByRole("button", { name: "关闭阅读助手", exact: true }).click();
   await page.getByRole("button", { name: "AI 阅读助手", exact: true }).click();
   await page.getByText("单文档问答与会话历史", { exact: true }).click();
   await expect(qa.locator(".qa-transcript")).toContainText("负责人是小王。");

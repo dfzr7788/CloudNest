@@ -48,12 +48,7 @@ test("IMPUI01 收藏、批量删除撤销与账号会话设置", async ({ page }
     .getByRole("button", { name: "daily.txt的操作", exact: true })
     .click();
   await page.getByRole("menuitem", { name: "收藏", exact: true }).click();
-  await page
-    .locator(".el-select")
-    .filter({ has: page.getByRole("combobox", { name: "文件集合" }) })
-    .locator(".el-select__wrapper")
-    .click();
-  await page.getByRole("option", { name: "我的收藏", exact: true }).click();
+  await page.getByRole("group", { name: "文件集合", exact: true }).getByRole("button", { name: "我的收藏", exact: true }).click();
   await expect(
     page.getByRole("button", { name: "★ daily.txt", exact: true }),
   ).toBeVisible();
@@ -72,7 +67,7 @@ test("IMPUI01 收藏、批量删除撤销与账号会话设置", async ({ page }
   await page.getByRole("tab", { name: "回收站设置" }).click();
   await expect(page.getByLabel("回收站保留天数")).toHaveValue("0");
   await page.screenshot({
-    path: "../docs/evidence/improvement-account.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/improvement-account.png",
     animations: "disabled",
     fullPage: true,
   });
@@ -92,6 +87,7 @@ test("IMPUI02 文件夹导入保留三层结构", async ({ page }) => {
   expect(await page.evaluate(() => typeof crypto.randomUUID)).toBe("undefined");
   await upload(page, "standalone.txt", "ordinary upload without randomUUID");
   const chooser = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "更多上传选项", exact: true }).click();
   await page.getByRole("button", { name: "上传文件夹", exact: true }).click();
   await (await chooser).setFiles(directory);
   const rootName = directory.split(/[\\/]/).at(-1)!;
@@ -154,7 +150,7 @@ test("IMPUI03 版本上传恢复和文件夹匿名分享", async ({ page, browse
   await guest.getByRole("button", { name: "guest.txt", exact: true }).click();
   await expect(guest.locator(".preview-body pre")).toHaveText("guest data");
   await guest.screenshot({
-    path: "../docs/evidence/improvement-folder-share.png",
+    path: "../.tools/ui-ux-refactor/screenshots/e2e/improvement-folder-share.png",
     animations: "disabled",
     fullPage: true,
   });

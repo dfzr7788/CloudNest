@@ -1,6 +1,8 @@
 # API 契约
 
-所有路径以 `/api` 开头。JSON 字段使用 camelCase；条目 ID 为 UUID 字符串。时间为 Unix 毫秒；容量/长度为字节；分页从 1 开始。成功返回 JSON 或空响应；文件返回二进制流。错误：`{"code":"CONFLICT","message":"目标目录已存在同名文件"}`。
+本文描述接口行为与权限边界，配合 [OpenAPI](openapi.json) 和服务端控制器/校验使用；使用入口见 [使用说明](usage.md)，本地联调见 [开发指南](development.md)。
+
+除单独标注的 `/dav/` 外，API 路径以 `/api` 开头；下文省略前缀的路径须补上 `/api`，AI 表格另标注其子前缀。请求通常使用 camelCase，部分响应直接采用 snake_case 字段，以具体接口为准；条目 ID 为 UUID 字符串。时间为 Unix 毫秒；容量/长度为字节；分页从 1 开始。成功返回 JSON 或空响应；文件返回二进制流。错误：`{"code":"CONFLICT","message":"目标目录已存在同名文件"}`。
 
 ## 认证与 CSRF
 
@@ -71,10 +73,10 @@
 - GET `/downloads/{id}`：`{id,status:QUEUED|BUILDING|READY|FAILED,error}`。
 - GET `/downloads/{id}/file`：READY 状态 ZIP；重新校验全部源文件授权与有效状态。
 
-只支持文件，目录需先展开选择；重名 ZIP 项自动加前缀。每用户并行任务 ≤2，保留任务 ≤10，过期 1 小时。
-# 改进版接口补充（2026-10-16）
+支持文件和文件夹递归打包，客户端无需预先展开目录。每用户并行任务 ≤2，保留任务 ≤10，过期 1 小时。
+## 账号、批量操作与版本接口
 
-以下接口均沿用现有 Cookie 身份与写请求 CSRF 校验。完整可导入清单见 openapi.json；本节只补充增量语义。普通认证请求保持 CSRF Cookie 稳定，登录/注册/退出时清除旧令牌，下一次写入前重新获取。
+以下接口均沿用现有 Cookie 身份与写请求 CSRF 校验。接口清单见 [OpenAPI](openapi.json)；下表说明各流程的参数和权限。普通认证请求保持 CSRF Cookie 稳定，登录/注册/退出时清除旧令牌，下一次写入前重新获取。
 
 | 接口 | 输入与成功结果 |
 | --- | --- |
@@ -110,7 +112,7 @@
 | POST /api/admin/invitations | quota 至少 1 MiB；返回仅本次可见的 token 和 expiresAt（48 小时）；最多同时 20 个未消费有效邀请 |
 | POST /api/auth/register | 新增可选 invitation。关闭公开注册时必须填写；邀请只使用一次，配额按邀请设置，数据库只保存摘要 |
 
-历史版本和单文件固定分享会增加对象引用；普通文件删除、分享撤销、后台清理已同步适配。普通下载 ZIP 同样验证修订号。其他限制与旧接口定义继续适用。
+历史版本和单文件固定分享会增加对象引用；普通文件删除、分享撤销、后台清理已同步适配。普通下载 ZIP 同样验证修订号。其他限制沿用本文各功能章节的约定。
 
 ## 系统更新接口
 
@@ -169,9 +171,9 @@ Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按�
 | POST /api/public/office/callback?ticket= | 文档服务JWT验证后保存版本；仅此签名回调免CSRF |
 
 Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL 仅接受配置的文档服务 cache 路径且不跟随重定向。外部文件更新导致修订冲突时需重新打开编辑器。部署配置与限制见 [进阶说明](advanced-features.md)。
-# AI API（v0.1 / v0.2）
+## AI API
 
-兼容修正：固定短测试的最大输出为 `min(256, 模型maxOutput)`。官方 `api.deepseek.com` 的 `deepseek-flash`、`deepseek-v4-pro` 及受支持 Flash 旧别名显式发送 `thinking:{type:"disabled"}`，此参数不发送给其他主机或未知模型。响应 `finish_reason=length` 返回 `AI_OUTPUT_LIMIT`，即使包含部分正文也不发布为成功；空最终文本仍为 `AI_INVALID_RESPONSE`，不将 `reasoning_content` 当作答案。上述失败响应已提供的 token 用量会记录到本次调用。
+供应商兼容：固定短测试的最大输出为 `min(256, 模型maxOutput)`。官方 `api.deepseek.com` 的 `deepseek-flash`、`deepseek-v4-pro` 及受支持 Flash 旧别名显式发送 `thinking:{type:"disabled"}`，此参数不发送给其他主机或未知模型。响应 `finish_reason=length` 返回 `AI_OUTPUT_LIMIT`，即使包含部分正文也不发布为成功；空最终文本仍为 `AI_INVALID_RESPONSE`，不将 `reasoning_content` 当作答案。上述失败响应已提供的 token 用量会记录到本次调用。
 
 前缀 `/api/ai`，复用 Cookie 登录和写操作 CSRF。只访问本人连接、模型、文件和任务；返回的配置不含密钥明文或密文。资源不存在或属于其他用户统一 404。
 

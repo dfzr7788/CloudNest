@@ -1,14 +1,25 @@
-# CloudNest 私人云盘
+# CloudNest
 
-基于 Vue 3、TypeScript、Java 21 和 Spring Boot 的多用户私人云盘。支持独立存储空间、文件管理、目录上传、分片续传、在线预览、文件分享、回收站、历史版本及文件夹 ZIP 下载。
+可自行部署的多用户私人云盘。以文件管理为核心，提供分片续传、跨目录选择、在线预览、公开分享、历史版本与回收站；可选接入用户自己的 AI API，辅助阅读和检索资料。
 
-可选 AI 阅读助手支持用户自带 Chat Completions / Embeddings 兼容 API：文档摘要、标签建议、单文档多轮问答、原文引用、连接测试与个人用量记录，并提供独立向量模型配置/测试、手动增量索引、语义搜索、跨文档知识库问答、版本变化摘要和逐项确认的智能整理。管理员设置 `AI_ENABLED=true` 后，在“账号与安全 → AI 设置”配置自己的连接和模型；在 TXT、Markdown、PDF、DOCX 文件预览中打开“AI 阅读助手”。只有用户确认后才调用模型。问答入口在阅读助手的“单文档问答与会话历史”，支持取消、恢复与删除会话；向量模型在“AI 设置 → 向量模型”配置并单独测试；知识库与整理入口在“账号与安全 → AI 知识库 / 智能整理”，版本变化摘要在文件 AI 面板。知识库目前采用数据库中的小规模精确向量检索，每库最多 100 文件、1000 块；不需要新增向量容器。参见 [使用说明](docs/usage.md#ai-阅读助手) 和 [部署说明](docs/deployment.md#ai-部署与恢复)。
+前端使用 Vue 3、TypeScript、Element Plus 和 Pinia，后端使用 Java 21、Spring Boot、MyBatis Plus 和 Flyway。开发环境可直接使用 H2；Docker 部署使用 MySQL、Redis 和独立文件数据卷。当前支持单个后端实例。
 
-## 服务器快速部署
+## 能做什么
 
-需要 Linux 服务器、Git、OpenSSL、Docker Engine 和 Docker Compose 2.24.4+。无需预装 Java、Node.js、MySQL，也无需上传数据库。没有 Docker 时，先按 [完整部署手册](docs/deployment.md) 安装。
+| 场景 | 能力 |
+| --- | --- |
+| 日常文件管理 | 列表/网格、名称搜索与筛选、收藏和最近使用、标签与正文搜索、复制/剪切/粘贴、跨目录批量操作 |
+| 上传与下载 | 文件夹上传、SHA-256 校验、分片并发和暂停恢复、同名处理、文件夹及多项 ZIP 打包、上传与下载任务进度 |
+| 阅读与版本 | 图片、PDF、文本、Markdown、Office 阅读预览、部分音视频；历史版本下载与恢复；可选 OnlyOffice 编辑 |
+| 对外分享 | 文件、目录和集合分享，提取码、有效期、下载权限、撤销与统计；只上传的文件收集链接 |
+| 账号与管理 | 配额、回收站、登录会话、TOTP、邮箱验证与找回、WebDAV 应用密码、管理员邀请和用户管理 |
+| 可选扩展 | 多 S3 兼容存储策略与校验迁移、宿主机更新与备份服务、用户自带 API 的 AI 阅读助手和知识库 |
 
-在服务器终端执行：
+AI 默认关闭。开启后可手动生成摘要、标签建议，进行文档问答、知识库索引与检索、版本变化解释和逐项确认的整理。保存 API 配置和上传文件不会自动调用模型；收费请求由用户显式确认。支持范围、数据去向与费用限制见 [AI 使用说明](docs/ai.md)。
+
+## 快速部署
+
+Linux 服务器需要 Git、OpenSSL、Python 3、Docker Engine 和 Docker Compose 2.24.4+，无需在宿主机安装 Java、Node.js 或 MySQL。
 
 ```bash
 git clone https://github.com/duyan9030-dotcom/CloudNest.git
@@ -19,83 +30,48 @@ docker compose up -d --build --wait --wait-timeout 180
 bash scripts/create-admin.sh owner
 ```
 
-最后一条命令交互设置管理员密码，输入时不会显示字符。成功结果应包含 `"problems":0` 和 `"action":"create-admin"`。没有默认密码，管理员用户名为 `owner`。
+最后一步交互设置管理员密码；`owner` 是此示例选择的用户名，没有默认登录密码。确认维护结果中 `problems` 为 `0`、`action` 为 `create-admin`。在防火墙放行 TCP 8088 后，打开 `http://服务器公网IP:8088` 登录。
 
-在云服务器防火墙放行 **TCP 8088** 后，用浏览器打开：
+初始化脚本生成独立随机密码，不覆盖已有 `.env`；新配置只公开 Web 端口，数据库、Redis 和后端不向宿主机发布。默认关闭公开注册，管理员在“账号与安全 → 系统管理”创建邀请。公网长期使用请配置 HTTPS，并相应启用 `SECURE_COOKIES`；普通 HTTP 保持 `false`。
 
-```text
-http://你的服务器公网IP:8088
-```
+Docker 安装、预构建镜像、端口配置、管理员维护和排障见 [部署手册](docs/deployment.md)。Linux amd64 可使用当前提交对应的校验镜像，其他架构使用源码构建。
 
-使用 `owner` 和刚设置的密码登录。普通用户由管理员在“账号与安全 → 系统管理”生成邀请链接注册，默认关闭自由注册。
+## 数据与更新
 
-首次构建会下载镜像与依赖。初始化脚本生成独立随机密码，并通过 `.env` 选择公网端口配置，仅开放云盘 Web 端口；数据库、Redis 和后端端口不向宿主机发布。已有 `.env` 不会被覆盖。HTTP 不加密传输，公网长期使用可另行配置 HTTPS；基础部署不需要域名、证书或 Cloudflare。
+Docker 的 `mysql_data` 和 `app_data` 保存数据库、文件、分片和签名密钥，`.env` 保存部署配置。**不要执行 `docker compose down -v`，它会删除业务数据卷。** 远程 S3 对象也必须纳入备份；数据库、对象、密钥和版本应成套恢复。
 
-完整步骤包括 Docker 安装、放行端口、修改端口、密码重置、备份和排障，见 [部署手册](docs/deployment.md)。
-
-## 功能
-
-- 文件与目录：多级目录、搜索、筛选、收藏、最近使用、列表/网格、复制、剪切粘贴、快捷键、批量移动和删除。
-- 上传：目录上传、SHA-256 校验、同用户秒传、分片并发、暂停与断点续传。
-- 下载：单文件下载、整文件夹和多文件夹 ZIP、跨目录挑选部分文件打包，分享页支持相同操作。
-- 预览：图片、PDF、文本、Markdown 数学与代码高亮、相对附件、DOC/DOCX/XLS/XLSX/PPT/PPTX 阅读预览和可选 OnlyOffice 编辑；部分音视频可由浏览器原生播放。
-- 分享：文件/文件夹链接、有效期、提取码、下载权限与撤销、多项集合分享、只上传收集入口及访问/下载统计。
-- 数据管理：回收站恢复、保留策略、历史版本、容量配额。
-- 账号管理：密码与登录会话、邮箱验证与找回、TOTP、可撤销 WebDAV 应用密码、管理员邀请、用户配额和禁用。
-- 系统更新：可选安装宿主机更新服务，从管理员页面检查 GitHub，优先导入预构建镜像并备份更新；定时/异地备份与独立实例恢复。
-- 检索与存储：标签、文档正文索引、多 S3 兼容策略、连接测试、容量告警和校验迁移。
-
-详细入口及限制见 [使用说明](docs/usage.md) 和 [进阶配置](docs/advanced-features.md)。默认每用户 5 GiB、单文件最大 2 GiB；回收站及历史版本占用配额。ZIP 默认展开最多 1000 个文件、2000 个文件与目录、总大小 512 MiB，产物保留 1 小时。当前只支持一个后端实例。
-
-## 更新与数据
-
-服务器数据保存在 Docker 的 `mysql_data`、`app_data` 命名卷中；`.env` 保存部署密码。重建容器保留数据，**不要执行 `docker compose down -v`**。
-
-手动升级前按 [部署手册](docs/deployment.md#备份与恢复) 备份，再执行：
+升级前按 [备份与恢复](docs/deployment.md#备份与恢复) 创建并验证一致性备份，然后在源码部署中执行：
 
 ```bash
 git pull --ff-only
+docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```
 
-浏览器一键更新需要在服务器安装一次配套服务，详见 [系统更新说明](docs/system-updates.md)。已有部署拉取代码不会重写 `.env`；旧部署若仍仅监听回环地址，按部署手册的“已有部署启用 IP 访问”配置。
+已选择预构建镜像的部署按 [系统更新说明](docs/system-updates.md) 操作。网页一键更新需要先安装宿主机更新服务。数据库迁移后，单独切回旧镜像不能完成数据回退。
 
 ## 本机开发
 
-需要 Java 21、Maven 3.9+、Node.js 22.13+ 或 24+。Windows 打开两个 PowerShell 窗口，在项目根目录分别执行：
+需要 Java 21、Maven 3.9+ 和 Node.js 22.13+ 或 24。Windows 在项目根目录的两个 PowerShell 窗口分别运行：
 
 ```powershell
-# 窗口 1
 .\scripts\dev.ps1 server
-
-# 窗口 2
 .\scripts\dev.ps1 web
 ```
 
-如果使用 CMD，执行 `powershell -NoProfile -ExecutionPolicy Bypass -File scripts/dev.ps1 server`，另一个窗口将最后的 `server` 换成 `web`。
+打开 <http://127.0.0.1:5173>。本地默认开放注册，使用 H2 和本地存储。跨平台启动、环境变量、类型检查、后端与浏览器测试见 [开发指南](docs/development.md)。
 
-打开 <http://127.0.0.1:5173>，开发环境默认开放注册，使用 H2 与本地磁盘；数据保存在 `cloudnest-server/.data/`。Linux/macOS 开发可在 `cloudnest-server` 中执行 `mvn spring-boot:run`，另一个终端在 `cloudnest-web` 中执行 `npm ci`、`npm run dev`。
-
-```bash
-# 后端测试
-mvn -f cloudnest-server/pom.xml test
-# 前端类型检查及生产构建
-cd cloudnest-web
-npm ci
-npm run build
-# 前后端启动后执行浏览器测试，需要本机 Chrome
-npm run test:e2e
-```
-
-## 文档与开源
+## 文档导航
 
 | 文档 | 内容 |
 | --- | --- |
-| [部署手册](docs/deployment.md) | 从安装 Docker 到 IP＋端口访问、维护和备份 |
-| [使用说明](docs/usage.md) | 上传、下载、分享、邀请和账号管理 |
-| [进阶配置](docs/advanced-features.md) | Office、WebDAV、MFA、邮件、存储和检索 |
-| [系统更新](docs/system-updates.md) | 一键更新的安装、流程和故障处理 |
-| [API](docs/api.md) / [OpenAPI](docs/openapi.json) | 接口和权限约定 |
-| [贡献说明](CONTRIBUTING.md) / [安全反馈](SECURITY.md) | 开发贡献与问题报告 |
+| [使用说明](docs/usage.md) | 界面入口、文件操作、上传恢复、预览、分享与账号设置 |
+| [AI 使用说明](docs/ai.md) | API 配置、阅读助手、知识库、计费与数据保留 |
+| [部署手册](docs/deployment.md) | 安装、配置、升级、备份、恢复与维护 |
+| [进阶配置](docs/advanced-features.md) | Office、WebDAV、邮件、双重验证、存储与正文检索 |
+| [系统更新](docs/system-updates.md) | 宿主机更新服务、预构建镜像与故障处理 |
+| [开发指南](docs/development.md) | 目录结构、开发启动与验证命令 |
+| [API 契约](docs/api.md) / [OpenAPI](docs/openapi.json) | 接口、认证、权限与限制 |
+| [贡献说明](CONTRIBUTING.md) / [安全反馈](SECURITY.md) | 贡献流程与漏洞报告 |
 
-项目采用 [MIT 许可证](LICENSE)。仓库只包含源代码、部署配置、测试及必要说明；数据库、私人文件、密码、备份、构建产物和开发过程日志不上传。
+项目采用 [MIT 许可证](LICENSE)。仓库保留源代码、部署配置、测试和必要文档；密码、私人文件、数据库、备份和开发运行产物不提交。

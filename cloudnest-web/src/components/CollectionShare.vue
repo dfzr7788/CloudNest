@@ -18,6 +18,14 @@ watch(
     code.value = "";
   },
 );
+async function copyLink() {
+  try {
+    await navigator.clipboard.writeText(link.value);
+    ElMessage.success("分享链接已复制");
+  } catch {
+    ElMessage.info("请选中链接后复制");
+  }
+}
 async function create() {
   busy.value = true;
   try {
@@ -40,6 +48,7 @@ async function create() {
 </script>
 <template>
   <el-dialog
+    class="cn-dialog"
     :model-value="!!files"
     :title="collect ? '创建文件收集入口' : '分享选中的文件'"
     width="min(560px,94vw)"
@@ -52,7 +61,7 @@ async function create() {
     <p v-else>
       选中 {{ files?.length }} 项，组成一个分享链接；不会移动原文件。
     </p>
-    <el-form label-position="top"
+    <el-form v-if="!link" label-position="top"
       ><el-form-item label="分享名称"
         ><el-input v-model="title" maxlength="180" /></el-form-item
       ><el-form-item label="有效时间（小时）"
@@ -69,6 +78,7 @@ async function create() {
       aria-label="合集分享链接"
     />
     <p v-if="link">请复制完整链接发送给对方，关闭后不再显示。</p>
+    <el-button v-if="link" type="primary" @click="copyLink">复制链接</el-button>
     <template #footer
       ><el-button @click="emit('close')">关闭</el-button
       ><el-button v-if="!link" type="primary" :loading="busy" @click="create"

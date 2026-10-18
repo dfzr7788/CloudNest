@@ -6,15 +6,23 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [
     ["list"],
-    ["json", { outputFile: "../docs/evidence/browser-results.json" }],
+    ["json", { outputFile: "../.tools/ui-ux-refactor/browser-results.json" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:5173",
+    baseURL: process.env.CN_E2E_BASE_URL || "http://127.0.0.1:5173",
     channel: "chrome",
     headless: true,
+    launchOptions: process.env.CN_HTTP_PREVIEW_ORIGIN
+      ? {
+          args: [
+            "--host-resolver-rules=MAP cloudnest.test 127.0.0.1",
+            "--no-proxy-server",
+          ],
+        }
+      : undefined,
     viewport: { width: 1440, height: 1000 },
     screenshot: "only-on-failure",
     trace: "retain-on-failure",
   },
-  outputDir: "test-results",
+  outputDir: "../.tools/ui-ux-refactor/test-results-final",
 });

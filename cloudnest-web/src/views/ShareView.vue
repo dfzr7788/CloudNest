@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { onMounted, ref } from "vue";
+import CloudNestLogo from "../components/brand/CloudNestLogo.vue";
 import { api, errorText, bytes, date, type Entry } from "../api";
-import { Cloudy, Lock, Download, View } from "@element-plus/icons-vue";
+import { Lock, Download, View } from "@element-plus/icons-vue";
 import FileMark from "../components/FileMark.vue";
 import PreviewDialog from "../components/PreviewDialog.vue";
 import SelectionBasket from "../components/SelectionBasket.vue";
@@ -158,9 +159,8 @@ onMounted(load);
 <template>
   <main class="share-page">
     <header>
-      <router-link to="/" class="brand"
-        ><el-icon><Cloudy /></el-icon> CloudNest</router-link
-      ><span>让文件自由抵达</span>
+      <router-link to="/" class="brand"><CloudNestLogo /></router-link
+      ><span>文件分享</span>
     </header>
     <section class="share-card" v-loading="busy">
       <div v-if="zipBusy" role="status">
@@ -206,6 +206,13 @@ onMounted(load);
         <p class="muted">
           {{ bytes(info.file.size) }} · 有效期至 {{ date(info.expiresAt) }}
         </p>
+        <p
+          v-if="stackNames.length"
+          class="public-breadcrumb"
+          :title="stackNames.join(' / ')"
+        >
+          {{ info.file.name }} / {{ stackNames.join(" / ") }}
+        </p>
         <div v-if="info.mode !== 'COLLECT'" class="share-actions">
           <template v-if="info.file.kind === 'FOLDER'"
             ><el-button v-if="stack.length" @click="back">返回上级</el-button
@@ -239,7 +246,11 @@ onMounted(load);
             >
           </template>
         </div>
-        <section v-if="info.mode === 'COLLECT'" class="collect-panel">
+        <section
+          v-if="info.mode === 'COLLECT'"
+          class="collect-panel"
+          aria-live="polite"
+        >
           <p>这是文件收集入口，你的文件将上传给分享者。每文件最多 100 MiB。</p>
           <input
             type="file"

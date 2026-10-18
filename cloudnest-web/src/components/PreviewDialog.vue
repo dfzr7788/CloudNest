@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { computed, ref, watch, defineAsyncComponent } from "vue";
 import { api, errorText, type Entry, bytes } from "../api";
+import { ai } from "../api/ai";
+import { nextTick } from "vue";
 import FileMark from "./FileMark.vue";
 import AiPanel from "./AiPanel.vue";
 import DOMPurify from "dompurify";
 import { renderMarkdown } from "../markdown";
 const PdfPreview = defineAsyncComponent(() => import("./PdfPreview.vue"));
-const props = defineProps<{
-  file: Entry | null;
-  base?: string;
-  allowDownload?: boolean;
-  siblings?: Entry[];
-}>();
+const props = withDefaults(
+  defineProps<{
+    file: Entry | null;
+    base?: string;
+    allowDownload?: boolean;
+    siblings?: Entry[];
+  }>(),
+  { allowDownload: true },
+);
 const emit = defineEmits<{ close: []; select: [file: Entry] }>();
 const markdown = computed(
   () =>
@@ -29,7 +34,31 @@ const word = computed(
       ].includes(props.file.mime || "")),
 );
 const officeEnabled = ref(false);
-const aiOpen = ref(false);
+const aiOpen = ref(false),
+  aiCaps = ref<{ enabled: boolean } | null>(null),
+  aiError = ref("");
+const aiTrigger = ref<{ $el: HTMLElement }>();
+const eligibleAi = computed(
+  () =>
+    !!props.file &&
+    !props.base &&
+    /\.(txt|md|markdown|pdf|docx)$/i.test(props.file.name),
+);
+async function loadAiCapabilities() {
+  const id = props.file?.id;
+  aiError.value = "";
+  try {
+    const caps = await ai.capabilities();
+    if (id === props.file?.id && !props.base) aiCaps.value = caps;
+  } catch (e) {
+    if (id === props.file?.id) aiError.value = errorText(e);
+  }
+}
+async function closeAssistant() {
+  aiOpen.value = false;
+  await nextTick();
+  aiTrigger.value?.$el.focus();
+}
 const rawMarkdown = ref(false),
   documentHtml = ref("");
 const renderedHtml = computed(() =>
@@ -115,6 +144,9 @@ watch(
   async (f) => {
     const mine = ++requestGeneration;
     aiOpen.value = false;
+    aiCaps.value = null;
+    aiError.value = "";
+    if (f && eligibleAi.value) void loadAiCapabilities();
     officeEnabled.value = false;
     if (f && !props.base && /\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(f.name))
       void api
@@ -160,87 +192,130 @@ watch(
 </script>
 <template>
   <el-dialog
+    class="cn-dialog cn-preview-dialog"
     append-to-body
     :model-value="!!file"
     :title="file?.name"
-    width="min(1000px,94vw)"
+    :width="aiOpen ? 'min(1440px,96vw)' : 'min(1100px,96vw)'"
     destroy-on-close
     @close="emit('close')"
-    ><div class="preview-body" v-loading="loading">
-      <el-alert
-        v-if="error"
-        :title="error"
-        type="error"
-        :closable="false"
-      /><template v-else-if="file"
-        ><img
-          v-if="file.mime?.startsWith('image/') && supported"
-          :src="url"
-          :alt="file.name"
-          :style="{
-            transform: `scale(${zoom}) rotate(${rotation}deg)`,
-            maxWidth: '100%',
-          }"
-          @load="opened"
-          @error="error = '图片读取失败，文件可能已被删除或授权已失效'"
-        /><PdfPreview
-          v-else-if="file.mime === 'application/pdf'"
-          :url="url"
-          @loaded="opened"
-        />
-        <audio
-          v-else-if="file.mime?.startsWith('audio/') && supported"
-          :src="url"
-          controls
-          @loadeddata="opened"
-          @error="error = '浏览器无法解码此音频，请下载后查看'"
-        />
-        <video
-          v-else-if="file.mime?.startsWith('video/') && supported"
-          :src="url"
-          controls
-          style="max-width: 100%"
-          @loadeddata="opened"
-          @error="error = '浏览器无法解码此视频，请下载后查看'"
-        />
-        <section v-else-if="word || markdown" class="document-preview">
-          <div class="document-toolbar">
-            <span v-if="word"
-              >Office 阅读预览 · 复杂排版、图片及批注请下载原文件查看</span
-            >
-            <template v-else
-              ><span>Markdown</span
-              ><el-switch
-                v-model="rawMarkdown"
-                active-text="源码"
-                inactive-text="阅读"
-            /></template>
-          </div>
-          <div v-if="word && officeEnabled && file" class="office-actions">
-            <a
-              class="el-button"
-              :href="`/api/office/${file.id}/editor?mode=view`"
-              target="_blank"
-              rel="noopener"
-              >Office 原版式查看</a
-            ><a
-              class="el-button el-button--primary"
-              :href="`/api/office/${file.id}/editor?mode=edit`"
-              target="_blank"
-              rel="noopener"
-              >在线编辑并保留版本</a
-            >
-          </div>
-          <pre v-if="markdown && rawMarkdown">{{ text }}</pre>
-          <article v-else class="rendered-document" v-html="renderedHtml" />
-        </section>
-        <pre v-else-if="file.mime === 'text/plain'">{{ text }}</pre>
-        <div v-else class="empty-state">
-          <FileMark :kind="file.kind" :mime="file.mime" />
-          <h3>暂不支持此文件的在线预览</h3>
-          <p>{{ bytes(file.size) }} · {{ file.mime || "未知类型" }}</p>
-        </div></template
+    ><div class="reading-workspace" :class="{ 'with-assistant': aiOpen }">
+      <div
+        class="preview-body"
+        :class="{
+          'preview-image': file?.mime?.startsWith('image/'),
+          'mobile-document-hidden': aiOpen,
+        }"
+        v-loading="loading"
       >
+        <el-alert
+          v-if="error"
+          :title="error"
+          type="error"
+          :closable="false"
+        /><template v-else-if="file"
+          ><div
+            v-if="file.mime?.startsWith('image/') && supported"
+            class="image-scroll"
+          >
+            <div
+              class="image-stage"
+              :style="{ width: zoom * 100 + '%', height: zoom * 100 + '%' }"
+            >
+              <img
+                :src="url"
+                :alt="file.name"
+                :style="{
+                  transform: `rotate(${rotation}deg)`,
+                  maxWidth: '100%',
+                }"
+                @load="opened"
+                @error="error = '图片读取失败，文件可能已被删除或授权已失效'"
+              />
+            </div>
+          </div>
+          <PdfPreview
+            v-else-if="file.mime === 'application/pdf'"
+            :url="url"
+            @loaded="opened"
+          />
+          <audio
+            v-else-if="file.mime?.startsWith('audio/') && supported"
+            :src="url"
+            controls
+            @loadeddata="opened"
+            @error="error = '浏览器无法解码此音频，请下载后查看'"
+          />
+          <video
+            v-else-if="file.mime?.startsWith('video/') && supported"
+            :src="url"
+            controls
+            style="max-width: 100%"
+            @loadeddata="opened"
+            @error="error = '浏览器无法解码此视频，请下载后查看'"
+          />
+          <section v-else-if="word || markdown" class="document-preview">
+            <div class="document-toolbar">
+              <span v-if="word"
+                >Office 阅读预览 · 复杂排版、图片及批注请下载原文件查看</span
+              >
+              <template v-else
+                ><span>Markdown</span
+                ><el-switch
+                  v-model="rawMarkdown"
+                  active-text="源码"
+                  inactive-text="阅读"
+              /></template>
+            </div>
+            <div v-if="word && officeEnabled && file" class="office-actions">
+              <a
+                class="el-button"
+                :href="`/api/office/${file.id}/editor?mode=view`"
+                target="_blank"
+                rel="noopener"
+                >Office 原版式查看</a
+              ><a
+                class="el-button el-button--primary"
+                :href="`/api/office/${file.id}/editor?mode=edit`"
+                target="_blank"
+                rel="noopener"
+                >在线编辑并保留版本</a
+              >
+            </div>
+            <pre v-if="markdown && rawMarkdown">{{ text }}</pre>
+            <article v-else class="rendered-document" v-html="renderedHtml" />
+          </section>
+          <pre v-else-if="file.mime === 'text/plain'">{{ text }}</pre>
+          <div v-else class="empty-state">
+            <FileMark :kind="file.kind" :mime="file.mime" />
+            <h3>暂不支持此文件的在线预览</h3>
+            <p>{{ bytes(file.size) }} · {{ file.mime || "未知类型" }}</p>
+          </div></template
+        >
+      </div>
+      <aside
+        v-if="aiOpen && file && !base"
+        class="reading-assistant"
+        role="region"
+        aria-label="AI 阅读助手"
+      >
+        <header class="assistant-heading">
+          <div>
+            <strong>AI 阅读助手</strong>
+            <p>结合原文，按需分析</p>
+          </div>
+          <el-button aria-label="关闭阅读助手" @click="closeAssistant"
+            >返回文档</el-button
+          >
+        </header>
+        <div class="assistant-content">
+          <AiPanel
+            :key="file.id"
+            :file="file"
+            :capabilities="aiCaps || undefined"
+          />
+        </div>
+      </aside>
     </div>
     <template #footer
       ><template v-if="file?.mime?.startsWith('image/')"
@@ -260,9 +335,16 @@ watch(
           >旋转</el-button
         ></template
       ><el-button
-        v-if="file && !base && /\.(txt|md|markdown|pdf|docx)$/i.test(file.name)"
-        @click="aiOpen = true"
+        ref="aiTrigger"
+        v-if="eligibleAi && aiCaps?.enabled"
+        @click="aiOpen = !aiOpen"
         >AI 阅读助手</el-button
+      ><span
+        v-if="eligibleAi && aiError"
+        class="ai-capability-error"
+        role="status"
+        >AI 状态读取失败
+        <el-button link @click="loadAiCapabilities">重试</el-button></span
       ><el-button @click="emit('close')">关闭</el-button
       ><a
         v-if="file && allowDownload !== false"
@@ -273,15 +355,6 @@ watch(
       ></template
     ></el-dialog
   >
-  <el-drawer
-    v-model="aiOpen"
-    append-to-body
-    title="AI 阅读助手"
-    size="min(520px,96vw)"
-    destroy-on-close
-  >
-    <AiPanel v-if="file && !base && aiOpen" :key="file.id" :file="file" />
-  </el-drawer>
 </template>
 <style scoped>
 .document-preview {
@@ -295,7 +368,7 @@ watch(
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  color: #7b88a1;
+  color: var(--cn-muted);
   font-size: 13px;
   margin-bottom: 24px;
 }

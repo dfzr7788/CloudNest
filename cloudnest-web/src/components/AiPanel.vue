@@ -16,7 +16,7 @@ import {
 import AiConversation from "./AiConversation.vue";
 import AiSettings from "./AiSettings.vue";
 import AiVersionDiff from "./AiVersionDiff.vue";
-const props = defineProps<{ file: Entry }>();
+const props = defineProps<{ file: Entry; capabilities?: {enabled:boolean} }>();
 const models = ref<AiModel[]>([]),
   connections = ref<AiConnection[]>([]),
   modelId = ref(""),
@@ -90,7 +90,7 @@ async function load() {
   busy.value = true;
   try {
     const [caps, ms, cs, pref] = await Promise.all([
-      ai.capabilities(),
+      props.capabilities ? Promise.resolve(props.capabilities) : ai.capabilities(),
       ai.models(),
       ai.connections(),
       ai.preferences(),
@@ -460,7 +460,7 @@ void load();
     <p class="notice">
       回答仅为辅助结果，请对照原文。停止不能收回已发送数据，也不保证供应商停止计费；网络失败不会自动重发。
     </p>
-    <el-dialog
+    <el-dialog class="cn-dialog"
       v-model="settings"
       title="AI 设置"
       append-to-body

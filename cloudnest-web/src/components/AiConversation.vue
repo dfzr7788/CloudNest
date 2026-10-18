@@ -344,7 +344,7 @@ void load();
       <el-button @click="open(current.id)">刷新会话</el-button
       ><el-button type="danger" plain @click="remove">删除会话</el-button>
     </template>
-    <el-dialog
+    <el-dialog class="cn-dialog"
       :model-value="!!citation"
       title="引用原文"
       width="min(600px, 94vw)"

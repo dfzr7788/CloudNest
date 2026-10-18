@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, date, errorText } from "../api";
+import { Lock } from "@element-plus/icons-vue";
 import SystemUpdate from "./SystemUpdate.vue";
 import AccessSettings from "./AccessSettings.vue";
 import ServerSettings from "./ServerSettings.vue";
@@ -74,6 +75,44 @@ const space = ref<{
 }>();
 import { bytes } from "../api";
 import { useUser } from "../stores/user";
+const settingsGroups = computed(() => [
+  {
+    label: "账号与安全",
+    items: [
+      { value: "password", label: "修改密码" },
+      { value: "access", label: "验证与客户端" },
+      { value: "sessions", label: "登录会话" },
+    ],
+  },
+  {
+    label: "文件与空间",
+    items: [
+      { value: "space", label: "空间明细" },
+      { value: "trash", label: "回收站设置" },
+      { value: "activity", label: "活动记录" },
+    ],
+  },
+  {
+    label: "AI 工作空间",
+    items: [
+      { value: "ai", label: "AI 设置" },
+      { value: "knowledge", label: "AI 知识库" },
+      { value: "organize", label: "智能整理" },
+    ],
+  },
+  ...(account.user?.administrator
+    ? [
+        {
+          label: "系统管理",
+          items: [
+            { value: "admin", label: "系统管理" },
+            { value: "server", label: "服务与存储" },
+            { value: "updates", label: "系统更新" },
+          ],
+        },
+      ]
+    : []),
+]);
 const activityLabels: Record<string, string> = {
   FOLDER_CREATED: "创建文件夹",
   ENTRY_UPDATED: "修改文件或目录",
@@ -242,21 +281,97 @@ async function change() {
 }
 </script>
 <template>
-  <el-button
-    style="width: auto; padding: 0 12px; border-radius: 9px"
-    @click="show"
-    >账号与安全</el-button
+  <el-button class="account-trigger" aria-label="账号与安全" @click="show"
+    ><el-icon><Lock /></el-icon
+    ><span class="account-trigger-label">账号与安全</span></el-button
   >
   <el-dialog
     append-to-body
     v-model="visible"
     title="账号与安全"
     width="min(1000px, 94vw)"
-    class="account-dialog"
+    class="cn-dialog account-dialog"
     top="6vh"
   >
     <p class="account-subtitle">管理个人安全、存储空间与系统设置</p>
-    <el-tabs v-model="activeTab" class="account-tabs">
+    <el-select
+      v-model="activeTab"
+      class="settings-mobile-nav"
+      aria-label="设置分组"
+      ><el-option-group
+        v-for="group in settingsGroups"
+        :key="group.label"
+        :label="group.label"
+        ><el-option
+          v-for="item in group.items"
+          :key="item.value"
+          :label="item.label"
+          :value="item.value" /></el-option-group
+    ></el-select>
+    <el-tabs v-model="activeTab" class="account-tabs" tab-position="left">
+      <el-tab-pane name="password" label="修改密码">
+        <el-form label-position="top" @submit.prevent="change">
+          <el-form-item label="原密码"
+            ><el-input
+              v-model="oldPassword"
+              type="password"
+              show-password
+              autocomplete="current-password"
+          /></el-form-item>
+          <el-form-item label="新密码（8～64 个字符）"
+            ><el-input
+              v-model="newPassword"
+              type="password"
+              show-password
+              autocomplete="new-password"
+              maxlength="64"
+          /></el-form-item>
+          <el-form-item label="再次输入新密码"
+            ><el-input
+              v-model="confirmation"
+              type="password"
+              show-password
+              autocomplete="new-password"
+          /></el-form-item>
+          <el-button type="primary" :loading="busy" native-type="submit"
+            >修改密码并退出所有设备</el-button
+          >
+        </el-form>
+      </el-tab-pane>
+      <el-tab-pane name="access" label="验证与客户端"
+        ><AccessSettings :active="visible && activeTab === 'access'"
+      /></el-tab-pane>
+      <el-tab-pane name="sessions" label="登录会话">
+        <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>
+        <el-button @click="revoke()">退出其他会话</el-button>
+        <el-table :data="sessions"
+          ><el-table-column label="客户端" min-width="180"
+            ><template #default="{ row }"
+              >{{ row.current ? "当前会话 · " : ""
+              }}{{ row.client_label }}</template
+            ></el-table-column
+          ><el-table-column label="最近活动" min-width="150"
+            ><template #default="{ row }">{{
+              date(row.last_seen)
+            }}</template></el-table-column
+          ><el-table-column label="操作" width="80"
+            ><template #default="{ row }"
+              ><el-button v-if="!row.current" text @click="revoke(row.id)"
+                >退出</el-button
+              ></template
+            ></el-table-column
+          ></el-table
+        >
+      </el-tab-pane>
+      <el-tab-pane name="space" label="空间明细"
+        ><template v-if="space"
+          ><p>有效文件：{{ bytes(space.live) }}</p>
+          <p>回收站当前内容：{{ bytes(space.trash) }}</p>
+          <p>全部历史版本：{{ bytes(space.versions) }}</p>
+          <p>上传预留：{{ bytes(space.reserved) }}</p>
+          <p>回收站继续占用配额；同内容副本按各自大小计费。</p></template
+        ></el-tab-pane
+      >
       <el-tab-pane name="trash" label="回收站设置"
         ><p>
           默认关闭自动清理。启用后按服务器时间每小时检查，永久清理不会进入另一个回收站。
@@ -301,6 +416,15 @@ async function change() {
           ></el-table
         ></el-tab-pane
       >
+      <el-tab-pane name="ai" label="AI 设置">
+        <AiSettings :active="visible && activeTab === 'ai'" />
+      </el-tab-pane>
+      <el-tab-pane name="knowledge" label="AI 知识库"
+        ><AiKnowledge :active="visible && activeTab === 'knowledge'"
+      /></el-tab-pane>
+      <el-tab-pane name="organize" label="智能整理"
+        ><AiOrganize :active="visible && activeTab === 'organize'"
+      /></el-tab-pane>
       <el-tab-pane
         v-if="account.user?.administrator"
         name="admin"
@@ -404,95 +528,23 @@ async function change() {
       </el-tab-pane>
       <el-tab-pane
         v-if="account.user?.administrator"
-        name="updates"
-        label="系统更新"
-        ><SystemUpdate :active="visible && activeTab === 'updates'"
-      /></el-tab-pane>
-      <el-tab-pane name="access" label="验证与客户端"
-        ><AccessSettings :active="visible && activeTab === 'access'"
-      /></el-tab-pane>
-      <el-tab-pane
-        v-if="account.user?.administrator"
         name="server"
         label="服务与存储"
         ><ServerSettings :active="visible && activeTab === 'server'"
       /></el-tab-pane>
-      <el-tab-pane name="ai" label="AI 设置">
-        <AiSettings :active="visible && activeTab === 'ai'" />
-      </el-tab-pane>
-      <el-tab-pane name="knowledge" label="AI 知识库"
-        ><AiKnowledge :active="visible && activeTab === 'knowledge'"
+      <el-tab-pane
+        v-if="account.user?.administrator"
+        name="updates"
+        label="系统更新"
+        ><SystemUpdate :active="visible && activeTab === 'updates'"
       /></el-tab-pane>
-      <el-tab-pane name="organize" label="智能整理"
-        ><AiOrganize :active="visible && activeTab === 'organize'"
-      /></el-tab-pane>
-      <el-tab-pane name="password" label="修改密码">
-        <el-form label-position="top" @submit.prevent="change">
-          <el-form-item label="原密码"
-            ><el-input
-              v-model="oldPassword"
-              type="password"
-              show-password
-              autocomplete="current-password"
-          /></el-form-item>
-          <el-form-item label="新密码（8～64 个字符）"
-            ><el-input
-              v-model="newPassword"
-              type="password"
-              show-password
-              autocomplete="new-password"
-              maxlength="64"
-          /></el-form-item>
-          <el-form-item label="再次输入新密码"
-            ><el-input
-              v-model="confirmation"
-              type="password"
-              show-password
-              autocomplete="new-password"
-          /></el-form-item>
-          <el-button type="primary" :loading="busy" native-type="submit"
-            >修改密码并退出所有设备</el-button
-          >
-        </el-form>
-      </el-tab-pane>
-      <el-tab-pane name="sessions" label="登录会话">
-        <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>
-        <el-button @click="revoke()">退出其他会话</el-button>
-        <el-table :data="sessions"
-          ><el-table-column label="客户端" min-width="180"
-            ><template #default="{ row }"
-              >{{ row.current ? "当前会话 · " : ""
-              }}{{ row.client_label }}</template
-            ></el-table-column
-          ><el-table-column label="最近活动" min-width="150"
-            ><template #default="{ row }">{{
-              date(row.last_seen)
-            }}</template></el-table-column
-          ><el-table-column label="操作" width="80"
-            ><template #default="{ row }"
-              ><el-button v-if="!row.current" text @click="revoke(row.id)"
-                >退出</el-button
-              ></template
-            ></el-table-column
-          ></el-table
-        >
-      </el-tab-pane>
-      <el-tab-pane name="space" label="空间明细"
-        ><template v-if="space"
-          ><p>有效文件：{{ bytes(space.live) }}</p>
-          <p>回收站当前内容：{{ bytes(space.trash) }}</p>
-          <p>全部历史版本：{{ bytes(space.versions) }}</p>
-          <p>上传预留：{{ bytes(space.reserved) }}</p>
-          <p>回收站继续占用配额；同内容副本按各自大小计费。</p></template
-        ></el-tab-pane
-      >
     </el-tabs>
   </el-dialog>
 </template>
 <style scoped>
 .account-subtitle {
   margin: -6px 0 22px;
-  color: #8c95aa;
+  color: var(--cn-muted);
   font-size: 13px;
 }
 .account-tabs :deep(.el-tabs__header) {
@@ -503,8 +555,7 @@ async function change() {
   font-size: 14px;
 }
 .account-tabs :deep(.el-tab-pane) {
-  max-height: 65vh;
-  overflow-y: auto;
+  min-width: 0;
   padding: 2px 2px 12px;
 }
 .admin-overview {
@@ -521,7 +572,7 @@ async function change() {
 }
 .admin-stat span {
   display: block;
-  color: #8390aa;
+  color: var(--cn-muted);
   font-size: 12px;
   margin-bottom: 12px;
 }
@@ -532,7 +583,7 @@ async function change() {
 }
 .admin-stat small {
   font-size: 12px;
-  color: #8c95aa;
+  color: var(--cn-muted);
   font-weight: 400;
 }
 .admin-card {
@@ -557,7 +608,7 @@ async function change() {
 .admin-section-heading p,
 .invitation-result p,
 .account-hint {
-  color: #8791a6;
+  color: var(--cn-muted);
   margin: 0;
   font-size: 12px;
   line-height: 1.7;
@@ -587,7 +638,7 @@ async function change() {
 }
 .quota-detail,
 .page-label {
-  color: #8c95aa;
+  color: var(--cn-muted);
   font-size: 12px;
 }
 .account-pagination {
