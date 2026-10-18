@@ -14,8 +14,8 @@ class AiMigrationTest {
         "jdbc:h2:mem:aiupgrade;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "sa",
         "h2",
-        "10",
-        "11");
+        "11",
+        "12");
   }
 
   @Test
@@ -23,7 +23,7 @@ class AiMigrationTest {
     String url = System.getenv("CN_AI_TEST_DATABASE_URL");
     Assumptions.assumeTrue(
         url != null, "Set CN_AI_TEST_DATABASE_URL to a local disposable MySQL test database");
-    upgrade(url, "root", "mysql", "11", "12");
+    upgrade(url, "root", "mysql", "12", "13");
   }
 
   private void upgrade(String url, String user, String vendor, String previous, String current)
@@ -56,6 +56,10 @@ class AiMigrationTest {
               "INSERT INTO"
                   + " sys_user(id,username,password_hash,nickname,root_id,storage_quota,created_at)"
                   + " VALUES('upgrade-user','upgrade-user','fixture','fixture','fixture-root',1024,1)");
+          statement.executeUpdate(
+              "INSERT INTO"
+                  + " ai_task(id,user_id,kind,model_id,connection_id,model_version,connection_version,model_name,status,stage,request_hash,idempotency_key,cache_key,request_json,created_at,updated_at,expires_at)"
+                  + " VALUES('existing-task','upgrade-user','SUMMARY','model','connection',1,1,'fixture','SUCCEEDED','FINISHED','hash','old-key','cache','{}',1,1,9999999999999)");
         }
       }
       latest.migrate();
@@ -70,7 +74,14 @@ class AiMigrationTest {
             row.next();
             assertEquals(1, row.getInt(1));
           }
-          try (var row = statement.executeQuery("SELECT COUNT(*) FROM ai_task")) {
+          try (var row =
+              statement.executeQuery(
+                  "SELECT request_json,conversation_id FROM ai_task WHERE id='existing-task'")) {
+            assertTrue(row.next());
+            assertEquals("{}", row.getString(1));
+            assertNull(row.getString(2));
+          }
+          try (var row = statement.executeQuery("SELECT COUNT(*) FROM ai_conversation")) {
             row.next();
             assertEquals(0, row.getInt(1));
           }

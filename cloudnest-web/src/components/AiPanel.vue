@@ -13,6 +13,7 @@ import {
   type AiModel,
   type AiTask,
 } from "../api/ai";
+import AiConversation from "./AiConversation.vue";
 import AiSettings from "./AiSettings.vue";
 const props = defineProps<{ file: Entry }>();
 const models = ref<AiModel[]>([]),
@@ -82,7 +83,7 @@ let timer: ReturnType<typeof setTimeout> | undefined,
   alive = true;
 let pending: { key: string; signature: string } | undefined;
 async function loadHistory() {
-  history.value = await ai.tasks(props.file.id, historyPage.value);
+  history.value = await ai.tasks(props.file.id, historyPage.value, true);
 }
 async function load() {
   busy.value = true;
@@ -275,6 +276,16 @@ void load();
     <el-button @click="settings = true">{{
       models.length ? "AI 设置与用量" : "配置自己的 API"
     }}</el-button>
+    <el-collapse v-if="enabled && models.length" class="qa-entry">
+      <el-collapse-item title="单文档问答与会话历史" name="qa">
+        <AiConversation
+          :file="file"
+          :model-id="modelId"
+          :models="models"
+          :connections="connections"
+        />
+      </el-collapse-item>
+    </el-collapse>
     <el-form v-if="enabled && models.length" label-position="top">
       <el-form-item label="聊天模型"
         ><el-select v-model="modelId"

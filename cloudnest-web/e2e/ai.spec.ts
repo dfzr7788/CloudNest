@@ -284,3 +284,265 @@ test("AI 测试任务的停止、失败和显式重试不自动重发", async ({
   ).toBeVisible();
   expect(calls).toBe(2);
 });
+
+test("单文档问答：创建、确认发送、引用、历史恢复、只读和删除", async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto("/login");
+  await page.getByRole("button", { name: "创建账号", exact: true }).click();
+  await page.getByLabel("账号", { exact: true }).fill("qaui_" + Date.now());
+  await page.getByLabel("密码", { exact: true }).fill("Browser-test-123");
+  await page.getByRole("button", { name: "注册并进入云盘" }).click();
+  await expect(
+    page.getByRole("button", { name: "账号与安全", exact: true }),
+  ).toBeVisible();
+  const csrf = (await (await page.request.get("/api/auth/csrf")).json()).token;
+  const headers = { "X-XSRF-TOKEN": csrf };
+  const rootId = (await (await page.request.get("/api/user/me")).json()).rootId;
+  const connection = await (
+    await page.request.post("/api/ai/connections", {
+      headers,
+      data: {
+        name: "QA fixture",
+        baseUrl: "https://model.example/v1",
+        apiKey: "qa-ui-fake-key",
+        enabled: true,
+      },
+    })
+  ).json();
+  expect(
+    (
+      await page.request.post("/api/ai/consents", {
+        headers,
+        data: {
+          connectionId: connection.id,
+          destinationFingerprint: connection.destinationFingerprint,
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const model = await (
+    await page.request.post("/api/ai/models", {
+      headers,
+      data: {
+        connectionId: connection.id,
+        name: "QA model",
+        modelId: "fixture",
+        contextLimit: 32768,
+        maxOutput: 1024,
+        outputParamMode: "max_tokens",
+        enabled: true,
+      },
+    })
+  ).json();
+  expect(
+    (
+      await page.request.put("/api/ai/preferences", {
+        headers,
+        data: { defaultChatModelId: model.id },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  expect(
+    (
+      await page.request.post("/api/files/upload", {
+        headers,
+        multipart: {
+          folderId: rootId,
+          file: {
+            name: "问答资料.md",
+            mimeType: "text/markdown",
+            buffer: Buffer.from("# 项目\n负责人是小王。"),
+          },
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "刷新", exact: true }).click();
+  await page.getByRole("button", { name: "问答资料.md", exact: true }).click();
+  await page.getByRole("button", { name: "AI 阅读助手", exact: true }).click();
+  await page.getByText("单文档问答与会话历史", { exact: true }).click();
+  const qa = page.locator(".document-qa");
+  await qa
+    .getByRole("button", { name: "新建文档会话（不调用模型）", exact: true })
+    .click();
+  await expect(
+    qa.getByRole("button", { name: "删除会话", exact: true }),
+  ).toBeVisible();
+  const sessions = await (
+    await page.request.get("/api/ai/conversations")
+  ).json();
+  expect(sessions).toHaveLength(1);
+  const chat = { ...sessions[0], messages: [], activeTaskId: null };
+  let sends = 0;
+  let finished = false;
+  await page.route(`**/api/ai/conversations/${chat.id}`, (route) =>
+    route.request().method() === "GET"
+      ? route.fulfill({ json: chat })
+      : route.continue(),
+  );
+  await page.route(
+    `**/api/ai/conversations/${chat.id}/messages`,
+    async (route) => {
+      sends++;
+      expect(route.request().postDataJSON().question).toBe("负责人是谁？");
+      expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+      chat.activeTaskId = "qa-ui";
+      chat.messages = [
+        {
+          id: "u1",
+          task_id: "qa-ui",
+          role: "user",
+          content: "负责人是谁？",
+          status: "RUNNING",
+          citations: [],
+        },
+      ];
+      await route.fulfill({
+        status: 202,
+        json: {
+          taskId: "qa-ui",
+          id: "qa-ui",
+          kind: "QA",
+          status: "RUNNING",
+          stage: "GENERATING",
+          completed_calls: 0,
+          total_calls: 1,
+          result: null,
+        },
+      });
+    },
+  );
+  await page.route("**/api/ai/tasks/qa-ui", (route) => {
+    if (!finished) {
+      chat.activeTaskId = null;
+      chat.messages.push({
+        id: "a1",
+        task_id: "qa-ui",
+        role: "assistant",
+        content: "负责人是小王。<script>alert(1)</script>",
+        status: "SUCCEEDED",
+        scope: { partial: true, selectedCharacters: 12 },
+        citations: [{ id: "ref1", source_id: "S1", locator: "行 1–2" }],
+      });
+      chat.messages[0].status = "SUCCEEDED";
+      finished = true;
+    }
+    return route.fulfill({
+      json: {
+        taskId: "qa-ui",
+        id: "qa-ui",
+        kind: "QA",
+        status: "SUCCEEDED",
+        stage: "FINISHED",
+        completed_calls: 1,
+        total_calls: 1,
+        result: { text: "负责人是小王。" },
+        coverage: { partial: true, selectedCharacters: 12 },
+      },
+    });
+  });
+  await page.route(
+    `**/api/ai/conversations/${chat.id}/citations/ref1`,
+    (route) =>
+      route.fulfill({
+        json: {
+          id: "ref1",
+          source_id: "S1",
+          locator: "行 1–2",
+          excerpt: "负责人是小王。",
+          revision: 1,
+          readOnly: chat.readOnly,
+          fileId: chat.file_id,
+        },
+      }),
+  );
+  await qa
+    .getByRole("textbox", { name: "文档问题", exact: true })
+    .fill("负责人是谁？");
+  expect(sends).toBe(0);
+  await qa
+    .getByRole("button", { name: "发送问题（可能收费）", exact: true })
+    .click();
+  await page.getByRole("button", { name: "确认发送", exact: true }).click();
+  await expect(qa.locator(".qa-transcript")).toContainText("负责人是小王。", {
+    timeout: 10000,
+  });
+  await expect(qa.locator("script,img,a")).toHaveCount(0);
+  expect(sends).toBe(1);
+  await qa.getByRole("button", { name: "[S1] 行 1–2", exact: true }).click();
+  const cite = page.getByRole("dialog", { name: "引用原文", exact: true });
+  await expect(cite.locator("pre")).toHaveText("负责人是小王。");
+  await cite.locator(".el-dialog__headerbtn").click();
+  const drawer = page.getByRole("dialog", { name: "AI 阅读助手", exact: true });
+  await drawer.locator(".el-drawer__close-btn").click();
+  await page.getByRole("button", { name: "AI 阅读助手", exact: true }).click();
+  await page.getByText("单文档问答与会话历史", { exact: true }).click();
+  await expect(qa.locator(".qa-transcript")).toContainText("负责人是小王。");
+  chat.messages.push({
+    id: "failed-user",
+    task_id: "qa-failed",
+    role: "user",
+    content: "重新询问负责人",
+    status: "FAILED",
+    error_message: "供应商暂时不可用",
+    citations: [],
+  });
+  await qa.getByRole("button", { name: "刷新会话", exact: true }).click();
+  await expect(qa).toContainText("供应商暂时不可用");
+  await qa.getByRole("button", { name: "重新填写此问题", exact: true }).click();
+  await expect(
+    qa.getByRole("textbox", { name: "文档问题", exact: true }),
+  ).toHaveValue("重新询问负责人");
+  let stops = 0;
+  const active = {
+    taskId: "qa-running",
+    id: "qa-running",
+    kind: "QA",
+    status: "RUNNING",
+    stage: "GENERATING",
+    completed_calls: 0,
+    total_calls: 1,
+    result: null,
+  };
+  chat.activeTaskId = "qa-running";
+  await page.route("**/api/ai/tasks/qa-running", (route) =>
+    route.fulfill({ json: active }),
+  );
+  await page.route("**/api/ai/tasks/qa-running/cancel", (route) => {
+    stops++;
+    chat.activeTaskId = null;
+    active.status = "CANCELLED";
+    active.stage = "FINISHED";
+    return route.fulfill({ status: 202, json: active });
+  });
+  await qa.getByRole("button", { name: "刷新会话", exact: true }).click();
+  await qa.getByRole("button", { name: "停止回答", exact: true }).click();
+  await expect(
+    qa.getByRole("button", { name: "停止回答", exact: true }),
+  ).not.toBeVisible();
+  expect(stops).toBe(1);
+  expect(sends).toBe(1);
+  chat.readOnly = true;
+  await qa.getByRole("button", { name: "刷新会话", exact: true }).click();
+  await expect(
+    qa.getByRole("textbox", { name: "文档问题", exact: true }),
+  ).toBeDisabled();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect
+    .poll(async () => {
+      const box = await qa.boundingBox();
+      return !!box && box.x >= -1 && box.x + box.width <= 391;
+    })
+    .toBeTruthy();
+  await page.screenshot({ path: test.info().outputPath("qa-mobile.png") });
+  await qa.getByRole("button", { name: "删除会话", exact: true }).click();
+  await page.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(
+    qa.getByRole("button", { name: "删除会话", exact: true }),
+  ).not.toBeVisible();
+  expect(sends).toBe(1);
+  expect(errors).toEqual([]);
+});

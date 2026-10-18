@@ -7851,6 +7851,15 @@
               "type": "integer",
               "minimum": 1
             }
+          },
+          {
+            "name": "analysisOnly",
+            "in": "query",
+            "description": "true 排除问答任务，独立分页摘要和标签历史",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
           }
         ],
         "responses": {
@@ -8075,6 +8084,404 @@
             "schema": {
               "type": "integer",
               "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/conversations": {
+      "get": {
+        "summary": "ai_conversation_list 本人可访问会话，每页20",
+        "operationId": "get__ai_conversation_list",
+        "parameters": [
+          {
+            "name": "fileId",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "ai_conversation_create 创建固定修订及模型配置的会话，不调用模型",
+        "operationId": "post__ai_conversation_create",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "fileId",
+                  "modelId",
+                  "expectedRevision"
+                ],
+                "properties": {
+                  "fileId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/conversations/{id}": {
+      "get": {
+        "summary": "ai_conversation_get 会话与消息、有效引用及当前只读状态",
+        "operationId": "get__ai_conversation_get",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "ai_conversation_delete 停止任务并清除会话正文及引用，保留源文件与用量",
+        "operationId": "delete__ai_conversation_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功，空响应体"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/conversations/{id}/messages": {
+      "post": {
+        "summary": "ai_conversation_question 提问并返回QA异步任务，每会话仅一个活动任务",
+        "operationId": "post__ai_conversation_question",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "question"
+                ],
+                "properties": {
+                  "question": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "allowPartial": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/conversations/{id}/citations/{citationId}": {
+      "get": {
+        "summary": "ai_conversation_citation 再次鉴权返回实际选中原文的历史摘录",
+        "operationId": "get__ai_conversation_citation",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "citationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
             }
           }
         ],

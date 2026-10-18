@@ -169,7 +169,7 @@ Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按�
 | POST /api/public/office/callback?ticket= | 文档服务JWT验证后保存版本；仅此签名回调免CSRF |
 
 Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL 仅接受配置的文档服务 cache 路径且不跟随重定向。外部文件更新导致修订冲突时需重新打开编辑器。部署配置与限制见 [进阶说明](advanced-features.md)。
-# AI API（v0.1）
+# AI API（v0.1 / v0.2）
 
 兼容修正：固定短测试的最大输出为 `min(256, 模型maxOutput)`。官方 `api.deepseek.com` 的 `deepseek-flash`、`deepseek-v4-pro` 及受支持 Flash 旧别名显式发送 `thinking:{type:"disabled"}`，此参数不发送给其他主机或未知模型。响应 `finish_reason=length` 返回 `AI_OUTPUT_LIMIT`，即使包含部分正文也不发布为成功；空最终文本仍为 `AI_INVALID_RESPONSE`，不将 `reasoning_content` 当作答案。上述失败响应已提供的 token 用量会记录到本次调用。
 
@@ -191,7 +191,7 @@ Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL
 | POST `/files/{id}/summaries` | `{modelId,expectedRevision,rangeChars?,allowPartial?,language?,forceRefresh?}`，202 |
 | POST `/files/{id}/tag-suggestions` | 同摘要，生成最多 8 个候选标签，不修改真实标签 |
 | GET `/tasks/{id}` | 200，终态失败仍返回 200，通过 status/error_code/error_message 表达 |
-| GET `/tasks` | query `fileId?,page=1`，每页最多 20；跳过已不可访问的文件任务 |
+| GET `/tasks` | query `fileId?,page=1,analysisOnly=false`（true 排除问答，摘要/标签单独分页），每页最多 20；跳过已不可访问的文件任务 |
 | POST `/tasks/{id}/cancel` | 202，幂等；运行中先标记 cancel_requested，线程退出后终态 |
 | DELETE `/artifacts/{id}` | id 为 taskId，清除终态任务结果，不删除源文件或用量 |
 | GET `/usage` | query `days=30`（1–90）,`page=1`；每页 50，含 summary/dailyLimit/resetTimezone |
@@ -205,3 +205,21 @@ Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL
 `PUT /api/entries/{id}/tags` 新增可选 `expectedTags` 数组：后端在用户事务内对比当前标签，发生变化返回 409。AI 标签 UI 先读取最新标签、展示合并结果，确认后携带此前标签，避免覆盖并发变更。
 
 主要错误码：`AI_DISABLED`、`AI_ENDPOINT_BLOCKED`、`AI_NOT_CONFIGURED`、`AI_CONSENT_REQUIRED`、`AI_AUTH_FAILED`、`AI_MODEL_UNSUPPORTED`、`AI_UPSTREAM_RATE_LIMITED`、`AI_TIMEOUT`、`AI_CONTEXT_TOO_LARGE`、`AI_NO_TEXT`、`AI_PARTIAL_CONTENT`、`AI_REVISION_CHANGED`、`AI_QUOTA_EXCEEDED`、`AI_CANCELLED`、`AI_INTERRUPTED`、`AI_CREDENTIAL_UNREADABLE`。实际用量缺失为 null，不写作零；估计输入按 UTF-8 字节数加固定开销计算。超时可能已计费，不自动重试。
+
+
+## 单文档会话 API（v0.2）
+
+同样使用 `/api/ai` 前缀、本人 Cookie 与写操作 CSRF。能力列表新增 `DOCUMENT_QA`。
+
+| 方法与路径 | 请求/说明 |
+| --- | --- |
+| POST `/conversations` | `{fileId,modelId,expectedRevision}`，200。创建快照不调用模型；返回 id、revision、model_name、destination、readOnly、currentRevision、messages、activeTaskId |
+| GET `/conversations` | `fileId?、page=1`，每页 20，跳过回收/失效文件和过期会话 |
+| GET `/conversations/{id}` | 会话与按提问顺序排列的 messages；每条含 task_id、role、content、status、error_message、scope?、citations。activeTaskId 用于恢复轮询 |
+| POST `/conversations/{id}/messages` | `{question,allowPartial?}`，question 1–2000 字符；必须有 Idempotency-Key，202 返回现有任务契约，kind=QA。每会话只允许一个排队/生成任务 |
+| GET `/conversations/{id}/citations/{citationId}` | 再次鉴权，返回 fileId、revision、readOnly、source_id、locator、excerpt。只返回该会话实际上下文中的引用摘录，不支持模型自定义 URL |
+| DELETE `/conversations/{id}` | 停止并清除本会话问题、答案、引用和任务正文，200 空响应；源文件、调用统计保留 |
+
+问答不使用跨问题结果缓存，但相同幂等键可取回原任务。成功任务 `result={text,sources,invalidCitations,scope}`；scope/coverage 含 revision、partial、selectedCharacters、selectedBlocks、extractedCharacters、reason。来源未命中时成功返回范围内无依据的提示、total_calls=0；格式错误返回 `AI_INVALID_ANSWER`，不自动再次调用。模型输出必须是 `{answer:字符串,citations:[sourceId]}` JSON；只有实际选中来源 ID 可生成引用，无有效引用时改用范围内无依据提示。
+
+最多 6 轮成功历史，保守预算下可减少；本地关键词检索发送完整片段，不提供 embeddings。每会话最多 100 个问题，每用户 200 会话。30 天无活动清除；任务随会话活动续期。文件/配置变化时只读，继续提问返回 `AI_REVISION_CHANGED`；回收后所有会话/任务/引用不可读，恢复同修订可恢复，永久删除在同一事务清除正文。QA 不使用 `/artifacts/{id}` 单独删除，须删除会话。

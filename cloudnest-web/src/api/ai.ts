@@ -51,7 +51,58 @@ export interface AiTask {
   error_message: string | null;
   error_code: string | null;
 }
+export interface AiConversation {
+  id: string;
+  file_id: string;
+  revision: number;
+  currentRevision: number;
+  model_name: string;
+  model_id: string;
+  destination: string;
+  readOnly: boolean;
+  created_at: number;
+  updated_at: number;
+  activeTaskId: string | null;
+  messages?: {
+    id: string;
+    task_id: string;
+    role: string;
+    content: string;
+    status: string;
+    error_message: string | null;
+    scope?: { partial: boolean; selectedCharacters: number };
+    citations: { id: string; source_id: string; locator: string }[];
+  }[];
+}
+export interface AiCitation {
+  id: string;
+  source_id: string;
+  locator: string;
+  excerpt: string;
+  revision: number;
+  readOnly: boolean;
+  fileId: string;
+}
 export const ai = {
+  conversations: (fileId: string, page = 1) =>
+    api
+      .get<AiConversation[]>("/ai/conversations", { params: { fileId, page } })
+      .then((r) => r.data),
+  conversation: (id: string) =>
+    api.get<AiConversation>(`/ai/conversations/${id}`).then((r) => r.data),
+  createConversation: (input: object) =>
+    api.post<AiConversation>("/ai/conversations", input).then((r) => r.data),
+  deleteConversation: (id: string) => api.delete(`/ai/conversations/${id}`),
+  question: (id: string, input: object, key: string) =>
+    api
+      .post<AiTask>(`/ai/conversations/${id}/messages`, input, {
+        headers: { "Idempotency-Key": key },
+      })
+      .then((r) => r.data),
+  citation: (cid: string, id: string) =>
+    api
+      .get<AiCitation>(`/ai/conversations/${cid}/citations/${id}`)
+      .then((r) => r.data),
   capabilities: () =>
     api.get<{ enabled: boolean }>("/ai/capabilities").then((r) => r.data),
   connections: () =>
@@ -62,9 +113,9 @@ export const ai = {
       .get<{ default_chat_model_id: string | null }>("/ai/preferences")
       .then((r) => r.data),
   task: (id: string) => api.get<AiTask>(`/ai/tasks/${id}`).then((r) => r.data),
-  tasks: (fileId?: string, page = 1) =>
+  tasks: (fileId?: string, page = 1, analysisOnly = false) =>
     api
-      .get<AiTask[]>("/ai/tasks", { params: { fileId, page } })
+      .get<AiTask[]>("/ai/tasks", { params: { fileId, page, analysisOnly } })
       .then((r) => r.data),
   cancel: (id: string) =>
     api.post<AiTask>(`/ai/tasks/${id}/cancel`).then((r) => r.data),

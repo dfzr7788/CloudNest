@@ -23,7 +23,7 @@ public class AiController {
         "enabled",
         configs.enabled(),
         "features",
-        List.of("SUMMARY", "TAGS"),
+        List.of("SUMMARY", "TAGS", "DOCUMENT_QA"),
         "protocol",
         "OPENAI_COMPATIBLE_CHAT",
         "localEndpoints",
@@ -157,8 +157,9 @@ public class AiController {
   public Object tasks(
       Authentication a,
       @RequestParam(required = false) String fileId,
-      @RequestParam(defaultValue = "1") int page) {
-    return tasks.list(a.getName(), fileId, page);
+      @RequestParam(defaultValue = "1") int page,
+      @RequestParam(defaultValue = "false") boolean analysisOnly) {
+    return tasks.list(a.getName(), fileId, page, analysisOnly);
   }
 
   @PostMapping("/tasks/{id}/cancel")

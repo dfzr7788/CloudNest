@@ -637,4 +637,244 @@ class AiIntegrationTest {
         403);
     assertEquals(1, db.count("SELECT COUNT(*) FROM ai_call WHERE user_id=?", s.user().id()));
   }
+
+  String conversation(Setup s, String file) throws Exception {
+    return call(
+            s.user(),
+            post("/api/ai/conversations"),
+            Map.of(
+                "fileId",
+                file,
+                "modelId",
+                s.model(),
+                "expectedRevision",
+                extraction.extract(s.user().id(), file).revision()),
+            200)
+        .path("id")
+        .asText();
+  }
+
+  JsonNode ask(Setup s, String cid, String question, String key, int status) throws Exception {
+    return call(
+        s.user(),
+        post("/api/ai/conversations/" + cid + "/messages").header("Idempotency-Key", key),
+        Map.of("question", question),
+        status);
+  }
+
+  @Test
+  void documentQaHistoryCitationsIsolationAndIdempotency() throws Exception {
+    var s = setup();
+    var other = user();
+    String file =
+        upload(s.user(), "qa.md", "# 项目\n项目负责人是小王。\n发布日期是六月。".getBytes(StandardCharsets.UTF_8));
+    String cid = conversation(s, file);
+    verifyNoInteractions(gateway);
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenReturn(
+            new ModelGateway.Answer(
+                "{\"answer\":\"负责人是小王。\",\"citations\":[\"S1\",\"S1\",\"forged-file-id\"]}",
+                12L,
+                8L,
+                20L));
+    String key = Util.id();
+    var t = ask(s, cid, "负责人是谁？", key, 202);
+    String tid = t.path("taskId").asText();
+    assertEquals(tid, ask(s, cid, "负责人是谁？", key, 202).path("taskId").asText());
+    ask(s, cid, "发布日期？", key, 409);
+    assertEquals("SUCCEEDED", waitFor(s.user(), tid).path("status").asText());
+    var chat = call(s.user(), get("/api/ai/conversations/" + cid), null, 200);
+    assertEquals(2, chat.path("messages").size());
+    var answer = chat.path("messages").get(1);
+    assertTrue(answer.path("content").asText().contains("小王"));
+    assertEquals(1, answer.path("citations").size());
+    String ref = answer.path("citations").get(0).path("id").asText();
+    var citation =
+        call(s.user(), get("/api/ai/conversations/" + cid + "/citations/" + ref), null, 200);
+    assertTrue(citation.path("excerpt").asText().contains("小王"));
+    assertEquals(file, citation.path("fileId").asText());
+    call(null, get("/api/ai/conversations/" + cid), null, 401);
+    String different = conversation(s, file);
+    call(s.user(), get("/api/ai/conversations/" + different + "/citations/" + ref), null, 404);
+    call(other, get("/api/ai/conversations/" + cid), null, 404);
+    call(other, get("/api/ai/conversations/" + cid + "/citations/" + ref), null, 404);
+    call(other, delete("/api/ai/conversations/" + cid), null, 404);
+    call(s.user(), get("/api/ai/conversations/" + cid + "/citations/forged-file-id"), null, 404);
+    var second = ask(s, cid, "再说一次\n负责人是谁？", Util.id(), 202);
+    assertEquals(
+        "SUCCEEDED", waitFor(s.user(), second.path("taskId").asText()).path("status").asText());
+    var inputs = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(gateway, times(2)).chat(any(), anyString(), inputs.capture(), any());
+    assertTrue(json.readTree(inputs.getAllValues().get(1)).path("history").size() > 0);
+    assertTrue(json.readTree(inputs.getAllValues().getFirst()).path("sources").size() > 0);
+    assertEquals(2, call(s.user(), get("/api/ai/tasks").param("fileId", file), null, 200).size());
+    assertEquals(
+        0,
+        call(
+                s.user(),
+                get("/api/ai/tasks").param("fileId", file).param("analysisOnly", "true"),
+                null,
+                200)
+            .size());
+    call(s.user(), delete("/api/ai/conversations/" + cid), null, 200);
+    call(s.user(), get("/api/ai/tasks/" + tid), null, 404);
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_message WHERE conversation_id=?", cid));
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_citation WHERE id=?", ref));
+    assertEquals(
+        "{}", db.one("SELECT request_json FROM ai_task WHERE id=?", tid).get("request_json"));
+    assertEquals(2, db.count("SELECT COUNT(*) FROM ai_call WHERE user_id=?", s.user().id()));
+    assertNotNull(extraction.extract(s.user().id(), file));
+  }
+
+  @Test
+  void qaOldRevisionReadOnlyTrashRestoreAndPermanentPurge() throws Exception {
+    var s = setup();
+    String file = upload(s.user(), "old.txt", "版本资料".getBytes(StandardCharsets.UTF_8));
+    String cid = conversation(s, file);
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenReturn(
+            new ModelGateway.Answer("{\"answer\":\"版本资料\",\"citations\":[\"S1\"]}", 1L, 1L, 2L));
+    String tid = ask(s, cid, "资料？", Util.id(), 202).path("taskId").asText();
+    waitFor(s.user(), tid);
+    call(s.user(), delete("/api/files/" + file), null, 200);
+    call(s.user(), get("/api/ai/conversations/" + cid), null, 404);
+    call(s.user(), get("/api/ai/tasks/" + tid), null, 404);
+    call(s.user(), post("/api/trash/files/" + file + "/restore"), null, 200);
+    assertFalse(
+        call(s.user(), get("/api/ai/conversations/" + cid), null, 200)
+            .path("readOnly")
+            .asBoolean());
+    db.update("UPDATE drive_entry SET revision=revision+1 WHERE id=?", file);
+    var old = call(s.user(), get("/api/ai/conversations/" + cid), null, 200);
+    assertTrue(old.path("readOnly").asBoolean());
+    assertEquals(2, old.path("messages").size());
+    call(s.user(), get("/api/ai/tasks/" + tid), null, 200);
+    ask(s, cid, "新问题", Util.id(), 409);
+    verify(gateway, times(1)).chat(any(), anyString(), anyString(), any());
+    call(s.user(), delete("/api/files/" + file), null, 200);
+    call(s.user(), delete("/api/trash/files/" + file), null, 200);
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_conversation WHERE id=?", cid));
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_message WHERE conversation_id=?", cid));
+    assertNull(db.one("SELECT result_json FROM ai_task WHERE id=?", tid).get("result_json"));
+    assertEquals(1, db.count("SELECT COUNT(*) FROM ai_call WHERE task_id=?", tid));
+  }
+
+  @Test
+  void qaSingleActiveTaskDeleteDuringGenerationCannotPublish() throws Exception {
+    var s = setup();
+    String file = upload(s.user(), "cancel.txt", "source".getBytes(StandardCharsets.UTF_8));
+    String cid = conversation(s, file);
+    var started = new CountDownLatch(1);
+    var release = new CountDownLatch(1);
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenAnswer(
+            i -> {
+              started.countDown();
+              release.await(10, TimeUnit.SECONDS);
+              return new ModelGateway.Answer(
+                  "{\"answer\":\"late\",\"citations\":[\"S1\"]}", 1L, 1L, 2L);
+            });
+    try {
+      String tid = ask(s, cid, "source?", Util.id(), 202).path("taskId").asText();
+      assertTrue(started.await(5, TimeUnit.SECONDS));
+      ask(s, cid, "second", Util.id(), 409);
+      call(s.user(), delete("/api/ai/conversations/" + cid), null, 200);
+      release.countDown();
+      long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+      while (db.count("SELECT COUNT(*) FROM ai_call WHERE task_id=? AND status='STARTED'", tid) > 0
+          && System.nanoTime() < end) Thread.sleep(30);
+      assertEquals("CANCELLED", db.one("SELECT status FROM ai_task WHERE id=?", tid).get("status"));
+      assertNull(db.one("SELECT result_json FROM ai_task WHERE id=?", tid).get("result_json"));
+      assertEquals(0, db.count("SELECT COUNT(*) FROM ai_message WHERE conversation_id=?", cid));
+    } finally {
+      release.countDown();
+    }
+  }
+
+  @Test
+  void qaInvalidAnswerNoEvidenceAndRetentionNeverResend() throws Exception {
+    var s = setup();
+    String file = upload(s.user(), "answer.txt", "文档原文".getBytes(StandardCharsets.UTF_8));
+    String cid = conversation(s, file);
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenReturn(
+            new ModelGateway.Answer("{\"answer\":\"捏造答案\",\"citations\":[\"FAKE\"]}", 1L, 1L, 2L));
+    var t = ask(s, cid, "问题", Util.id(), 202);
+    var done = waitFor(s.user(), t.path("taskId").asText());
+    assertTrue(done.path("result").path("text").asText().contains("在本次检索的内容中未找到依据"));
+    assertTrue(done.path("result").path("sources").isEmpty());
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenReturn(new ModelGateway.Answer("not json", 1L, 1L, 2L));
+    String previous = t.path("taskId").asText();
+    db.update(
+        "UPDATE ai_task SET expires_at=? WHERE id=?", System.currentTimeMillis() + 1000, previous);
+    t = ask(s, cid, "再问", Util.id(), 202);
+    assertTrue(
+        ((Number) db.one("SELECT expires_at FROM ai_task WHERE id=?", previous).get("expires_at"))
+                .longValue()
+            > System.currentTimeMillis() + 29L * 86400000);
+    assertEquals(
+        "AI_INVALID_ANSWER",
+        waitFor(s.user(), t.path("taskId").asText()).path("error_code").asText());
+    verify(gateway, times(2)).chat(any(), anyString(), anyString(), any());
+    db.update(
+        "UPDATE ai_conversation SET updated_at=? WHERE id=?",
+        System.currentTimeMillis() - 31L * 86400000,
+        cid);
+    tasks.retention();
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_conversation WHERE id=?", cid));
+    assertEquals(0, db.count("SELECT COUNT(*) FROM ai_message WHERE conversation_id=?", cid));
+    assertNotNull(extraction.extract(s.user().id(), file));
+  }
+
+  @Test
+  void qaLongDocumentRetrievalNoMatchAndBoundedHistory() throws Exception {
+    var s = setup();
+    StringBuilder content = new StringBuilder();
+    for (int i = 0; i < 1600; i++) content.append("背景资料和普通段落内容第 ").append(i).append(" 行。\n");
+    content.append("Aurora launch code is BLUE.\n");
+    String file =
+        upload(s.user(), "longqa.txt", content.toString().getBytes(StandardCharsets.UTF_8));
+    String cid = conversation(s, file);
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenAnswer(
+            i -> {
+              var input = json.readTree((String) i.getArgument(2));
+              String source = input.path("sources").get(0).path("sourceId").asText();
+              return new ModelGateway.Answer(
+                  json.writeValueAsString(Map.of("answer", "BLUE", "citations", List.of(source))),
+                  1L,
+                  1L,
+                  2L);
+            });
+    var t = ask(s, cid, "Aurora code?", Util.id(), 202);
+    var done = waitFor(s.user(), t.path("taskId").asText());
+    assertEquals("SUCCEEDED", done.path("status").asText());
+    assertTrue(done.path("coverage").path("partial").asBoolean());
+    var input = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(gateway).chat(any(), anyString(), input.capture(), any());
+    assertTrue(input.getValue().contains("BLUE"));
+    assertTrue(input.getValue().length() < 24000);
+    assertTrue(done.path("coverage").path("selectedCharacters").asInt() < content.length());
+    String noMatch = conversation(s, file);
+    t = ask(s, noMatch, "zxqvnomatch?", Util.id(), 202);
+    done = waitFor(s.user(), t.path("taskId").asText());
+    assertTrue(done.path("result").path("text").asText().contains("在本次检索的内容中未找到依据"));
+    assertEquals(
+        0, db.count("SELECT COUNT(*) FROM ai_call WHERE task_id=?", t.path("taskId").asText()));
+    for (int i = 0; i < 7; i++) {
+      t = ask(s, cid, "Aurora code " + i, Util.id(), 202);
+      assertEquals(
+          "SUCCEEDED", waitFor(s.user(), t.path("taskId").asText()).path("status").asText());
+    }
+    input = org.mockito.ArgumentCaptor.forClass(String.class);
+    verify(gateway, times(8)).chat(any(), anyString(), input.capture(), any());
+    assertEquals(6, json.readTree(input.getAllValues().getLast()).path("history").size());
+    db.update("UPDATE ai_model SET config_version=config_version+1 WHERE id=?", s.model());
+    assertTrue(
+        call(s.user(), get("/api/ai/conversations/" + cid), null, 200)
+            .path("readOnly")
+            .asBoolean());
+    ask(s, cid, "more", Util.id(), 409);
+  }
 }
