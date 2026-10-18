@@ -41,6 +41,8 @@
 复制粘贴、数学公式和附件、Office 编辑、集合分享与收集、WebDAV、邮箱找回和双重验证、存储策略与标签正文检索，见 [进阶功能与配置](advanced-features.md)。ZIP 数量与保留期可由管理员配置，本文数字为默认值。
 # AI 阅读助手
 
+DeepSeek 官方连接可填写根地址 `https://api.deepseek.com`、模型 ID `deepseek-flash` 或 `deepseek-v4-pro`、输出参数 `max_tokens`。每个模型配置只填一个 ID。当前摘要、标签和连接测试会对这些官方模型显式关闭思考模式，保证有限输出预算用于最终答案；第三方兼容地址不会自动发送这一厂商参数。连接测试最多输出 256 token，同时受模型自身输出上限约束。若供应商因输出上限中断生成，任务返回 `AI_OUTPUT_LIMIT`，不把截断文本当作完整结果，也不自动重发；供应商已返回的实际用量仍记录。
+
 站点默认关闭 AI。管理员开启后，进入“账号与安全 → AI 设置”：
 
 1. 添加自己的 API 连接，填写显示名、包含版本路径的 HTTPS 公网根地址和 Key。例如 `https://provider.example/v1`，不要填写完整 `/chat/completions` 地址。

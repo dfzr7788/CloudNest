@@ -689,7 +689,7 @@ public class AiTaskService {
               s(connection, "secret_cipher"),
               s(model, "model_id"),
               s(model, "output_param_mode"),
-              test ? Math.min(16, (int) n(model, "max_output")) : (int) n(model, "max_output"));
+              test ? Math.min(256, (int) n(model, "max_output")) : (int) n(model, "max_output"));
       var answer =
           gateway.chat(
               config,
@@ -727,10 +727,19 @@ public class AiTaskService {
           id);
       return answer;
     } catch (Exception e) {
+      var measured =
+          e instanceof ModelGateway.ResponseFailure response
+              ? response.usage
+              : new ModelGateway.Answer("", null, null, null);
       db.update(
-          "UPDATE ai_call SET status='FAILED',error_code=?,latency=? WHERE id=?",
+          "UPDATE ai_call SET"
+              + " status='FAILED',error_code=?,latency=?,input_tokens=?,output_tokens=?,total_tokens=?"
+              + " WHERE id=?",
           e instanceof Problem p ? p.code : "AI_INTERNAL_ERROR",
           System.currentTimeMillis() - started,
+          measured.inputTokens(),
+          measured.outputTokens(),
+          measured.totalTokens(),
           reservation.get("id"));
       throw e;
     } finally {

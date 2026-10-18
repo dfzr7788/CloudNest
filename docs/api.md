@@ -171,6 +171,8 @@ Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按�
 Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL 仅接受配置的文档服务 cache 路径且不跟随重定向。外部文件更新导致修订冲突时需重新打开编辑器。部署配置与限制见 [进阶说明](advanced-features.md)。
 # AI API（v0.1）
 
+兼容修正：固定短测试的最大输出为 `min(256, 模型maxOutput)`。官方 `api.deepseek.com` 的 `deepseek-flash`、`deepseek-v4-pro` 及受支持 Flash 旧别名显式发送 `thinking:{type:"disabled"}`，此参数不发送给其他主机或未知模型。响应 `finish_reason=length` 返回 `AI_OUTPUT_LIMIT`，即使包含部分正文也不发布为成功；空最终文本仍为 `AI_INVALID_RESPONSE`，不将 `reasoning_content` 当作答案。上述失败响应已提供的 token 用量会记录到本次调用。
+
 前缀 `/api/ai`，复用 Cookie 登录和写操作 CSRF。只访问本人连接、模型、文件和任务；返回的配置不含密钥明文或密文。资源不存在或属于其他用户统一 404。
 
 | 方法与路径 | 请求/说明 |

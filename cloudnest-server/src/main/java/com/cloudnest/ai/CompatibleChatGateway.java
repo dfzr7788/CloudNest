@@ -24,15 +24,26 @@ public class CompatibleChatGateway implements ModelGateway {
     try {
       client = policy.client(config.baseUrl());
       var body =
-          Map.of(
-              "model",
-              config.model(),
-              config.outputParameter(),
-              config.maxOutput(),
-              "messages",
-              List.of(
-                  Map.of("role", "system", "content", instruction),
-                  Map.of("role", "user", "content", text)));
+          new LinkedHashMap<String, Object>(
+              Map.of(
+                  "model",
+                  config.model(),
+                  config.outputParameter(),
+                  config.maxOutput(),
+                  "messages",
+                  List.of(
+                      Map.of("role", "system", "content", instruction),
+                      Map.of("role", "user", "content", text))));
+      // The official DeepSeek service defaults to thinking mode. These bounded reading
+      // operations need a final answer, so explicitly select its documented non-thinking mode.
+      // Never send provider-specific fields to an unrelated compatible endpoint.
+      if ("api.deepseek.com".equals(HttpUrl.get(config.baseUrl()).host())
+          && Set.of(
+                  "deepseek-flash",
+                  "deepseek-v4-pro",
+                  "deepseek-v4-flash",
+                  "deepseek-v4-flash-vision-exp")
+              .contains(config.model())) body.put("thinking", Map.of("type", "disabled"));
       var request =
           new Request.Builder()
               .url(config.baseUrl() + "/chat/completions")
@@ -63,10 +74,21 @@ public class CompatibleChatGateway implements ModelGateway {
         if (data.length > 2 * 1024 * 1024)
           throw new Problem(502, "AI_RESPONSE_TOO_LARGE", "模型响应超过 2 MiB");
         JsonNode root = json.readTree(data);
-        var result = root.path("choices").path(0).path("message").path("content");
-        if (!result.isTextual() || result.asText().isBlank() || result.asText().length() > 100000)
-          throw invalid();
+        var choice = root.path("choices").path(0);
+        var result = choice.path("message").path("content");
         var usage = root.path("usage");
+        var measured =
+            new Answer(
+                "",
+                token(usage, "prompt_tokens"),
+                token(usage, "completion_tokens"),
+                token(usage, "total_tokens"));
+        if ("length".equals(choice.path("finish_reason").asText()))
+          throw new ResponseFailure(
+              "AI_OUTPUT_LIMIT", "模型达到输出上限，未生成完整回答；请提高输出上限或关闭模型思考模式；不会自动重试", measured);
+        if (!result.isTextual() || result.asText().isBlank() || result.asText().length() > 100000)
+          throw new ResponseFailure(
+              "AI_INVALID_RESPONSE", "模型未返回有效的最终文本；请检查模型兼容模式和输出上限；不会自动重试", measured);
         return new Answer(
             result.asText(),
             token(usage, "prompt_tokens"),

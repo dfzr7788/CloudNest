@@ -153,11 +153,107 @@ class AiGatewayTest {
       assertEquals(
           "AI_INVALID_RESPONSE",
           assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
+      body.set(
+          "{\"choices\":[{\"finish_reason\":\"length\",\"message\":{\"content\":\"partial"
+              + " answer\",\"reasoning_content\":\"private"
+              + " reasoning\"}}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":16,\"total_tokens\":21}}");
+      var limited =
+          assertThrows(
+              ModelGateway.ResponseFailure.class,
+              () -> gateway.chat(config, "test", "test", c -> {}));
+      assertEquals("AI_OUTPUT_LIMIT", limited.code);
+      assertEquals(21L, limited.usage.totalTokens());
+      assertFalse(limited.getMessage().contains("private reasoning"));
+      body.set(
+          "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":null,\"reasoning_content\":\"private"
+              + " reasoning\"}}],\"usage\":{\"total_tokens\":18}}");
+      var missing =
+          assertThrows(
+              ModelGateway.ResponseFailure.class,
+              () -> gateway.chat(config, "test", "test", c -> {}));
+      assertEquals("AI_INVALID_RESPONSE", missing.code);
+      assertEquals(18L, missing.usage.totalTokens());
       body.set("x".repeat(2 * 1024 * 1024 + 1));
       assertEquals(
           "AI_RESPONSE_TOO_LARGE",
           assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
-      assertEquals(6, count.get());
+      assertEquals(8, count.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
+  void officialDeepSeekRequestsDisableThinkingWithoutChangingOtherEndpoints() throws Exception {
+    var received = new AtomicReference<com.fasterxml.jackson.databind.JsonNode>();
+    var json = new ObjectMapper();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/fixture",
+        exchange -> {
+          received.set(json.readTree(exchange.getRequestBody()));
+          byte[] bytes =
+              "{\"choices\":[{\"finish_reason\":\"stop\",\"message\":{\"content\":\"OK\"}}]}"
+                  .getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(200, bytes.length);
+          exchange.getResponseBody().write(bytes);
+          exchange.close();
+        });
+    server.start();
+    try {
+      var policy = mock(AiOutboundPolicy.class);
+      when(policy.client(anyString()))
+          .thenAnswer(
+              i ->
+                  new OkHttpClient.Builder()
+                      .retryOnConnectionFailure(false)
+                      .addInterceptor(
+                          chain ->
+                              chain.proceed(
+                                  chain
+                                      .request()
+                                      .newBuilder()
+                                      .url(
+                                          "http://127.0.0.1:"
+                                              + server.getAddress().getPort()
+                                              + "/fixture")
+                                      .build()))
+                      .build());
+      var secrets = new AiSecrets(new SecretKeySpec(new byte[32], "HmacSHA256"));
+      var gateway = new CompatibleChatGateway(policy, secrets, json);
+      for (String base : List.of("https://api.deepseek.com", "https://api.deepseek.com/v1")) {
+        for (String model : List.of("deepseek-flash", "deepseek-v4-pro")) {
+          gateway.chat(
+              new ModelGateway.Configuration(
+                  base, secrets.encrypt("fake"), model, "max_tokens", 256),
+              "Reply OK",
+              "test",
+              c -> {});
+          assertEquals("disabled", received.get().path("thinking").path("type").asText());
+          assertEquals(256, received.get().path("max_tokens").asInt());
+        }
+      }
+      for (String base :
+          List.of("https://other.example/v1", "https://api.deepseek.com.other.example/v1")) {
+        gateway.chat(
+            new ModelGateway.Configuration(
+                base, secrets.encrypt("fake"), "deepseek-flash", "max_tokens", 256),
+            "Reply OK",
+            "test",
+            c -> {});
+        assertFalse(received.get().has("thinking"));
+      }
+      gateway.chat(
+          new ModelGateway.Configuration(
+              "https://api.deepseek.com",
+              secrets.encrypt("fake"),
+              "unknown-model",
+              "max_tokens",
+              256),
+          "Reply OK",
+          "test",
+          c -> {});
+      assertFalse(received.get().has("thinking"));
     } finally {
       server.stop(0);
     }

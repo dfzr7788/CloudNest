@@ -581,6 +581,32 @@ class AiIntegrationTest {
   }
 
   @Test
+  void failedFinalAnswerKeepsMeasuredUsageAndDoesNotRetry() throws Exception {
+    var s = setup();
+    when(gateway.chat(any(), anyString(), anyString(), any()))
+        .thenThrow(
+            new ModelGateway.ResponseFailure(
+                "AI_OUTPUT_LIMIT",
+                "模型达到输出上限；不会自动重试",
+                new ModelGateway.Answer("", 10L, 256L, 266L)));
+    var t =
+        call(
+            s.user(),
+            post("/api/ai/models/" + s.model() + "/test").header("Idempotency-Key", Util.id()),
+            null,
+            202);
+    var finished = waitFor(s.user(), t.path("taskId").asText());
+    assertEquals("FAILED", finished.path("status").asText());
+    assertEquals("AI_OUTPUT_LIMIT", finished.path("error_code").asText());
+    var usage = call(s.user(), get("/api/ai/usage"), null, 200);
+    assertEquals(266, usage.path("summary").path("total_tokens").asInt());
+    assertEquals(1, usage.path("summary").path("known_usage_calls").asInt());
+    var config = org.mockito.ArgumentCaptor.forClass(ModelGateway.Configuration.class);
+    verify(gateway, times(1)).chat(config.capture(), anyString(), anyString(), any());
+    assertEquals(256, config.getValue().maxOutput());
+  }
+
+  @Test
   void revisionChangesAndCredentialRevocationPreventFurtherSending() throws Exception {
     var s = setup();
     String file = upload(s.user(), "revision.md", "source text".getBytes(StandardCharsets.UTF_8));
