@@ -29,6 +29,7 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 const phases: Record<string, string> = {
   IDLE: "等待检查",
   CHECKING: "检查版本",
+  SNAPSHOT: "保存回退镜像",
   READY: "检查完成",
   BUILDING: "构建新版",
   BACKUP: "备份数据",

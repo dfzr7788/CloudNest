@@ -174,10 +174,56 @@ class Updater:
         temporary.chmod(0o600)
         temporary.replace(env)
 
+    def snapshot_images(self, stamp):
+        """Pin the images actually used by the single-instance containers, before building.
+
+        A containerd platform/config digest from `compose images -q` is not necessarily
+        a taggable image reference. Resolve the original reference and verify its runtime
+        identity instead; never silently snapshot a tag that has moved to different content.
+        Inspect only selected fields, not container environments or credentials.
+        """
+        images = {}
+        container_format = '{"image":{{json .Image}},"reference":{{json .Config.Image}},"composeImage":{{json (index .Config.Labels "com.docker.compose.image")}}}'
+        image_format = '{"id":{{json .Id}},"os":{{json .Os}},"architecture":{{json .Architecture}}}'
+        for service in ('server', 'web'):
+            containers = self.compose('ps', '-a', '-q', service).splitlines()
+            if len(containers) != 1:
+                raise RuntimeError(f'{service} 需要恰好一个现有容器，无法保存更新前镜像')
+            info = json.loads(self.run('docker', 'container', 'inspect', '--format', container_format,
+                                       containers[0], log_output=False))
+            reference = info.get('reference') or info.get('image')
+            known = {value for value in (info.get('image'), info.get('composeImage')) if value}
+            if not reference or not known:
+                raise RuntimeError(f'{service} 当前容器缺少镜像身份，已停止更新')
+            try:
+                image = json.loads(self.run('docker', 'image', 'inspect', '--format', image_format,
+                                            reference, log_output=False))
+            except RuntimeError as error:
+                raise RuntimeError(f'{service} 原镜像引用不可用，无法保存回退镜像；请检查服务器镜像，原容器未停止') from error
+            canonical = image.get('id')
+            matches = canonical in known
+            if not matches and image.get('os') and image.get('architecture'):
+                try:
+                    platform_id = self.run('docker', 'image', 'inspect', '--platform',
+                                           image['os'] + '/' + image['architecture'], '--format', '{{.Id}}',
+                                           reference, log_output=False)
+                    matches = platform_id in known
+                except RuntimeError:
+                    matches = False
+            if not canonical or not matches:
+                raise RuntimeError(f'{service} 镜像标签与运行容器不匹配，无法确认回退版本；原容器未停止')
+            rollback = f'cloudnest-rollback-{service}:{stamp}'
+            self.run('docker', 'tag', reference, rollback)
+            pinned = self.run('docker', 'image', 'inspect', '--format', '{{.Id}}', rollback, log_output=False)
+            if pinned != canonical:
+                raise RuntimeError(f'{service} 保存回退镜像时标签发生变化，已停止更新；原容器未停止')
+            images[service] = canonical
+        return images
+
     def perform(self, action):
         self.stopped = False
         self.deploying = False
-        self.publish('CHECKING', '正在检查 GitHub main 分支', busy=True)
+        self.publish('CHECKING', '正在检查 GitHub main 分支', busy=True, failedPhase=None, backup=None)
         try:
             head, target = self.inspect_target()
             if action == 'check' or not self.status['available']:
@@ -192,13 +238,9 @@ class Updater:
             stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
             folder = self.base / 'backups' / stamp
             folder.mkdir(parents=True, mode=0o700)
-            self.status['backup'] = stamp
             # Save image IDs before rebuilding tags. Never automatically roll back a migrated database.
-            images = {s: self.compose('images', '-q', s) for s in ('server', 'web')}
-            for service, image in images.items():
-                if not image:
-                    raise RuntimeError('找不到当前镜像，无法保存更新前版本')
-                self.run('docker', 'tag', image, f'cloudnest-rollback-{service}:{stamp}')
+            self.publish('SNAPSHOT', '正在保存当前运行镜像的回退标签')
+            images = self.snapshot_images(stamp)
             (folder / 'images.json').write_text(json.dumps(images))
             self.run('git', 'merge', '--ff-only', target)
             # Build while the old containers still serve requests.
@@ -208,6 +250,7 @@ class Updater:
                 if 'deploy/compose.images.yml' in (self.repo/'.env').read_text(encoding='utf-8'):
                     raise RuntimeError('该版本预构建镜像尚未就绪，请等待 GitHub Actions 完成后重试')
                 self.compose('build', 'server', 'web', timeout=3600)
+            self.status['backup'] = stamp
             self.backup(folder)
             if ready:
                 self.activate_prebuilt(target)

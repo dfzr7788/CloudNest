@@ -27,6 +27,10 @@ class FakeUpdater(module.Updater):
         self.failure = failure
         self.dirty = dirty
         self.upstream = upstream
+        self.runtime_image = 'sha256:fixture'
+        self.addressable_image = 'sha256:fixture'
+        self.platform_image = 'sha256:fixture'
+        self.pinned_image = None
 
     def run(self, *args, **kwargs):
         self.calls.append(args)
@@ -44,7 +48,15 @@ class FakeUpdater(module.Updater):
             return json.dumps({'services': {'server': {'environment': {'STORAGE_BACKEND': 'local'}}}})
         if command.startswith('docker compose images -q'): return 'sha256:fixture'
         if args[:4] == ('docker', 'compose', 'exec', '-T'): return '0'
-        if command == 'docker compose ps -a -q server': return 'fixture-container'
+        if command == 'docker compose ps -a -q server': return 'fixture-server-container'
+        if command == 'docker compose ps -a -q web': return 'fixture-web-container'
+        if args[:3] == ('docker', 'container', 'inspect'):
+            service = 'server' if args[-1]=='fixture-server-container' else 'web'
+            return json.dumps({'image':self.runtime_image,'reference':f'cloudnest-{service}:old','composeImage':self.runtime_image})
+        if args[:3] == ('docker','image','inspect'):
+            if '--platform' in args: return self.platform_image
+            if '--format' in args and args[args.index('--format')+1]=='{{.Id}}': return self.pinned_image or self.addressable_image
+            return json.dumps({'id':self.addressable_image,'os':'linux','architecture':'amd64'})
         if args[:2] == ('docker', 'inspect'):
             return json.dumps([{'Destination': '/app/data', 'Type': 'volume', 'Name': 'fixture-volume'}])
         if args[:3] == ('docker', 'compose', 'run'):
@@ -62,6 +74,54 @@ class FakeUpdater(module.Updater):
 
 
 class Tests(unittest.TestCase):
+    def test_containerd_platform_ids_are_not_used_as_tag_sources(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            updater.runtime_image='sha256:platform-specific-unaddressable'
+            updater.platform_image=updater.runtime_image
+            updater.addressable_image='sha256:taggable-index'
+            updater.perform('update')
+            self.assertEqual('COMPLETE',updater.status['phase'])
+            self.assertFalse(any(c[:3]==('docker','compose','images') for c in updater.calls))
+            tags=[c for c in updater.calls if c[:2]==('docker','tag')]
+            self.assertEqual(['cloudnest-server:old','cloudnest-web:old'],[c[2] for c in tags])
+            self.assertLess(updater.calls.index(tags[-1]),updater.calls.index(('docker','compose','build','server','web')))
+
+    def test_retargeted_images_never_replace_the_actual_rollback_version(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            updater.addressable_image='sha256:new-index'
+            updater.platform_image='sha256:new-platform'
+            updater.perform('update')
+            self.assertEqual('FAILED',updater.status['phase'])
+            self.assertEqual('SNAPSHOT',updater.status['failedPhase'])
+            self.assertIn('不匹配',updater.status['message'])
+            self.assertFalse(any(c[:2]==('docker','tag') or 'stop' in c or 'merge' in c for c in updater.calls))
+
+    def test_original_image_missing_stops_before_build_or_service_stop(self):
+        updater=self.execute(failure='docker image inspect')
+        self.assertEqual('FAILED',updater.status['phase'])
+        self.assertIn('原镜像引用不可用',updater.status['message'])
+        self.assertFalse(any('stop' in c or 'merge' in c or 'build' in c for c in updater.calls))
+        self.assertIsNone(updater.status.get('backup'))
+
+    def test_concurrent_image_retag_aborts_without_stopping(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            updater.pinned_image='sha256:concurrently-moved'
+            updater.perform('update')
+            self.assertEqual('FAILED',updater.status['phase'])
+            self.assertIn('标签发生变化',updater.status['message'])
+            self.assertFalse(any('stop' in c or 'merge' in c for c in updater.calls))
+
+    def test_new_request_clears_previous_failure_and_backup_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            updater.status.update(failedPhase='BACKUP',backup='old-partial-folder')
+            updater.perform('check')
+            self.assertIsNone(updater.status['failedPhase'])
+            self.assertIsNone(updater.status['backup'])
+
     def test_prebuilt_download_verifies_checksum_before_docker_import(self):
         with tempfile.TemporaryDirectory() as directory:
             updater=FakeUpdater(directory)
