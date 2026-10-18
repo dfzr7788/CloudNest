@@ -101,8 +101,47 @@ endpoint('get','/admin/updates','管理员：更新服务、运行版本与任�
 endpoint('post','/admin/updates','管理员：检查或执行系统更新',obj({'action':field(enum=['check','update'])}))
 endpoint('post','/admin/invitations','管理员：生成48小时一次性邀请',obj({'quota':field('integer',minimum=1048576)}))
 paths['/entries']['get']['parameters'].extend([{'name':name,'in':'query','schema':schema}for name,schema in {'collection':field(enum=['all','favorites','opened','uploaded']),'type':field(enum=['all','image','document','folder']),'minSize':field('integer',minimum=0),'maxSize':field('integer',minimum=0),'after':field('integer',minimum=0),'before':field('integer',minimum=0)}.items()])
+connection=obj({'name':field(minLength=1,maxLength=60),'baseUrl':field(maxLength=2048),'apiKey':field(format='password',maxLength=4096),'enabled':field('boolean')})
+model=obj({'connectionId':field(),'name':field(maxLength=60),'modelId':field(maxLength=200),'contextLimit':field('integer',minimum=1024,maximum=2000000),'maxOutput':field('integer',minimum=64,maximum=2048),'outputParamMode':field(enum=['max_tokens','max_completion_tokens']),'enabled':field('boolean')})
+endpoint('get','/ai/capabilities','AI 站点开关和支持范围')
+for resource,schema in [('connections',connection),('models',model)]:
+    endpoint('get','/ai/'+resource,'当前用户 AI '+resource)
+    endpoint('post','/ai/'+resource,'保存 AI 配置，不外发请求',schema)
+    patch=obj({**schema['properties'],'configVersion':field('integer',minimum=1)},['configVersion'])
+    endpoint('patch','/ai/'+resource+'/{id}','修改本人配置，版本冲突返回409',patch)
+    endpoint('delete','/ai/'+resource+'/{id}','删除本人配置并停止关联任务')
+endpoint('delete','/ai/connections/{id}/credential','清除密钥并停用连接')
+endpoint('get','/ai/preferences','默认聊天模型')
+endpoint('put','/ai/preferences','设置本人默认模型',obj({'defaultChatModelId':field(nullable=True)}))
+endpoint('post','/ai/consents','确认目的地的数据发送与费用',obj({'connectionId':field(),'destinationFingerprint':field(minLength=64,maxLength=64)}))
+endpoint('post','/ai/models/{id}/test','显式测试聊天模型（可能收费），202')
+endpoint('get','/ai/files/{id}/analysis','检查提取范围和预计调用数，不调用模型',queries={'modelId':field(),'rangeChars':field('integer',minimum=100,maximum=262144,default=120000)})
+generation=obj({'modelId':field(),'expectedRevision':field('integer'),'rangeChars':field('integer',minimum=100,maximum=262144,default=120000),'allowPartial':field('boolean'),'language':field(enum=['zh','original']),'forceRefresh':field('boolean')},['modelId','expectedRevision'])
+for action in ['summaries','tag-suggestions']:
+    endpoint('post','/ai/files/{id}/'+action,'创建本人文件 AI 任务，202',generation)
+endpoint('get','/ai/tasks','本人任务列表，每页20',queries={'fileId':field(),'page':field('integer',minimum=1)})
+endpoint('get','/ai/tasks/{id}','AI 任务状态与经鉴权的结果，异步错误在JSON中表达')
+endpoint('post','/ai/tasks/{id}/cancel','请求停止 AI 任务，202')
+endpoint('delete','/ai/artifacts/{id}','清除本人终态任务结果；不删除源文件')
+endpoint('get','/ai/usage','本人用量，缺少实际token为null',queries={'days':field('integer',minimum=1,maximum=90,default=30),'page':field('integer',minimum=1)})
+for path in ['/ai/models/{id}/test','/ai/files/{id}/summaries','/ai/files/{id}/tag-suggestions']:
+    op=paths[path]['post']
+    op['parameters'].append({'name':'Idempotency-Key','in':'header','required':True,'description':'用户作用域，24小时去重，同键不同输入409','schema':field(minLength=1,maxLength=100)})
+    op['responses']['202']=op['responses'].pop('200')
+    op['responses']['202']['description']='任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true'
+paths['/ai/tasks/{id}/cancel']['post']['responses']['202']=paths['/ai/tasks/{id}/cancel']['post']['responses'].pop('200')
+endpoint('get','/entries/{id}/tags','当前文件标签')
+endpoint('put','/entries/{id}/tags','设置标签，可选乐观并发检查',obj({'tags':field('array',items=field(minLength=1,maxLength=40),maxItems=20),'expectedTags':field('array',items=field(maxLength=40),maxItems=20,description='可选；当前标签须与此前读取的数组一致，否则409')},['tags']))
 for parameter in paths['/entries']['get']['parameters']:
     if parameter['name']=='sort': parameter['schema']['enum'].extend(['createdAt','lastOpened'])
 spec={'openapi':'3.0.3','info':{'title':'CloudNest API','version':'1.0.0','description':'单实例私人云盘。完整请求与成功结果见 docs/api.md；导入后先执行 GET /auth/csrf，再填写当前 X-XSRF-TOKEN 并启用 Cookie jar。'},'servers':[{'url':'http://127.0.0.1:8080/api'}],'paths':paths,'components':{'securitySchemes':{'cookieAuth':{'type':'apiKey','in':'cookie','name':'CN_AUTH'}}}}
-(ROOT/'docs/openapi.json').write_text(json.dumps(spec,ensure_ascii=False,indent=2),encoding='utf-8')
+# Some older endpoints were documented directly in the contract; preserve those operations.
+contract=ROOT/'docs/openapi.json'
+if contract.exists():
+    previous=json.loads(contract.read_text(encoding='utf-8'))
+    merged=previous.get('paths',{})
+    for path,operations in paths.items(): merged.setdefault(path,{}).update(operations)
+    spec['paths']=merged
+    spec['components']={**previous.get('components',{}),**spec['components']}
+contract.write_text(json.dumps(spec,ensure_ascii=False,indent=2),encoding='utf-8')
 print(f'Exported {sum(len(ops) for ops in paths.values())} operations')

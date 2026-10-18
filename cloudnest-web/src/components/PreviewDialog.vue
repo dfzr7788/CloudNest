@@ -2,6 +2,7 @@
 import { computed, ref, watch, defineAsyncComponent } from "vue";
 import { api, errorText, type Entry, bytes } from "../api";
 import FileMark from "./FileMark.vue";
+import AiPanel from "./AiPanel.vue";
 import DOMPurify from "dompurify";
 import { renderMarkdown } from "../markdown";
 const PdfPreview = defineAsyncComponent(() => import("./PdfPreview.vue"));
@@ -28,6 +29,7 @@ const word = computed(
       ].includes(props.file.mime || "")),
 );
 const officeEnabled = ref(false);
+const aiOpen = ref(false);
 const rawMarkdown = ref(false),
   documentHtml = ref("");
 const renderedHtml = computed(() =>
@@ -112,6 +114,7 @@ watch(
   () => props.file,
   async (f) => {
     const mine = ++requestGeneration;
+    aiOpen.value = false;
     officeEnabled.value = false;
     if (f && !props.base && /\.(doc|docx|xls|xlsx|ppt|pptx)$/i.test(f.name))
       void api
@@ -256,6 +259,10 @@ watch(
         ><el-button @click="rotation = (rotation + 90) % 360"
           >旋转</el-button
         ></template
+      ><el-button
+        v-if="file && !base && /\.(txt|md|markdown|pdf|docx)$/i.test(file.name)"
+        @click="aiOpen = true"
+        >AI 阅读助手</el-button
       ><el-button @click="emit('close')">关闭</el-button
       ><a
         v-if="file && allowDownload !== false"
@@ -266,6 +273,15 @@ watch(
       ></template
     ></el-dialog
   >
+  <el-drawer
+    v-model="aiOpen"
+    append-to-body
+    title="AI 阅读助手"
+    size="min(520px,96vw)"
+    destroy-on-close
+  >
+    <AiPanel v-if="file && !base && aiOpen" :key="file.id" :file="file" />
+  </el-drawer>
 </template>
 <style scoped>
 .document-preview {

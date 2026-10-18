@@ -1,0 +1,165 @@
+package com.cloudnest;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
+
+import com.cloudnest.ai.*;
+import com.cloudnest.common.Problem;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.sun.net.httpserver.HttpServer;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.crypto.spec.SecretKeySpec;
+import okhttp3.*;
+import org.junit.jupiter.api.Test;
+
+class AiGatewayTest {
+  @Test
+  void networkPolicyRejectsReservedMixedAndMappedAddresses() throws Exception {
+    var policy = new AiOutboundPolicy();
+    for (String raw :
+        List.of(
+            "http://example.com/v1",
+            "https://user:password@example.com/v1",
+            "https://example.com/v1?key=secret",
+            "https://example.com:8443/v1",
+            "https://example.com/v1/chat/completions",
+            "https://example.com/v1#x")) assertThrows(Problem.class, () -> policy.normalize(raw));
+    for (String ip :
+        List.of(
+            "127.0.0.1",
+            "10.0.0.1",
+            "169.254.169.254",
+            "100.64.0.1",
+            "192.0.2.1",
+            "198.18.0.1",
+            "0.0.0.0",
+            "224.0.0.1",
+            "::1",
+            "::",
+            "fc00::1",
+            "fe80::1",
+            "::ffff:127.0.0.1",
+            "2001:db8::1",
+            "2002:7f00:1::"))
+      assertFalse(AiOutboundPolicy.publicAddress(InetAddress.getByName(ip)), ip);
+    var publicIp = InetAddress.getByName("8.8.8.8");
+    assertTrue(AiOutboundPolicy.publicAddress(publicIp));
+    assertThrows(
+        Problem.class,
+        () -> policy.validate(List.of(publicIp, InetAddress.getByName("127.0.0.1"))));
+    assertEquals(
+        "https://example.com/prefix/v1", policy.normalize("https://EXAMPLE.com:443/prefix/v1/"));
+    assertThrows(Problem.class, () -> policy.client("https://127.0.0.1/v1"));
+  }
+
+  @Test
+  void encryptedCredentialsAreVersionedAndRootBound() throws Exception {
+    var a = new AiSecrets(new SecretKeySpec(new byte[32], "HmacSHA256"));
+    var b = new AiSecrets(new SecretKeySpec(new byte[33], "HmacSHA256"));
+    String cipher = a.encrypt("secret");
+    assertEquals("secret", a.decrypt(cipher));
+    assertThrows(IllegalStateException.class, () -> b.decrypt(cipher));
+    assertEquals("secret", a.decrypt(cipher));
+    assertThrows(IllegalStateException.class, () -> a.decrypt("ai:v2:invalid"));
+  }
+
+  @Test
+  void dnsSnapshotAndPoolsPreventRebindingAndReuse() throws Exception {
+    var answers = new AtomicReference<>(List.of(InetAddress.getByName("8.8.8.8")));
+    var policy =
+        new AiOutboundPolicy() {
+          @Override
+          protected List<InetAddress> resolve(String host) {
+            return answers.get();
+          }
+        };
+    var client = policy.client("https://model.example/v1");
+    answers.set(List.of(InetAddress.getByName("127.0.0.1")));
+    assertEquals("8.8.8.8", client.dns().lookup("model.example").getFirst().getHostAddress());
+    assertThrows(UnknownHostException.class, () -> client.dns().lookup("other.example"));
+    assertThrows(Problem.class, () -> policy.client("https://model.example/v1"));
+    answers.set(List.of(InetAddress.getByName("8.8.8.8")));
+    var next = policy.client("https://model.example/v1");
+    assertNotSame(client.connectionPool(), next.connectionPool());
+    assertFalse(client.followRedirects());
+    assertFalse(client.followSslRedirects());
+    assertFalse(client.retryOnConnectionFailure());
+    assertEquals(Proxy.NO_PROXY, client.proxy());
+    client.dispatcher().executorService().shutdown();
+    next.dispatcher().executorService().shutdown();
+  }
+
+  @Test
+  void gatewayValidatesResponsesUsageRedirectsAndDoesNotRetry() throws Exception {
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    var body =
+        new AtomicReference<>(
+            "{\"choices\":[{\"message\":{\"content\":\"OK\"}}],\"usage\":{\"prompt_tokens\":5,\"completion_tokens\":2,\"total_tokens\":7}}");
+    var status = new java.util.concurrent.atomic.AtomicInteger(200);
+    var count = new java.util.concurrent.atomic.AtomicInteger();
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          count.incrementAndGet();
+          assertEquals("Bearer test-key", exchange.getRequestHeaders().getFirst("Authorization"));
+          String request =
+              new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+          assertTrue(request.contains("max_completion_tokens"));
+          assertFalse(request.contains("temperature"));
+          exchange
+              .getResponseHeaders()
+              .set("Location", "http://127.0.0.1:" + server.getAddress().getPort() + "/stolen");
+          byte[] bytes = body.get().getBytes(StandardCharsets.UTF_8);
+          exchange.sendResponseHeaders(status.get(), bytes.length);
+          exchange.getResponseBody().write(bytes);
+          exchange.close();
+        });
+    server.start();
+    try {
+      var policy = mock(AiOutboundPolicy.class);
+      when(policy.client(anyString()))
+          .thenAnswer(
+              i ->
+                  new OkHttpClient.Builder()
+                      .followRedirects(false)
+                      .retryOnConnectionFailure(false)
+                      .build());
+      var secrets = new AiSecrets(new SecretKeySpec(new byte[32], "HmacSHA256"));
+      var gateway = new CompatibleChatGateway(policy, secrets, new ObjectMapper());
+      var config =
+          new ModelGateway.Configuration(
+              "http://127.0.0.1:" + server.getAddress().getPort() + "/v1",
+              secrets.encrypt("test-key"),
+              "mock",
+              "max_completion_tokens",
+              16);
+      var answer = gateway.chat(config, "test", "test", c -> {});
+      assertEquals(7, answer.totalTokens());
+      body.set("{\"choices\":[{\"message\":{\"content\":\"OK\"}}]}");
+      assertNull(gateway.chat(config, "test", "test", c -> {}).totalTokens());
+      status.set(302);
+      assertEquals(
+          "AI_REDIRECT_BLOCKED",
+          assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
+      status.set(401);
+      assertEquals(
+          "AI_AUTH_FAILED",
+          assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
+      status.set(200);
+      body.set("{\"choices\":[]}");
+      assertEquals(
+          "AI_INVALID_RESPONSE",
+          assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
+      body.set("x".repeat(2 * 1024 * 1024 + 1));
+      assertEquals(
+          "AI_RESPONSE_TOO_LARGE",
+          assertThrows(Problem.class, () -> gateway.chat(config, "test", "test", c -> {})).code);
+      assertEquals(6, count.get());
+    } finally {
+      server.stop(0);
+    }
+  }
+}

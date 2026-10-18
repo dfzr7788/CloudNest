@@ -21,15 +21,24 @@ public class SearchController {
   private final DriveService drive;
   private final ContentService content;
   private final WordPreview office;
+  private final DocumentExtractionService extraction;
 
-  public SearchController(Db db, DriveService drive, ContentService content, WordPreview office) {
+  public SearchController(
+      Db db,
+      DriveService drive,
+      ContentService content,
+      WordPreview office,
+      DocumentExtractionService extraction) {
     this.db = db;
     this.drive = drive;
     this.content = content;
     this.office = office;
+    this.extraction = extraction;
   }
 
-  public record Tags(@NotNull @Size(max = 20) List<@NotBlank @Size(max = 40) String> tags) {}
+  public record Tags(
+      @NotNull @Size(max = 20) List<@NotBlank @Size(max = 40) String> tags,
+      @Size(max = 20) List<@NotBlank @Size(max = 40) String> expectedTags) {}
 
   @GetMapping("/entries/{id}/tags")
   public List<String> tags(Authentication a, @PathVariable String id) {
@@ -45,6 +54,9 @@ public class SearchController {
         a.getName(),
         () -> {
           drive.live(a.getName(), id);
+          if (in.expectedTags() != null
+              && !new HashSet<>(tags(a, id)).equals(new HashSet<>(in.expectedTags())))
+            throw Problem.conflict("标签已被修改，请重新查看并确认合并结果");
           db.update("DELETE FROM entry_tag WHERE entry_id=?", id);
           for (String tag :
               new LinkedHashSet<>(
@@ -154,7 +166,14 @@ public class SearchController {
         String uid = s(e, "user_id"), id = s(e, "id"), mime = s(e, "mime");
         drive.file(uid, id);
         long size = n(e, "size");
-        if (size <= 2 * 1024 * 1024
+        if (DocumentExtractionService.supported(s(e, "name"))) {
+          var document = extraction.extract(uid, id);
+          text =
+              String.join(
+                  "\n\n",
+                  document.blocks().stream().map(DocumentExtractionService.Block::text).toList());
+          status = "READY";
+        } else if (size <= 2 * 1024 * 1024
             && (mime.startsWith("text/")
                 || s(e, "name").matches("(?i).*\\.(md|markdown|txt|json|java|py|cpp|csv|log)"))) {
           try (var in = content.open(content.blob(uid, id))) {

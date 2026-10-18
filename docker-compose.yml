@@ -36,6 +36,7 @@ services:
       DATABASE_URL: jdbc:mysql://mysql:3306/cloudnest?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DATABASE_USER: cloudnest
       REGISTRATION_OPEN: ${REGISTRATION_OPEN:-false}
+      AI_ENABLED: ${AI_ENABLED:-false}
       DATABASE_PASSWORD: ${DATABASE_PASSWORD}
       REDIS_ENABLED: "true"
       REDIS_HOST: redis
@@ -48,6 +49,8 @@ services:
       ZIP_MAX_ENTRIES: ${ZIP_MAX_ENTRIES:-2000}
       ZIP_RETENTION_HOURS: ${ZIP_RETENTION_HOURS:-1}
       ZIP_RESERVE_BYTES: ${ZIP_RESERVE_BYTES:-268435456}
+      ZIP_WORKERS: ${ZIP_WORKERS:-1}
+      ZIP_COMPRESSION_LEVEL: ${ZIP_COMPRESSION_LEVEL:-1}
       MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-}

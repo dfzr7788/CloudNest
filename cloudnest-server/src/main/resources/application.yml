@@ -32,6 +32,8 @@ management:
     redis:
       enabled: ${REDIS_ENABLED:false}
 cloudnest:
+  ai:
+    enabled: ${AI_ENABLED:false}
   registration-open: ${REGISTRATION_OPEN:true}
   data-dir: ${DATA_DIR:./.data}
   storage: ${STORAGE_BACKEND:local}
@@ -44,6 +46,8 @@ cloudnest:
     max-entries: ${ZIP_MAX_ENTRIES:2000}
     hours: ${ZIP_RETENTION_HOURS:1}
     reserve-bytes: ${ZIP_RESERVE_BYTES:268435456}
+    workers: ${ZIP_WORKERS:1}
+    compression-level: ${ZIP_COMPRESSION_LEVEL:1}
   session-hours: 12
   upload-hours: 24
   secure-cookies: ${SECURE_COOKIES:false}

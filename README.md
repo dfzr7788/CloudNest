@@ -2,6 +2,8 @@
 
 基于 Vue 3、TypeScript、Java 21 和 Spring Boot 的多用户私人云盘。支持独立存储空间、文件管理、目录上传、分片续传、在线预览、文件分享、回收站、历史版本及文件夹 ZIP 下载。
 
+可选 AI 阅读助手支持用户自带 Chat Completions 兼容 API：文档摘要、标签建议、连接测试与个人用量记录。管理员设置 `AI_ENABLED=true` 后，在“账号与安全 → AI 设置”配置自己的连接和模型；在 TXT、Markdown、PDF、DOCX 文件预览中打开“AI 阅读助手”。只有用户确认后才调用模型。问答、向量搜索与知识库仍属后续阶段。参见 [使用说明](docs/usage.md#ai-阅读助手) 和 [部署说明](docs/deployment.md#ai-部署与恢复)。
+
 ## 服务器快速部署
 
 需要 Linux 服务器、Git、OpenSSL、Docker Engine 和 Docker Compose 2.24.4+。无需预装 Java、Node.js、MySQL，也无需上传数据库。没有 Docker 时，先按 [完整部署手册](docs/deployment.md) 安装。

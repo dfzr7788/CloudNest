@@ -169,3 +169,37 @@ Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按�
 | POST /api/public/office/callback?ticket= | 文档服务JWT验证后保存版本；仅此签名回调免CSRF |
 
 Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL 仅接受配置的文档服务 cache 路径且不跟随重定向。外部文件更新导致修订冲突时需重新打开编辑器。部署配置与限制见 [进阶说明](advanced-features.md)。
+# AI API（v0.1）
+
+前缀 `/api/ai`，复用 Cookie 登录和写操作 CSRF。只访问本人连接、模型、文件和任务；返回的配置不含密钥明文或密文。资源不存在或属于其他用户统一 404。
+
+| 方法与路径 | 请求/说明 |
+| --- | --- |
+| GET `/capabilities` | `enabled,features,protocol,localEndpoints,dailyCalls,maxTaskCalls,noticeVersion` |
+| GET/POST `/connections` | 创建 `{name,baseUrl,apiKey,enabled}`；保存不外发 |
+| PATCH `/connections/{id}` | `configVersion` 必填；其他字段可省略；省略 apiKey 保留，空值拒绝，地址变化须新 Key |
+| DELETE `/connections/{id}` | 撤销密钥、停用并删除连接/模型，停止任务；用量保留 |
+| DELETE `/connections/{id}/credential` | 清除密钥并停用，保留连接 |
+| GET/POST `/models` | 创建 `{connectionId,name,modelId,contextLimit,maxOutput,outputParamMode,enabled}`；仅 CHAT |
+| PATCH/DELETE `/models/{id}` | 更新须 `configVersion`；更新/删除使旧任务停止 |
+| POST `/models/{id}/test` | 固定短聊天测试，202，计费计数，须 `Idempotency-Key` |
+| GET/PUT `/preferences` | GET `default_chat_model_id`；PUT `{defaultChatModelId: id或null}` |
+| POST `/consents` | `{connectionId,destinationFingerprint}`，指纹取连接返回值；告知版本 1 |
+| GET `/files/{id}/analysis` | query `modelId,rangeChars=120000`，仅提取不调用模型；返回修订/状态/来源位置/范围/预计调用数 |
+| POST `/files/{id}/summaries` | `{modelId,expectedRevision,rangeChars?,allowPartial?,language?,forceRefresh?}`，202 |
+| POST `/files/{id}/tag-suggestions` | 同摘要，生成最多 8 个候选标签，不修改真实标签 |
+| GET `/tasks/{id}` | 200，终态失败仍返回 200，通过 status/error_code/error_message 表达 |
+| GET `/tasks` | query `fileId?,page=1`，每页最多 20；跳过已不可访问的文件任务 |
+| POST `/tasks/{id}/cancel` | 202，幂等；运行中先标记 cancel_requested，线程退出后终态 |
+| DELETE `/artifacts/{id}` | id 为 taskId，清除终态任务结果，不删除源文件或用量 |
+| GET `/usage` | query `days=30`（1–90）,`page=1`；每页 50，含 summary/dailyLimit/resetTimezone |
+
+连接/模型返回数据库风格字段（`base_url,config_version,connection_id,model_id,context_limit,max_output,output_param_mode`）；连接额外包含 `keyConfigured,destinationFingerprint,consented,protocol,last_test_status`。当前 `last_test_status` 为连接最近一次指定模型测试结果；不代表其他模型可用。
+
+任务创建必须携带 `Idempotency-Key`（1–100 字符，24 小时窗口，不得以 `expired:` 开头）；同用户同键同输入返回原 taskId，不同输入 409，包括缓存命中；不同用户独立。返回 `{taskId,id,status,stage,pollAfterMs,...}`，缓存命中额外 `cached:true`。`result` 为 `{text}` 或 `{tags}`；`coverage` 包含修订、内容哈希、提取器版本、状态、已处理字符/页数、总页数、selectedCharacters、partial、reason、来源标识与位置。来源是范围元数据，不宣称摘要每一句都验证了引用。
+
+`rangeChars` 为 100–262144，从开头选择字符（含来源标识）；`language` 为 `zh`/`original`。部分范围必须 `allowPartial:true`；无文本、损坏、加密和不支持的类型不调用模型。前端可 2 秒轮询，隐藏页面降至 8 秒，离开停止轮询。
+
+`PUT /api/entries/{id}/tags` 新增可选 `expectedTags` 数组：后端在用户事务内对比当前标签，发生变化返回 409。AI 标签 UI 先读取最新标签、展示合并结果，确认后携带此前标签，避免覆盖并发变更。
+
+主要错误码：`AI_DISABLED`、`AI_ENDPOINT_BLOCKED`、`AI_NOT_CONFIGURED`、`AI_CONSENT_REQUIRED`、`AI_AUTH_FAILED`、`AI_MODEL_UNSUPPORTED`、`AI_UPSTREAM_RATE_LIMITED`、`AI_TIMEOUT`、`AI_CONTEXT_TOO_LARGE`、`AI_NO_TEXT`、`AI_PARTIAL_CONTENT`、`AI_REVISION_CHANGED`、`AI_QUOTA_EXCEEDED`、`AI_CANCELLED`、`AI_INTERRUPTED`、`AI_CREDENTIAL_UNREADABLE`。实际用量缺失为 null，不写作零；估计输入按 UTF-8 字节数加固定开销计算。超时可能已计费，不自动重试。

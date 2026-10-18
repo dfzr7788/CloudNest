@@ -38,20 +38,18 @@ public class DownloadJobs {
   @Value("${cloudnest.zip.reserve-bytes:268435456}")
   private long reserveBytes;
 
+  @Value("${cloudnest.zip.workers:1}")
+  private int workers;
+
+  @Value("${cloudnest.zip.compression-level:1}")
+  private int compressionLevel;
+
   private final Db db;
   private final DriveService drive;
   private final ContentService content;
   private final ObjectMapper json;
   private final Path root;
-  private final ExecutorService executor =
-      new ThreadPoolExecutor(
-          2,
-          2,
-          0,
-          TimeUnit.SECONDS,
-          new ArrayBlockingQueue<>(20),
-          Thread.ofPlatform().daemon().name("zip-", 0).factory(),
-          new ThreadPoolExecutor.AbortPolicy());
+  private ExecutorService executor;
 
   public DownloadJobs(
       Db db,
@@ -78,7 +76,10 @@ public class DownloadJobs {
         || maxEntries > 200000
         || hours < 1
         || hours > 168
-        || reserveBytes < 0) throw new IllegalArgumentException("Invalid ZIP settings");
+        || reserveBytes < 0
+        || workers<1 || workers>4
+        || compressionLevel<0 || compressionLevel>9) throw new IllegalArgumentException("Invalid ZIP settings");
+    executor=new ThreadPoolExecutor(workers,workers,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(20),Thread.ofPlatform().daemon().name("zip-",0).factory(),new ThreadPoolExecutor.AbortPolicy());
     db.update(
         "UPDATE download_job SET status='FAILED',error='服务重启，请重新创建任务' WHERE status IN"
             + " ('QUEUED','BUILDING')");
@@ -86,7 +87,7 @@ public class DownloadJobs {
 
   @PreDestroy
   void stop() {
-    executor.shutdownNow();
+    if(executor!=null)executor.shutdownNow();
   }
 
   public record Input(@NotEmpty @Size(max = 100) List<@NotBlank String> fileIds) {}
@@ -340,6 +341,7 @@ public class DownloadJobs {
       var entries = manifest(job(uid, id));
       validateSnapshot(uid, entries);
       try (var zip = new ZipOutputStream(Files.newOutputStream(path))) {
+        zip.setLevel(compressionLevel);
         long completed = 0;
         for (ArchiveEntry entry : entries) {
           if (!"BUILDING".equals(s(job(uid, id), "status"))) throw new IOException("Cancelled");

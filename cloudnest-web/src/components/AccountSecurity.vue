@@ -6,6 +6,7 @@ import { api, date, errorText } from "../api";
 import SystemUpdate from "./SystemUpdate.vue";
 import AccessSettings from "./AccessSettings.vue";
 import ServerSettings from "./ServerSettings.vue";
+import AiSettings from "./AiSettings.vue";
 const activeTab = ref("trash"),
   inviteBusy = ref(false);
 async function copyInvite() {
@@ -414,6 +415,9 @@ async function change() {
         label="服务与存储"
         ><ServerSettings :active="visible && activeTab === 'server'"
       /></el-tab-pane>
+      <el-tab-pane name="ai" label="AI 设置">
+        <AiSettings :active="visible && activeTab === 'ai'" />
+      </el-tab-pane>
       <el-tab-pane name="password" label="修改密码">
         <el-form label-position="top" @submit.prevent="change">
           <el-form-item label="原密码"
