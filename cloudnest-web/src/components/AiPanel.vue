@@ -15,6 +15,7 @@ import {
 } from "../api/ai";
 import AiConversation from "./AiConversation.vue";
 import AiSettings from "./AiSettings.vue";
+import AiVersionDiff from "./AiVersionDiff.vue";
 const props = defineProps<{ file: Entry }>();
 const models = ref<AiModel[]>([]),
   connections = ref<AiConnection[]>([]),
@@ -96,11 +97,13 @@ async function load() {
     ]);
     if (!alive) return;
     enabled.value = caps.enabled;
-    models.value = ms;
+    models.value = ms.filter((m) => m.purpose !== "EMBEDDING");
     connections.value = cs;
-    if (!ms.some((m) => m.id === modelId.value))
+    if (!models.value.some((m) => m.id === modelId.value))
       modelId.value =
-        pref.default_chat_model_id || ms.find((m) => m.enabled)?.id || "";
+        pref.default_chat_model_id ||
+        models.value.find((m) => m.enabled)?.id ||
+        "";
     await loadHistory();
     if (!task.value) {
       task.value = history.value[0] || null;
@@ -465,6 +468,7 @@ void load();
       destroy-on-close
       ><AiSettings :active="settings"
     /></el-dialog>
+    <AiVersionDiff v-if="enabled" :file="file" :model-id="modelId" />
   </section>
 </template>
 <style scoped>

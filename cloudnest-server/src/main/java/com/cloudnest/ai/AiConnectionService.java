@@ -206,11 +206,13 @@ public class AiConnectionService {
         uid,
         () -> {
           var previous = id == null ? null : model(uid, id);
-          if (input.containsKey("purpose") && !"CHAT".equals(input.get("purpose")))
-            throw Problem.invalid("首版只支持 CHAT 模型");
           var merged = new HashMap<String, Object>();
           if (previous != null) {
             version(previous, input);
+            merged.put("purpose", previous.get("purpose"));
+            merged.put("embeddingDimensions", previous.get("embedding_dimensions"));
+            merged.put("maxBatchSize", previous.get("max_batch_size"));
+            merged.put("requestDimensions", b(previous, "request_dimensions"));
             merged.put("connectionId", previous.get("connection_id"));
             merged.put("name", previous.get("name"));
             merged.put("modelId", previous.get("model_id"));
@@ -228,20 +230,38 @@ public class AiConnectionService {
                   >= 10) throw Problem.invalid("每连接最多配置 10 个模型");
           if (previous != null && !cid.equals(s(previous, "connection_id")))
             throw Problem.invalid("请在新连接下创建模型");
-          String name = text(merged, "name", 60),
-              model = text(merged, "modelId", 200),
-              mode = text(merged, "outputParamMode", 30);
-          if (!Set.of("max_tokens", "max_completion_tokens").contains(mode))
+          String purpose = Objects.toString(merged.getOrDefault("purpose", "CHAT"));
+          if (!Set.of("CHAT", "EMBEDDING").contains(purpose))
+            throw Problem.invalid("模型用途只支持 CHAT 或 EMBEDDING");
+          if (previous != null && !purpose.equals(s(previous, "purpose")))
+            throw Problem.invalid("模型用途不可更改，请新建模型");
+          boolean embedding = purpose.equals("EMBEDDING");
+          String name = text(merged, "name", 60), model = text(merged, "modelId", 200);
+          String mode = embedding ? "NONE" : text(merged, "outputParamMode", 30);
+          if (!embedding && !Set.of("max_tokens", "max_completion_tokens").contains(mode))
             throw Problem.invalid("输出参数不支持");
-          int context = number(merged, "contextLimit", 1024, 2000000),
-              output = number(merged, "maxOutput", 64, 2048);
-          if (context < output + 512) throw Problem.invalid("上下文窗口需要为输入保留空间");
+          int context =
+              number(merged, "contextLimit", embedding ? 512 : 1024, embedding ? 32768 : 2000000);
+          int output = embedding ? 0 : number(merged, "maxOutput", 64, 2048);
+          if (!embedding && context < output + 512) throw Problem.invalid("上下文窗口需要为输入保留空间");
+          Integer dimensions = embedding ? number(merged, "embeddingDimensions", 1, 4096) : null;
+          Integer batch = embedding ? number(merged, "maxBatchSize", 1, 32) : null;
+          Object requested = merged.getOrDefault("requestDimensions", false);
+          if (!(requested instanceof Boolean)) throw Problem.invalid("requestDimensions 必须为布尔值");
+          boolean requestDimensions = embedding && Boolean.TRUE.equals(requested);
+          if (embedding && (input.containsKey("maxOutput") || input.containsKey("outputParamMode")))
+            throw Problem.invalid("向量模型不使用聊天输出参数");
+          if (!embedding
+              && (input.containsKey("embeddingDimensions")
+                  || input.containsKey("maxBatchSize")
+                  || Boolean.TRUE.equals(input.get("requestDimensions"))))
+            throw Problem.invalid("聊天模型不使用向量参数");
           if (id == null) {
             String created = UUID.randomUUID().toString();
             db.update(
                 "INSERT INTO"
-                    + " ai_model(id,user_id,connection_id,name,model_id,context_limit,max_output,output_param_mode,enabled,config_version)"
-                    + " VALUES(?,?,?,?,?,?,?,?,?,1)",
+                    + " ai_model(id,user_id,connection_id,name,model_id,context_limit,max_output,output_param_mode,enabled,purpose,embedding_dimensions,max_batch_size,request_dimensions,config_version)"
+                    + " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,1)",
                 created,
                 uid,
                 cid,
@@ -250,13 +270,17 @@ public class AiConnectionService {
                 context,
                 output,
                 mode,
-                flag(merged));
+                flag(merged),
+                purpose,
+                dimensions,
+                batch,
+                requestDimensions);
             return model(uid, created);
           }
           invalidate(uid, cid, id);
           db.update(
               "UPDATE ai_model SET"
-                  + " name=?,model_id=?,context_limit=?,max_output=?,output_param_mode=?,enabled=?,config_version=config_version+1"
+                  + " name=?,model_id=?,context_limit=?,max_output=?,output_param_mode=?,enabled=?,embedding_dimensions=?,max_batch_size=?,request_dimensions=?,last_test_status='UNTESTED',last_test_at=NULL,config_version=config_version+1"
                   + " WHERE id=? AND user_id=?",
               name,
               model,
@@ -264,6 +288,9 @@ public class AiConnectionService {
               output,
               mode,
               flag(merged),
+              dimensions,
+              batch,
+              requestDimensions,
               id,
               uid);
           db.update("UPDATE ai_connection SET last_test_status='UNTESTED' WHERE id=?", cid);
@@ -334,9 +361,18 @@ public class AiConnectionService {
   }
 
   public Map<String, Object> available(String uid, String mid) {
+    return available(uid, mid, "CHAT");
+  }
+
+  public Map<String, Object> available(String uid, String mid, String purpose) {
     requireEnabled();
     activeUser(uid);
     var m = model(uid, mid);
+    if (!purpose.equals(s(m, "purpose")))
+      throw new Problem(
+          400,
+          "AI_MODEL_PURPOSE_MISMATCH",
+          "模型用途不匹配，请选择" + (purpose.equals("CHAT") ? "聊天" : "向量") + "模型");
     var c = connection(uid, s(m, "connection_id"));
     if (!b(m, "enabled") || !b(c, "enabled") || c.get("secret_cipher") == null)
       throw new Problem(403, "AI_NOT_CONFIGURED", "模型或连接未启用，或未设置密钥");
@@ -351,6 +387,13 @@ public class AiConnectionService {
   }
 
   private void invalidate(String uid, String cid, String mid) {
+    db.update(
+        "UPDATE ai_model SET last_test_status='UNTESTED',last_test_at=NULL WHERE user_id=? AND"
+            + " connection_id=? AND (? IS NULL OR id=?)",
+        uid,
+        cid,
+        mid,
+        mid);
     // Mark intent immediately. Worker releases any active call and owns its terminal transition.
     db.update(
         "UPDATE ai_task SET cancel_requested=TRUE,updated_at=? WHERE user_id=? AND connection_id=?"

@@ -382,26 +382,7 @@ public class DriveService {
                     + " file_id=?)",
                 nid);
             db.update("DELETE FROM file_share WHERE file_id=?", nid);
-            // Derived AI bodies must disappear in the same transaction as permanent deletion.
-            db.update(
-                "DELETE FROM ai_citation WHERE message_id IN (SELECT m.id FROM ai_message m JOIN"
-                    + " ai_conversation c ON c.id=m.conversation_id WHERE c.file_id=? AND"
-                    + " c.user_id=?)",
-                nid,
-                uid);
-            db.update(
-                "DELETE FROM ai_message WHERE conversation_id IN (SELECT id FROM ai_conversation"
-                    + " WHERE file_id=? AND user_id=?)",
-                nid,
-                uid);
-            db.update("DELETE FROM ai_conversation WHERE file_id=? AND user_id=?", nid, uid);
-            db.update(
-                "UPDATE ai_task SET"
-                    + " cancel_requested=TRUE,status='CANCELLED',stage='FINISHED',request_json='{}',result_json=NULL,coverage_json=NULL,error_code='AI_ARTIFACT_DELETED',error_message=NULL,expires_at=?"
-                    + " WHERE file_id=? AND user_id=?",
-                System.currentTimeMillis(),
-                nid,
-                uid);
+            eraseAi(uid, nid);
             db.update("DELETE FROM drive_entry WHERE id=?", nid);
           }
           db.update("UPDATE sys_user SET storage_used=storage_used-? WHERE id=?", bytes, uid);
@@ -409,6 +390,41 @@ public class DriveService {
           log(uid, "PURGE", id);
           return null;
         });
+  }
+
+  /** Called under the user row lock before a source entry is permanently removed. */
+  public void eraseAi(String uid, String id) {
+    // Derived AI bodies must disappear in the same transaction as permanent deletion.
+    db.update(
+        "DELETE FROM ai_citation WHERE message_id IN (SELECT m.id FROM ai_message m JOIN"
+            + " ai_conversation c ON c.id=m.conversation_id WHERE c.file_id=? AND"
+            + " c.user_id=?)",
+        id,
+        uid);
+    db.update(
+        "DELETE FROM ai_message WHERE conversation_id IN (SELECT id FROM ai_conversation"
+            + " WHERE file_id=? AND user_id=?)",
+        id,
+        uid);
+    db.update("DELETE FROM ai_conversation WHERE file_id=? AND user_id=?", id, uid);
+    db.update(
+        "UPDATE ai_task SET"
+            + " cancel_requested=TRUE,status='CANCELLED',stage='FINISHED',request_json='{}',result_json=NULL,coverage_json=NULL,error_code='AI_ARTIFACT_DELETED',error_message=NULL,expires_at=?"
+            + " WHERE file_id=? AND user_id=?",
+        System.currentTimeMillis(),
+        id,
+        uid);
+    db.update(
+        "UPDATE ai_task SET"
+            + " cancel_requested=TRUE,status='CANCELLED',stage='FINISHED',request_json='{}',result_json=NULL,coverage_json=NULL,error_code='AI_ARTIFACT_DELETED',error_message=NULL,expires_at=?"
+            + " WHERE user_id=? AND id IN (SELECT task_id FROM ai_task_source WHERE user_id=? AND"
+            + " file_id=?)",
+        System.currentTimeMillis(),
+        uid,
+        uid,
+        id);
+    db.update("DELETE FROM ai_index_chunk WHERE user_id=? AND file_id=?", uid, id);
+    db.update("DELETE FROM ai_task_source WHERE user_id=? AND file_id=?", uid, id);
   }
 
   public boolean referenced(String blob) {

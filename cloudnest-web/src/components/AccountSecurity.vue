@@ -7,6 +7,8 @@ import SystemUpdate from "./SystemUpdate.vue";
 import AccessSettings from "./AccessSettings.vue";
 import ServerSettings from "./ServerSettings.vue";
 import AiSettings from "./AiSettings.vue";
+import AiKnowledge from "./AiKnowledge.vue";
+import AiOrganize from "./AiOrganize.vue";
 const activeTab = ref("trash"),
   inviteBusy = ref(false);
 async function copyInvite() {
@@ -418,6 +420,12 @@ async function change() {
       <el-tab-pane name="ai" label="AI 设置">
         <AiSettings :active="visible && activeTab === 'ai'" />
       </el-tab-pane>
+      <el-tab-pane name="knowledge" label="AI 知识库"
+        ><AiKnowledge :active="visible && activeTab === 'knowledge'"
+      /></el-tab-pane>
+      <el-tab-pane name="organize" label="智能整理"
+        ><AiOrganize :active="visible && activeTab === 'organize'"
+      /></el-tab-pane>
       <el-tab-pane name="password" label="修改密码">
         <el-form label-position="top" @submit.prevent="change">
           <el-form-item label="原密码"

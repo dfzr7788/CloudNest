@@ -49,8 +49,12 @@ public class DocumentExtractionService {
   }
 
   public Document extract(String uid, String id) {
+    return extractVersion(uid, id, "current");
+  }
+
+  public Document extractVersion(String uid, String id, String version) {
     var file = drive.file(uid, id);
-    var blob = content.blob(uid, id);
+    var blob = content.versionBlob(uid, id, version);
     String name = s(file, "name").toLowerCase(Locale.ROOT);
     var blocks = new ArrayList<Block>();
     int[] chars = {0};

@@ -23,7 +23,15 @@ public class AiController {
         "enabled",
         configs.enabled(),
         "features",
-        List.of("SUMMARY", "TAGS", "DOCUMENT_QA"),
+        List.of(
+            "SUMMARY",
+            "TAGS",
+            "DOCUMENT_QA",
+            "EMBEDDING_TEST",
+            "KNOWLEDGE_BASE",
+            "SEMANTIC_SEARCH",
+            "VERSION_DIFF",
+            "ORGANIZE"),
         "protocol",
         "OPENAI_COMPATIBLE_CHAT",
         "localEndpoints",
@@ -110,6 +118,15 @@ public class AiController {
       @RequestHeader(value = "Idempotency-Key", required = false) String key) {
     return ResponseEntity.accepted()
         .body(tasks.create(a.getName(), "TEST", null, id, key, Map.of()));
+  }
+
+  @PostMapping("/models/{id}/embedding-test")
+  public ResponseEntity<?> embeddingTest(
+      Authentication a,
+      @PathVariable String id,
+      @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+    return ResponseEntity.accepted()
+        .body(tasks.create(a.getName(), "EMBEDDING_TEST", null, id, key, Map.of()));
   }
 
   @GetMapping("/files/{id}/analysis")

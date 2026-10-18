@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { reactive, ref, watch, onBeforeUnmount } from "vue";
+import { computed, reactive, ref, watch, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errorText } from "../api";
 import {
@@ -23,6 +23,10 @@ const connectionEditor = ref(false),
   currentModel = ref<AiModel | null>(null);
 const form = reactive({ name: "", baseUrl: "", apiKey: "", enabled: true });
 const modelForm = reactive({
+  purpose: "CHAT" as "CHAT" | "EMBEDDING",
+  embeddingDimensions: 1536,
+  maxBatchSize: 16,
+  requestDimensions: false,
   connectionId: "",
   name: "",
   modelId: "",
@@ -32,6 +36,12 @@ const modelForm = reactive({
   enabled: true,
 });
 const testTask = ref<AiTask | null>(null);
+const chatModels = computed(() =>
+  models.value.filter((m) => m.purpose !== "EMBEDDING"),
+);
+const embeddingModels = computed(() =>
+  models.value.filter((m) => m.purpose === "EMBEDDING"),
+);
 let timer: ReturnType<typeof setTimeout> | undefined,
   generation = 0;
 let pendingTest: { model: string; key: string } | undefined;
@@ -87,13 +97,17 @@ async function saveConnection() {
     }
   });
 }
-function editModel(m: AiModel | null) {
+function editModel(m: AiModel | null, purpose: "CHAT" | "EMBEDDING" = "CHAT") {
   currentModel.value = m;
   Object.assign(modelForm, {
+    purpose: m?.purpose || purpose,
+    embeddingDimensions: m?.embedding_dimensions || 1536,
+    maxBatchSize: m?.max_batch_size || 16,
+    requestDimensions: m?.request_dimensions ?? false,
     connectionId: m?.connection_id || connections.value[0]?.id || "",
     name: m?.name || "",
     modelId: m?.model_id || "",
-    contextLimit: m?.context_limit || 32768,
+    contextLimit: m?.context_limit || (purpose === "EMBEDDING" ? 8192 : 32768),
     maxOutput: m?.max_output || 1024,
     outputParamMode: m?.output_param_mode || "max_tokens",
     enabled: m?.enabled ?? true,
@@ -102,12 +116,30 @@ function editModel(m: AiModel | null) {
 }
 async function saveModel() {
   await run(async () => {
+    const input = {
+      connectionId: modelForm.connectionId,
+      name: modelForm.name,
+      modelId: modelForm.modelId,
+      purpose: modelForm.purpose,
+      contextLimit: modelForm.contextLimit,
+      enabled: modelForm.enabled,
+      ...(modelForm.purpose === "EMBEDDING"
+        ? {
+            embeddingDimensions: modelForm.embeddingDimensions,
+            maxBatchSize: modelForm.maxBatchSize,
+            requestDimensions: modelForm.requestDimensions,
+          }
+        : {
+            maxOutput: modelForm.maxOutput,
+            outputParamMode: modelForm.outputParamMode,
+          }),
+    };
     if (currentModel.value)
       await api.patch(`/ai/models/${currentModel.value.id}`, {
-        ...modelForm,
+        ...input,
         configVersion: currentModel.value.config_version,
       });
-    else await api.post("/ai/models", modelForm);
+    else await api.post("/ai/models", input);
     modelEditor.value = false;
   });
 }
@@ -158,12 +190,17 @@ function schedulePoll() {
 async function test(m: AiModel) {
   await run(async () => {
     await ElMessageBox.confirm(
-      "只发送固定的极短提示，不发送文件；可能产生少量费用。超时或停止仍可能计费。",
-      "测试聊天模型",
+      m.purpose === "EMBEDDING"
+        ? "只发送 1–2 条固定英文短句，不发送文件。检查返回向量数量、索引、配置维度与有限数值，测试后不保存向量，不代表语义检索质量。可能收费，超时或停止仍可能计费。"
+        : "只发送固定的极短提示，不发送文件；可能产生少量费用。超时或停止仍可能计费。",
+      m.purpose === "EMBEDDING" ? "测试向量模型" : "测试聊天模型",
     );
     if (!pendingTest || pendingTest.model !== m.id)
       pendingTest = { model: m.id, key: crypto.randomUUID() };
-    testTask.value = await ai.test(m.id, pendingTest.key);
+    testTask.value =
+      m.purpose === "EMBEDDING"
+        ? await ai.embeddingTest(m.id, pendingTest.key)
+        : await ai.test(m.id, pendingTest.key);
     pendingTest = undefined;
     schedulePoll();
   });
@@ -177,7 +214,9 @@ watch(
     if (active) {
       void run(async () => {
         const tasks = await ai.tasks();
-        testTask.value = tasks.find((t) => t.kind === "TEST") || null;
+        testTask.value =
+          tasks.find((t) => ["TEST", "EMBEDDING_TEST"].includes(t.kind)) ||
+          null;
         schedulePoll();
       });
     } else {
@@ -205,7 +244,7 @@ onBeforeUnmount(() => {
       :closable="false"
     />
     <p>
-      使用自己的 Chat Completions 兼容
+      使用自己的 Chat Completions / Embeddings 兼容
       API。文件仅在你点击生成后发送，回答仅供辅助阅读。支持 HTTPS 公网 443
       端口；服务器的 localhost 指服务器自身，无法直接访问你电脑上的本地模型。
     </p>
@@ -221,7 +260,7 @@ onBeforeUnmount(() => {
       }}
       <p class="destination">{{ c.base_url }}</p>
       <p>
-        测试状态：{{ c.last_test_status }} · 数据发送同意：{{
+        聊天连接最近测试：{{ c.last_test_status }} · 数据发送同意：{{
           c.consented ? "已确认" : "待确认"
         }}
       </p>
@@ -238,13 +277,14 @@ onBeforeUnmount(() => {
       @click="editModel(null)"
       >添加模型</el-button
     >
-    <article v-for="m in models" :key="m.id" class="connection-card">
+    <article v-for="m in chatModels" :key="m.id" class="connection-card">
       <strong>{{ m.name }}</strong> · {{ m.model_id }} ·
       {{ m.enabled ? "启用" : "停用" }}
       <p>
         连接：{{ connections.find((c) => c.id === m.connection_id)?.name }} ·
         上下文 {{ m.context_limit }} · 输出上限 {{ m.max_output }}
       </p>
+      <p>独立测试：{{ m.last_test_status || "UNTESTED" }}</p>
       <el-button :disabled="!enabled" @click="editModel(m)">编辑</el-button>
       <el-button
         :disabled="
@@ -266,9 +306,60 @@ onBeforeUnmount(() => {
         >删除</el-button
       >
     </article>
+    <h3>向量模型</h3>
+    <p>
+      聊天模型不能代替向量模型。此处用于配置与独立测试，索引与语义搜索请打开“AI
+      知识库”；仅配置聊天模型仍可使用摘要和单文档问答。
+    </p>
+    <el-button
+      :disabled="!enabled || !connections.length"
+      @click="editModel(null, 'EMBEDDING')"
+      >添加向量模型</el-button
+    >
+    <article
+      v-for="m in embeddingModels"
+      :key="m.id"
+      class="connection-card embedding-card"
+    >
+      <strong>{{ m.name }}</strong> · {{ m.model_id }} ·
+      {{ m.enabled ? "启用" : "停用" }}
+      <p>
+        连接：{{ connections.find((c) => c.id === m.connection_id)?.name }} ·
+        预期维度 {{ m.embedding_dimensions }} · 每批最多
+        {{ m.max_batch_size }} 条 · 输入预算 {{ m.context_limit }}
+      </p>
+      <p>
+        独立测试：{{
+          m.last_test_status || "UNTESTED"
+        }}；聊天测试不代表向量能力可用。
+      </p>
+      <el-button :disabled="!enabled" @click="editModel(m, 'EMBEDDING')"
+        >编辑</el-button
+      >
+      <el-button
+        :disabled="
+          !enabled || !m.enabled || (!!testTask && !aiFinished(testTask))
+        "
+        @click="test(m)"
+        >测试向量模型（可能收费）</el-button
+      >
+      <el-button
+        @click="
+          run(async () => {
+            await ElMessageBox.confirm(
+              '删除此向量模型并停止关联任务？',
+              '删除向量模型',
+            );
+            await api.delete('/ai/models/' + m.id);
+          })
+        "
+        >删除</el-button
+      >
+    </article>
     <p>默认聊天模型</p>
     <el-select
       v-model="defaultModel"
+      aria-label="默认聊天模型"
       clearable
       placeholder="请选择"
       style="width: 100%; max-width: 360px"
@@ -281,7 +372,7 @@ onBeforeUnmount(() => {
       "
     >
       <el-option
-        v-for="m in models.filter((m) => m.enabled)"
+        v-for="m in chatModels.filter((m) => m.enabled)"
         :key="m.id"
         :value="m.id"
         :label="m.name"
@@ -290,6 +381,15 @@ onBeforeUnmount(() => {
     <p v-if="testTask" role="status">
       测试：{{ aiStage(testTask) }} {{ testTask.result?.text }}
       {{ testTask.error_message }}
+      <span
+        v-if="
+          testTask.kind === 'EMBEDDING_TEST' && testTask.status === 'SUCCEEDED'
+        "
+        >{{ testTask.result?.vectorCount }} 个向量 ·
+        {{ testTask.result?.dimensions }} 维；{{
+          testTask.result?.notice
+        }}</span
+      >
     </p>
     <el-button
       v-if="testTask && !aiFinished(testTask)"
@@ -344,7 +444,7 @@ onBeforeUnmount(() => {
     <el-dialog
       v-model="modelEditor"
       append-to-body
-      title="聊天模型"
+      :title="modelForm.purpose === 'EMBEDDING' ? '向量模型' : '聊天模型'"
       width="min(520px,94vw)"
     >
       <el-form label-position="top" @submit.prevent="saveModel">
@@ -364,23 +464,51 @@ onBeforeUnmount(() => {
         <el-form-item label="供应商模型 ID（手动输入）"
           ><el-input v-model="modelForm.modelId" maxlength="200"
         /></el-form-item>
-        <el-form-item label="上下文窗口（token，请按供应商规格填写）"
+        <el-form-item
+          :label="
+            modelForm.purpose === 'EMBEDDING'
+              ? '每批输入预算（token，以 UTF-8 字节保守估算）'
+              : '上下文窗口（token，请按供应商规格填写）'
+          "
           ><el-input-number
             v-model="modelForm.contextLimit"
-            :min="1024"
-            :max="2000000"
+            :min="modelForm.purpose === 'EMBEDDING' ? 512 : 1024"
+            :max="modelForm.purpose === 'EMBEDDING' ? 32768 : 2000000"
         /></el-form-item>
-        <el-form-item label="最大输出 token"
+        <el-form-item v-if="modelForm.purpose === 'CHAT'" label="最大输出 token"
           ><el-input-number v-model="modelForm.maxOutput" :min="64" :max="2048"
         /></el-form-item>
-        <el-form-item label="输出上限兼容参数"
+        <el-form-item
+          v-if="modelForm.purpose === 'CHAT'"
+          label="输出上限兼容参数"
           ><el-select v-model="modelForm.outputParamMode"
             ><el-option value="max_tokens" label="max_tokens" /><el-option
               value="max_completion_tokens"
               label="max_completion_tokens" /></el-select
         ></el-form-item>
+        <template v-if="modelForm.purpose === 'EMBEDDING'">
+          <el-form-item label="预期向量维度（请按供应商规格填写）"
+            ><el-input-number
+              v-model="modelForm.embeddingDimensions"
+              :min="1"
+              :max="4096"
+          /></el-form-item>
+          <el-form-item label="每批最多输入条数"
+            ><el-input-number
+              v-model="modelForm.maxBatchSize"
+              :min="1"
+              :max="32"
+          /></el-form-item>
+          <el-checkbox v-model="modelForm.requestDimensions"
+            >按此维度请求降维（需供应商明确支持）</el-checkbox
+          >
+          <p>
+            默认仅校验返回维度，不发送
+            dimensions；不自动猜测维度、补零、截断或切换模型。模型用途创建后不可更改。
+          </p>
+        </template>
         <el-checkbox v-model="modelForm.enabled">启用模型</el-checkbox>
-        <p>
+        <p v-if="modelForm.purpose === 'CHAT'">
           不发送
           temperature，不自动切换参数或模型。上下文使用保守估算，仍可能被供应商拒绝。
         </p>

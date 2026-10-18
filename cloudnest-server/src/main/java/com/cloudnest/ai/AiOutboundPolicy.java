@@ -29,6 +29,7 @@ public class AiOutboundPolicy {
       var url = HttpUrl.get(raw);
       String path = url.encodedPath().replaceAll("/+$", "");
       if (path.toLowerCase(Locale.ROOT).endsWith("/chat/completions")
+          || path.toLowerCase(Locale.ROOT).endsWith("/embeddings")
           || path.contains("%")
           || path.contains("//")) throw blocked();
       return url.newBuilder()

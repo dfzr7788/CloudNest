@@ -11,6 +11,12 @@ export interface AiConnection {
   last_test_status: string;
 }
 export interface AiModel {
+  purpose?: "CHAT" | "EMBEDDING";
+  embedding_dimensions?: number | null;
+  max_batch_size?: number | null;
+  request_dimensions?: boolean;
+  last_test_status?: string;
+  last_test_at?: number | null;
   id: string;
   name: string;
   connection_id: string;
@@ -46,7 +52,13 @@ export interface AiTask {
   created_at: number;
   completed_calls: number;
   total_calls: number | null;
-  result: { text?: string; tags?: string[] } | null;
+  result: {
+    text?: string;
+    tags?: string[];
+    dimensions?: number;
+    vectorCount?: number;
+    notice?: string;
+  } | null;
   coverage: AiCoverage | null;
   error_message: string | null;
   error_code: string | null;
@@ -123,6 +135,14 @@ export const ai = {
     api
       .post<AiTask>(
         `/ai/models/${id}/test`,
+        {},
+        { headers: { "Idempotency-Key": key } },
+      )
+      .then((r) => r.data),
+  embeddingTest: (id: string, key: string) =>
+    api
+      .post<AiTask>(
+        `/ai/models/${id}/embedding-test`,
         {},
         { headers: { "Idempotency-Key": key } },
       )

@@ -546,3 +546,200 @@ test("单文档问答：创建、确认发送、引用、历史恢复、只读�
   expect(sends).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test("向量模型独立配置、确认测试、错误提示和聊天用途隔离", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByRole("button", { name: "创建账号", exact: true }).click();
+  await page.getByLabel("账号", { exact: true }).fill("embui_" + Date.now());
+  await page.getByLabel("密码", { exact: true }).fill("Browser-test-123");
+  await page.getByRole("button", { name: "注册并进入云盘" }).click();
+  await expect(
+    page.getByRole("button", { name: "账号与安全", exact: true }),
+  ).toBeVisible();
+  const csrf = (await (await page.request.get("/api/auth/csrf")).json()).token;
+  const headers = { "X-XSRF-TOKEN": csrf };
+  const connection = await (
+    await page.request.post("/api/ai/connections", {
+      headers,
+      data: {
+        name: "Embedding fixture",
+        baseUrl: "https://model.example/v1",
+        apiKey: "emb-ui-fake-key",
+        enabled: true,
+      },
+    })
+  ).json();
+  expect(
+    (
+      await page.request.post("/api/ai/consents", {
+        headers,
+        data: {
+          connectionId: connection.id,
+          destinationFingerprint: connection.destinationFingerprint,
+        },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  const chat = await (
+    await page.request.post("/api/ai/models", {
+      headers,
+      data: {
+        connectionId: connection.id,
+        name: "Chat only",
+        modelId: "chat-fixture",
+        contextLimit: 32768,
+        maxOutput: 1024,
+        outputParamMode: "max_tokens",
+        enabled: true,
+      },
+    })
+  ).json();
+  expect(
+    (
+      await page.request.put("/api/ai/preferences", {
+        headers,
+        data: { defaultChatModelId: chat.id },
+      })
+    ).ok(),
+  ).toBeTruthy();
+  await page.getByRole("button", { name: "账号与安全", exact: true }).click();
+  await page.getByRole("tab", { name: "AI 设置", exact: true }).click();
+  await page.getByRole("button", { name: "添加向量模型", exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "向量模型", exact: true });
+  await editor
+    .locator(".el-form-item")
+    .filter({ hasText: "显示名称" })
+    .locator("input")
+    .fill("Vector only");
+  await editor
+    .locator(".el-form-item")
+    .filter({ hasText: "供应商模型 ID" })
+    .locator("input")
+    .fill("vector-fixture");
+  await editor
+    .locator(".el-form-item")
+    .filter({ hasText: "预期向量维度" })
+    .locator("input")
+    .fill("3");
+  await expect(
+    editor.getByText("最大输出 token", { exact: true }),
+  ).not.toBeVisible();
+  await expect(
+    editor.getByRole("checkbox", {
+      name: "按此维度请求降维（需供应商明确支持）",
+    }),
+  ).not.toBeChecked();
+  await editor.getByRole("button", { name: "保存模型", exact: true }).click();
+  await expect(editor).not.toBeVisible();
+  const models = await (await page.request.get("/api/ai/models")).json();
+  const vector = models.find(
+    (m: Record<string, unknown>) => m.purpose === "EMBEDDING",
+  );
+  expect(vector.embedding_dimensions).toBe(3);
+  expect(vector.request_dimensions).toBe(false);
+  const card = page.locator(".embedding-card");
+  await expect(card).toContainText("Vector only");
+  await page
+    .getByRole("combobox", { name: "默认聊天模型", exact: true })
+    .locator("xpath=ancestor::div[contains(@class,'el-select__wrapper')]")
+    .click();
+  await expect(
+    page.getByRole("option", { name: "Chat only", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("option", { name: "Vector only", exact: true }),
+  ).toHaveCount(0);
+  await page.keyboard.press("Escape");
+  let sends = 0;
+  let result: Record<string, unknown> = {};
+  await page.route(
+    `**/api/ai/models/${vector.id}/embedding-test`,
+    async (route) => {
+      sends++;
+      expect(route.request().postDataJSON()).toEqual({});
+      expect(route.request().headers()["idempotency-key"]).toBeTruthy();
+      result = {
+        taskId: "embedding-ui",
+        id: "embedding-ui",
+        kind: "EMBEDDING_TEST",
+        status: sends === 1 ? "SUCCEEDED" : "FAILED",
+        stage: "FINISHED",
+        created_at: Date.now(),
+        completed_calls: sends === 1 ? 1 : 0,
+        total_calls: 1,
+        result:
+          sends === 1
+            ? {
+                text: "向量接口校验通过",
+                dimensions: 3,
+                vectorCount: 2,
+                notice: "不代表语义质量或知识库可用",
+              }
+            : null,
+        error_message:
+          sends === 1 ? null : "向量维度与配置不一致，请核对供应商规格",
+        error_code: sends === 1 ? null : "AI_EMBEDDING_DIMENSION_MISMATCH",
+      };
+      await route.fulfill({
+        status: 202,
+        json: {
+          ...result,
+          status: "RUNNING",
+          stage: "GENERATING",
+          result: null,
+        },
+      });
+    },
+  );
+  await page.route("**/api/ai/tasks/embedding-ui", (route) =>
+    route.fulfill({ json: result }),
+  );
+  await page.route("**/api/ai/usage?*", (route) =>
+    route.fulfill({
+      json: {
+        items: [
+          {
+            id: "emb-call",
+            model_name: "Vector only",
+            purpose: "EMBEDDING",
+            status: "SUCCEEDED",
+            created_at: Date.now(),
+            input_tokens: 12,
+            total_tokens: 12,
+            output_tokens: null,
+          },
+        ],
+        summary: { calls: 1, known_usage_calls: 1, total_tokens: 12 },
+      },
+    }),
+  );
+  await card
+    .getByRole("button", { name: "测试向量模型（可能收费）", exact: true })
+    .click();
+  expect(sends).toBe(0);
+  await page.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("2 个向量", {
+    timeout: 10000,
+  });
+  expect(sends).toBe(1);
+  await expect(page.locator(".ai-usage")).toContainText("不适用");
+  await card
+    .getByRole("button", { name: "测试向量模型（可能收费）", exact: true })
+    .click();
+  await page.getByRole("button", { name: "确定", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("向量维度与配置不一致", {
+    timeout: 10000,
+  });
+  expect(sends).toBe(2);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({
+    path: test.info().outputPath("embedding-settings-mobile.png"),
+  });
+  const storage = JSON.stringify(
+    await page.evaluate(() => ({
+      local: { ...localStorage },
+      session: { ...sessionStorage },
+    })),
+  );
+  expect(storage).not.toContain("emb-ui-fake-key");
+});

@@ -14,8 +14,8 @@ class AiMigrationTest {
         "jdbc:h2:mem:aiupgrade;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
         "sa",
         "h2",
-        "11",
-        "12");
+        "12",
+        "15");
   }
 
   @Test
@@ -23,7 +23,7 @@ class AiMigrationTest {
     String url = System.getenv("CN_AI_TEST_DATABASE_URL");
     Assumptions.assumeTrue(
         url != null, "Set CN_AI_TEST_DATABASE_URL to a local disposable MySQL test database");
-    upgrade(url, "root", "mysql", "12", "13");
+    upgrade(url, "root", "mysql", "13", "16");
   }
 
   private void upgrade(String url, String user, String vendor, String previous, String current)
@@ -58,6 +58,16 @@ class AiMigrationTest {
                   + " VALUES('upgrade-user','upgrade-user','fixture','fixture','fixture-root',1024,1)");
           statement.executeUpdate(
               "INSERT INTO"
+                  + " ai_connection(id,user_id,name,base_url,enabled,config_version,created_at,updated_at)"
+                  + " VALUES('connection','upgrade-user','old"
+                  + " connection','https://model.example/v1',FALSE,1,1,1)");
+          statement.executeUpdate(
+              "INSERT INTO"
+                  + " ai_model(id,user_id,connection_id,name,model_id,context_limit,max_output,output_param_mode,enabled,config_version)"
+                  + " VALUES('model','upgrade-user','connection','old"
+                  + " chat','fixture',32768,1024,'max_tokens',TRUE,1)");
+          statement.executeUpdate(
+              "INSERT INTO"
                   + " ai_task(id,user_id,kind,model_id,connection_id,model_version,connection_version,model_name,status,stage,request_hash,idempotency_key,cache_key,request_json,created_at,updated_at,expires_at)"
                   + " VALUES('existing-task','upgrade-user','SUMMARY','model','connection',1,1,'fixture','SUCCEEDED','FINISHED','hash','old-key','cache','{}',1,1,9999999999999)");
         }
@@ -80,6 +90,15 @@ class AiMigrationTest {
             assertTrue(row.next());
             assertEquals("{}", row.getString(1));
             assertNull(row.getString(2));
+          }
+          try (var row =
+              statement.executeQuery(
+                  "SELECT purpose,embedding_dimensions,last_test_status FROM ai_model WHERE"
+                      + " id='model'")) {
+            assertTrue(row.next());
+            assertEquals("CHAT", row.getString(1));
+            assertNull(row.getObject(2));
+            assertEquals("UNTESTED", row.getString(3));
           }
           try (var row = statement.executeQuery("SELECT COUNT(*) FROM ai_conversation")) {
             row.next();

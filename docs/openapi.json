@@ -7041,8 +7041,9 @@
                   },
                   "contextLimit": {
                     "type": "integer",
-                    "minimum": 1024,
-                    "maximum": 2000000
+                    "minimum": 512,
+                    "maximum": 2000000,
+                    "description": "CHAT:1024–2000000；EMBEDDING:512–32768，向量按每批UTF-8字节加开销保守估算"
                   },
                   "maxOutput": {
                     "type": "integer",
@@ -7058,6 +7059,28 @@
                   },
                   "enabled": {
                     "type": "boolean"
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "CHAT",
+                      "EMBEDDING"
+                    ],
+                    "default": "CHAT"
+                  },
+                  "embeddingDimensions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  },
+                  "maxBatchSize": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                  },
+                  "requestDimensions": {
+                    "type": "boolean",
+                    "default": false
                   }
                 },
                 "required": [
@@ -7065,9 +7088,36 @@
                   "name",
                   "modelId",
                   "contextLimit",
-                  "maxOutput",
-                  "outputParamMode",
                   "enabled"
+                ],
+                "oneOf": [
+                  {
+                    "properties": {
+                      "purpose": {
+                        "enum": [
+                          "CHAT"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "maxOutput",
+                      "outputParamMode"
+                    ]
+                  },
+                  {
+                    "properties": {
+                      "purpose": {
+                        "enum": [
+                          "EMBEDDING"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "purpose",
+                      "embeddingDimensions",
+                      "maxBatchSize"
+                    ]
+                  }
                 ]
               }
             }
@@ -7174,6 +7224,27 @@
                   "configVersion": {
                     "type": "integer",
                     "minimum": 1
+                  },
+                  "purpose": {
+                    "type": "string",
+                    "enum": [
+                      "CHAT",
+                      "EMBEDDING"
+                    ],
+                    "description": "不可修改用途，只能与现有值相同"
+                  },
+                  "embeddingDimensions": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 4096
+                  },
+                  "maxBatchSize": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 32
+                  },
+                  "requestDimensions": {
+                    "type": "boolean"
                   }
                 },
                 "required": [
@@ -8520,6 +8591,1457 @@
             "cookieAuth": []
           }
         ]
+      }
+    },
+    "/ai/models/{id}/embedding-test": {
+      "post": {
+        "summary": "独立向量模型固定样例测试，不发送文件；202",
+        "operationId": "post__ai_models_id_embedding_test",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/knowledge-bases": {
+      "get": {
+        "summary": "列出本人知识库，最多10库",
+        "operationId": "get__ai_knowledge_bases",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "保存知识库范围快照，不调用模型",
+        "operationId": "post__ai_knowledge_bases",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "embeddingModelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "scopeIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "embeddingModelId",
+                  "scopeIds"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/knowledge-bases/{id}": {
+      "patch": {
+        "summary": "重新保存文件快照或更换模型，不调用模型",
+        "operationId": "patch__ai_knowledge_bases_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "embeddingModelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "scopeIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 100,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  }
+                },
+                "required": [
+                  "name",
+                  "embeddingModelId",
+                  "scopeIds"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除知识库、索引和问答，保留源文件",
+        "operationId": "delete__ai_knowledge_bases_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/knowledge-bases/{id}/index-preview": {
+      "get": {
+        "summary": "提取索引范围、费用上界与摘要指纹，不调用模型",
+        "operationId": "get__ai_knowledge_bases_id_index_preview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/knowledge-bases/{id}/index-jobs": {
+      "post": {
+        "summary": "确认索引或继续未完成批次；最多8批，可能收费",
+        "operationId": "post__ai_knowledge_bases_id_index_jobs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "expectedDigest": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "allowPartial": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "modelId",
+                  "expectedDigest"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/knowledge-bases/{id}/semantic-search": {
+      "post": {
+        "summary": "发送问题向量后检索授权范围内最多6片段",
+        "operationId": "post__ai_knowledge_bases_id_semantic_search",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "question": {
+                    "type": "string",
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "modelId",
+                  "question"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/knowledge-bases/{id}/sessions": {
+      "get": {
+        "summary": "列出本人知识库会话",
+        "operationId": "get__ai_knowledge_bases_id_sessions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "新建绑定索引代次的问答会话，不调用模型",
+        "operationId": "post__ai_knowledge_bases_id_sessions",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  }
+                },
+                "required": [
+                  "modelId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/knowledge-sessions/{id}": {
+      "get": {
+        "summary": "读取仍有效的会话问答任务",
+        "operationId": "get__ai_knowledge_sessions_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "删除知识库会话与问答任务",
+        "operationId": "delete__ai_knowledge_sessions_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/knowledge-bases/{id}/answers": {
+      "post": {
+        "summary": "确认将成功检索的来源送聊天模型问答",
+        "operationId": "post__ai_knowledge_bases_id_answers",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "question": {
+                    "type": "string",
+                    "maxLength": 2000
+                  },
+                  "searchTaskId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "sessionId": {
+                    "type": "string",
+                    "maxLength": 36
+                  }
+                },
+                "required": [
+                  "modelId",
+                  "question",
+                  "searchTaskId",
+                  "sessionId"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/files/{id}/change-preview": {
+      "get": {
+        "summary": "确定性版本文本增删差异，不调用模型",
+        "operationId": "get__ai_files_id_change_preview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "fromVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "toVersion",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/ai/files/{id}/change-summaries": {
+      "post": {
+        "summary": "解释经确认的两个版本差异",
+        "operationId": "post__ai_files_id_change_summaries",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "fromVersion": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "toVersion": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "expectedDigest": {
+                    "type": "string",
+                    "maxLength": 64
+                  }
+                },
+                "required": [
+                  "modelId",
+                  "expectedRevision",
+                  "fromVersion",
+                  "toVersion",
+                  "expectedDigest"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/organization-preview": {
+      "post": {
+        "summary": "文件开头最多1000字符的整理范围预览，不调用模型",
+        "operationId": "post__ai_organization_preview",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fileIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  },
+                  "targetFolderIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  }
+                },
+                "required": [
+                  "fileIds",
+                  "targetFolderIds"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/organization-jobs": {
+      "post": {
+        "summary": "仅生成整理建议，不自动执行文件操作",
+        "operationId": "post__ai_organization_jobs",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "description": "用户作用域，24小时去重，同键不同输入409",
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 100
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "202": {
+            "description": "任务已接受，含 taskId/status/pollAfterMs；缓存命中额外 cached=true",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "fileIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  },
+                  "targetFolderIds": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 20,
+                    "items": {
+                      "type": "string",
+                      "maxLength": 36
+                    }
+                  },
+                  "modelId": {
+                    "type": "string",
+                    "maxLength": 36
+                  },
+                  "expectedDigest": {
+                    "type": "string",
+                    "maxLength": 64
+                  },
+                  "allowPartial": {
+                    "type": "boolean",
+                    "enum": [
+                      true
+                    ]
+                  }
+                },
+                "required": [
+                  "fileIds",
+                  "targetFolderIds",
+                  "modelId",
+                  "expectedDigest",
+                  "allowPartial"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ai/tasks/{id}/apply-organization": {
+      "post": {
+        "summary": "逐项确认应用，重新鉴权并返回部分失败",
+        "operationId": "post__ai_tasks_id_apply_organization",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 36
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "description": "GET /auth/csrf 后取得 token，并携带 XSRF-TOKEN Cookie",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "授权或 CSRF 校验失败"
+          },
+          "404": {
+            "description": "资源不存在或不可访问"
+          },
+          "409": {
+            "description": "名称、配额或状态冲突"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "200": {
+            "description": "成功；具体 JSON 结构见 docs/api.md",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "selections": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 8,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "fileId"
+                      ],
+                      "properties": {
+                        "fileId": {
+                          "type": "string",
+                          "maxLength": 36
+                        },
+                        "applyName": {
+                          "type": "boolean"
+                        },
+                        "applyTags": {
+                          "type": "boolean"
+                        },
+                        "applyMove": {
+                          "type": "boolean"
+                        }
+                      }
+                    }
+                  }
+                },
+                "required": [
+                  "selections"
+                ]
+              }
+            }
+          }
+        }
       }
     }
   },

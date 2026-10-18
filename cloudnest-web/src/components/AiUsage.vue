@@ -6,6 +6,7 @@ const props = defineProps<{ active: boolean }>();
 interface Usage {
   id: string;
   model_name: string;
+  purpose?: string;
   status: string;
   input_tokens: number | null;
   output_tokens: number | null;
@@ -74,11 +75,20 @@ watch(
         }}</template></el-table-column
       >
       <el-table-column prop="model_name" label="模型" min-width="100" />
+      <el-table-column label="用途" min-width="70"
+        ><template #default="s">{{
+          s.row.purpose === "EMBEDDING" ? "向量" : "聊天"
+        }}</template></el-table-column
+      >
       <el-table-column prop="status" label="状态" min-width="110" />
       <el-table-column label="输入/输出 token" min-width="150"
         ><template #default="s"
           >{{ s.row.input_tokens ?? "未知" }} /
-          {{ s.row.output_tokens ?? "未知" }}</template
+          {{
+            s.row.purpose === "EMBEDDING"
+              ? "不适用"
+              : (s.row.output_tokens ?? "未知")
+          }}</template
         ></el-table-column
       >
       <el-table-column label="耗时" min-width="90"

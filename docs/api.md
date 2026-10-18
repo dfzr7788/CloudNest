@@ -182,7 +182,7 @@ Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL
 | PATCH `/connections/{id}` | `configVersion` 必填；其他字段可省略；省略 apiKey 保留，空值拒绝，地址变化须新 Key |
 | DELETE `/connections/{id}` | 撤销密钥、停用并删除连接/模型，停止任务；用量保留 |
 | DELETE `/connections/{id}/credential` | 清除密钥并停用，保留连接 |
-| GET/POST `/models` | 创建 `{connectionId,name,modelId,contextLimit,maxOutput,outputParamMode,enabled}`；仅 CHAT |
+| GET/POST `/models` | 创建 `{connectionId,name,modelId,contextLimit,maxOutput,outputParamMode,enabled}`；purpose 默认为 CHAT，也可显式 EMBEDDING（见下文） |
 | PATCH/DELETE `/models/{id}` | 更新须 `configVersion`；更新/删除使旧任务停止 |
 | POST `/models/{id}/test` | 固定短聊天测试，202，计费计数，须 `Idempotency-Key` |
 | GET/PUT `/preferences` | GET `default_chat_model_id`；PUT `{defaultChatModelId: id或null}` |
@@ -223,3 +223,50 @@ Office文字阅读预览扩展到Excel/PPT，JSON仍为 `{html}`。JWT回调 URL
 问答不使用跨问题结果缓存，但相同幂等键可取回原任务。成功任务 `result={text,sources,invalidCitations,scope}`；scope/coverage 含 revision、partial、selectedCharacters、selectedBlocks、extractedCharacters、reason。来源未命中时成功返回范围内无依据的提示、total_calls=0；格式错误返回 `AI_INVALID_ANSWER`，不自动再次调用。模型输出必须是 `{answer:字符串,citations:[sourceId]}` JSON；只有实际选中来源 ID 可生成引用，无有效引用时改用范围内无依据提示。
 
 最多 6 轮成功历史，保守预算下可减少；本地关键词检索发送完整片段，不提供 embeddings。每会话最多 100 个问题，每用户 200 会话。30 天无活动清除；任务随会话活动续期。文件/配置变化时只读，继续提问返回 `AI_REVISION_CHANGED`；回收后所有会话/任务/引用不可读，恢复同修订可恢复，永久删除在同一事务清除正文。QA 不使用 `/artifacts/{id}` 单独删除，须删除会话。
+
+
+## 向量模型准备接口
+
+能力列表新增 `EMBEDDING_TEST`、`KNOWLEDGE_BASE`、`SEMANTIC_SEARCH`、`VERSION_DIFF`、`ORGANIZE`。现有模型自动迁移为 `purpose=CHAT`，旧客户端不传 purpose 的创建行为不变。用途创建后不可修改；聊天默认值、摘要、问答和聊天测试拒绝 EMBEDDING，向量测试拒绝 CHAT，错误码为 `AI_MODEL_PURPOSE_MISMATCH`。
+
+`POST /api/ai/models` 向量示例：
+
+```json
+{"connectionId":"自己的连接ID","name":"向量模型","modelId":"供应商向量模型ID","purpose":"EMBEDDING","contextLimit":8192,"embeddingDimensions":1536,"maxBatchSize":16,"requestDimensions":false,"enabled":true}
+```
+
+向量输入预算 contextLimit 为 512–32768，embeddingDimensions 为 1–4096，maxBatchSize 为 1–32，requestDimensions 默认为 false，且不接受 maxOutput/outputParamMode 聊天参数。PATCH 与现有模型相同，需要 configVersion。返回 `purpose,embedding_dimensions,max_batch_size,request_dimensions,last_test_status,last_test_at`；CHAT 的向量维度/批次为 null。修改连接/模型或撤销密钥会清除当前配置的测试状态。
+
+`POST /api/ai/models/{id}/embedding-test` 必须携带 CSRF 和 Idempotency-Key，202 返回 kind=EMBEDDING_TEST 的异步任务，复用已有轮询、取消和配额。只发固定英文样例，不接受文件或自定义输入，不使用聊天测试结果替代验证。
+
+向量适配器请求根地址下 `/embeddings`，只发送 model、input 字符串数组、encoding_format=float，以及用户明确启用时的 dimensions。按 index 重排，验证返回数量/唯一索引、配置维度、数值有限且 float32 可表示、非零范数。失败返回 `AI_INVALID_EMBEDDING` 或 `AI_EMBEDDING_DIMENSION_MISMATCH`；已返回的实际用量保留，不自动调用修复。成功 `result={text,dimensions,vectorCount,notice}`，不返回或保存原始测试向量。调用记录新增 purpose，向量 output_tokens=null（不适用），实际输入/总用量缺失仍为 null。模型记录只表示指定配置的最近一次接口测试，不代表检索质量；连接上的旧 last_test_status 仅保留聊天测试兼容语义。
+
+协议依据：[OpenAI 官方 Embeddings 接口](https://developers.openai.com/api/reference/resources/embeddings/methods/create)。这里实现兼容协议，不预设所有供应商支持相同模型、输入限额或降维参数。
+
+
+## 知识库、语义搜索与增强接口
+
+所有写请求有 CSRF；下表标为任务的 POST 还必须带用户作用域 Idempotency-Key，返回 202、taskId，沿用查询/取消/用量。所有资源与关联文件均验证本用户归属。新用途不缓存付费查询；重发同键同输入只读原任务，同键不同输入 409。
+
+| 方法与路径（前缀 /api/ai） | 请求 / 结果 |
+| --- | --- |
+| GET /knowledge-bases | 本人全部知识库（最多 10）；含 id/name/model_id/scopeIds/fileIds/ready/needsUpdate/chunks/active_generation/pending_generation |
+| POST /knowledge-bases；PATCH /knowledge-bases/{id} | name、embeddingModelId、scopeIds 数组，1–100 个本人的文件或目录；保存时快照最多 100 文件，不调用模型。PATCH 重新快照当前目录内容，运行中拒绝修改 |
+| DELETE /knowledge-bases/{id} | 运行中先停止；清除索引、批次、会话与关联任务，不删除源文件 |
+| GET /knowledge-bases/{id}/index-preview | digest、files[{fileId,name,revision,partial,reason}]、chunks、maxCalls（按一块一次的保守上界）、maxCallsPerJob=8、destination、notice。不调用模型 |
+| POST /knowledge-bases/{id}/index-jobs（任务） | modelId=本库向量模型、expectedDigest、allowPartial；每任务最多 8 批。result={text,remainingChunks,generationId,sources:[]}；剩余非零需预览后新任务继续 |
+| POST /knowledge-bases/{id}/semantic-search（任务） | modelId=本库向量模型、question（1–2000 字符）；一次问题向量调用，最多 6 个有效块；result={text,question,generationId,sources} |
+| GET/POST /knowledge-bases/{id}/sessions | GET 返回本人本库会话，含 readOnly；POST {modelId:聊天模型}，返回 id/model_id/generation_id/updated_at，绑定聊天模型及连接版本，不调用模型。配置变化、索引换代或旧会话缺少绑定时只读，继续提问需新建会话 |
+| GET/DELETE /knowledge-sessions/{id} | GET 按顺序返回最多 100 个问答任务（question 与 result），失效引用任务不返回；DELETE 需先停止活动任务 |
+| POST /knowledge-bases/{id}/answers（任务） | modelId、question、searchTaskId、sessionId；问题必须与有效成功检索一致，同本库/代次、本人会话，最多 6 轮有效历史。result={text,sources,invalidCitations,partial,generationId,question} |
+| GET /files/{id}/change-preview?fromVersion=...&toVersion=... | version 为本文件历史 ID 或 current，任一侧无可提取正文返回 AI_NO_TEXT；返回 digest/revision/from/to/changes[{type:ADDED或REMOVED,line,text}]/notice；不调用模型 |
+| POST /files/{id}/change-summaries（任务） | modelId、expectedRevision、fromVersion、toVersion、expectedDigest；确定性差异送聊天模型解释；result={text,changes,fromVersion,toVersion,notice}；无差异不调用 |
+| POST /organization-preview | fileIds（最多 8）、targetFolderIds（最多 20）；返回 digest、sources（修订/原名/原目录/原标签/前1000字符/partial）、folders、notice；不调用模型 |
+| POST /organization-jobs（任务） | modelId、fileIds、targetFolderIds、expectedDigest、allowPartial=true；一次聊天调用；result={text,suggestions:[{fileId,originalName,name,tags,targetFolderId,reason}],notice}；不修改文件 |
+| POST /tasks/{id}/apply-organization | {selections:[{fileId,applyName,applyTags,applyMove}]}；布尔勾选，缺省不应用；至多 8 项；返回逐项 fileId/status(APPLIED/ALREADY_APPLIED/SKIPPED/FAILED)/errorCode/message，无模型调用 |
+
+source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识由已入库授权块生成，模型不能添加路径。再次 GET 任务会重新检查全部来源的当前修订/目录范围/回收状态；调用前与发布前再次鉴权。模型未知引用会过滤，引用全无则回答无依据。配置、维度、提取器或切块身份不一致返回 AI_INDEX_STALE，不能跨代次比较；同库只允许一个问答生成任务，索引修改前必须停止活动任务。
+
+索引身份为 embedding 模型 ID/配置版本/连接版本/维度/structured-v1/chunk-v1；块按最多 900 字符（小输入模型进一步缩小），保留原提取定位及片段字符位置。受 UTF-8 字节保守预算、每批 1–32 条及每日 100 次约束。增量按同身份/文件/修订/块序号/内容哈希复用；更换维度或模型重建新代次。全部块有有效向量后原子切换，清理旧代次；执行失败保留成功块、未知批次不自动重试。
+
+新表随数据库备份；索引、查询及问答不新增外部服务。普通任务 7 天，知识库会话任务与其引用的搜索任务从最近活动后 30 天；未完成索引代次 7 天清理，已完成索引由用户/源文件生命周期控制。所有新正文/向量均计入 100 MiB 派生额度（待向量块按实际维度预留）；永久删除源文件同步清除块和通过 ai_task_source 关联的任务正文。AI 关闭阻止新任务，不阻止本人的删除清理操作。

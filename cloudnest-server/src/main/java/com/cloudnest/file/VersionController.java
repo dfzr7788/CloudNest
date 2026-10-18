@@ -70,6 +70,7 @@ public class VersionController {
               source.get("mime"),
               System.currentTimeMillis(),
               id);
+          drive.eraseAi(a.getName(), in.sourceId());
           db.update("DELETE FROM drive_entry WHERE id=?", in.sourceId());
           log(a.getName(), "VERSION_APPENDED", id);
           return null;

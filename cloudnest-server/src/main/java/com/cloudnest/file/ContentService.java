@@ -40,6 +40,16 @@ public class ContentService {
         uid);
   }
 
+  public Map<String, Object> versionBlob(String uid, String id, String version) {
+    drive.file(uid, id);
+    if ("current".equals(version)) return blob(uid, id);
+    var v = db.one("SELECT * FROM file_version WHERE entry_id=? AND id=?", id, version);
+    return db.one(
+        "SELECT * FROM file_blob WHERE user_id=? AND id=? AND status='READY'",
+        uid,
+        v.get("blob_id"));
+  }
+
   public InputStream open(Map<String, Object> b) throws IOException {
     return storage.open(s(b, "backend"), s(b, "object_key"), 0, n(b, "size"));
   }

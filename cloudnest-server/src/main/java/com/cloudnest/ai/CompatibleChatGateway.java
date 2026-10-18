@@ -113,7 +113,7 @@ public class CompatibleChatGateway implements ModelGateway {
     }
   }
 
-  private static Long token(JsonNode node, String field) {
+  static Long token(JsonNode node, String field) {
     var n = node.path(field);
     return n.isIntegralNumber()
             && n.canConvertToLong()
