@@ -89,8 +89,55 @@ html.dark {
   overflow: auto;
 }
 .el-message-box {
+  --el-messagebox-font-line-height: 1.75;
+  width: 440px;
   max-width: calc(100vw - 32px);
-  border-radius: 10px;
+  max-height: calc(100dvh - 32px);
+  padding: 24px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border-radius: var(--cn-radius-dialog);
+}
+.el-message-box__header {
+  padding: 0 32px 16px 0;
+}
+.el-message-box__title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.el-message-box__headerbtn {
+  top: 18px;
+  right: 18px;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--cn-radius-control);
+}
+.el-message-box__headerbtn:hover {
+  background: var(--cn-subtle);
+}
+.el-message-box__content {
+  padding: 0;
+  line-height: 1.75;
+}
+.el-message-box__message {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.el-message-box__btns {
+  padding-top: 24px;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.el-message-box__btns .el-button {
+  height: auto;
+  min-height: 32px;
+  max-width: 100%;
+  white-space: normal;
+}
+.el-message-box__btns .el-button + .el-button {
+  margin-left: 0;
 }
 .el-dropdown-menu__item {
   min-height: 32px;
