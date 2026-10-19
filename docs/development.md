@@ -40,7 +40,7 @@ npm ci
 npm run dev
 ```
 
-前端为 <http://127.0.0.1:5173>，后端默认端口 8080；Vite 将 `/api` 代理到后端。本地默认开放注册、关闭 AI、关闭 Redis，使用 H2 和磁盘存储。从 `cloudnest-server` 启动时数据位于 `cloudnest-server/.data/`；直接从其他工作目录启动 Java 时相对数据路径随工作目录变化。
+前端为 <http://127.0.0.1:5173>，后端默认端口 8080；Vite 将 `/api` 和 `/dav` 代理到后端。本地默认开放注册、关闭 AI、关闭 Redis，使用 H2 和磁盘存储。从 `cloudnest-server` 启动时数据位于 `cloudnest-server/.data/`；直接从其他工作目录启动 Java 时相对数据路径随工作目录变化。
 
 配置以 `cloudnest-server/src/main/resources/application.yml` 为准，可通过环境变量设置 `PORT`、`DATA_DIR`、`DATABASE_URL`、`DATABASE_USER`、`DATABASE_PASSWORD`、`REGISTRATION_OPEN` 和 `AI_ENABLED` 等。Docker 的变量映射以 Compose 为准；不能假定 application.yml 支持的每个变量都已由 Compose 转发。本地环境不要连接生产数据库或使用真实用户的 API Key。
 
@@ -96,6 +96,7 @@ npm run test:e2e
 python scripts/test-updater.py
 python scripts/test-backup.py
 python scripts/check-publication.py
+python scripts/check-api-contract.py
 ```
 
 Docker 集成与隔离恢复验证为 `python scripts/test-compose.py`，需要相应运行环境和磁盘空间。执行前阅读脚本，避免与本地正在运行的同名 Compose 项目冲突。
@@ -103,3 +104,7 @@ Docker 集成与隔离恢复验证为 `python scripts/test-compose.py`，需要�
 GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端构建和维护脚本测试；非 PR 运行还执行 Docker 集成验证并发布 Linux amd64 镜像。工作流没有运行 Playwright，浏览器验收需要单独执行。
 
 提交要求、迁移规则及隐私检查见 [贡献说明](../CONTRIBUTING.md)。
+
+## 接口契约维护
+
+`docs/openapi.json` 是可直接导入的接口契约，修改接口时同时维护该文件和 `docs/api.md`。已移除会覆盖新增字段的旧导出脚本。`python scripts/check-api-contract.py` 只读核对控制器路由、路径参数和关键请求字段，CI 同步运行；该检查不替代请求/响应的集成测试。

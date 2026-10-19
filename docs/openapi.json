@@ -193,6 +193,11 @@
                   "invitation": {
                     "type": "string",
                     "maxLength": 100
+                  },
+                  "otp": {
+                    "type": "string",
+                    "maxLength": 100,
+                    "description": "TOTP code or recovery code when MFA is enabled"
                   }
                 },
                 "required": [
@@ -1499,11 +1504,18 @@
                   "size": {
                     "type": "integer",
                     "minimum": 0,
-                    "maximum": 2147483648
+                    "description": "Limited by server max-file-size; default 2 GiB"
                   },
                   "sha256": {
                     "type": "string",
                     "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "minimum": 1
                   }
                 },
                 "required": [
@@ -2400,7 +2412,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
                 }
               }
             }
@@ -3381,12 +3396,12 @@
                     "type": "string",
                     "enum": [
                       "skip",
-                      "keep"
+                      "keep",
+                      "replace"
                     ]
                   }
                 },
                 "required": [
-                  "parentId",
                   "name",
                   "policy"
                 ]
@@ -4527,7 +4542,8 @@
                     "type": "string",
                     "enum": [
                       "check",
-                      "update"
+                      "update",
+                      "backup"
                     ]
                   }
                 },
@@ -4665,7 +4681,26 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  },
+                  "parentId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "ids",
+                  "parentId"
+                ]
               }
             }
           }
@@ -4692,7 +4727,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               }
             }
@@ -4818,7 +4856,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
                 }
               }
             }
@@ -4853,7 +4894,43 @@
       "get": {
         "summary": "GET /search（参数及权限见 docs/api.md）",
         "operationId": "get__search",
-        "parameters": [],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 180,
+              "default": ""
+            }
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 40,
+              "default": ""
+            }
+          },
+          {
+            "name": "content",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": false
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "成功；具体 JSON 结构见 docs/api.md",
@@ -4907,14 +4984,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "description": "Success; empty response body"
           },
           "400": {
             "description": "参数无效"
@@ -4939,17 +5009,7 @@
           {
             "cookieAuth": []
           }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              }
-            }
-          }
-        }
+        ]
       }
     },
     "/files/{id}/attachment": {
@@ -5065,7 +5125,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "fileIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  }
+                },
+                "required": [
+                  "fileIds"
+                ]
               }
             }
           }
@@ -5126,7 +5200,43 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "fileIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "minItems": 1,
+                    "maxItems": 100
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 180
+                  },
+                  "hours": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 720
+                  },
+                  "code": {
+                    "type": "string",
+                    "maxLength": 32
+                  },
+                  "allowDownload": {
+                    "type": "boolean"
+                  },
+                  "collect": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "fileIds",
+                  "title",
+                  "hours"
+                ]
               }
             }
           }
@@ -5243,15 +5353,15 @@
             "multipart/form-data": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "file"
-                ],
                 "properties": {
                   "file": {
                     "type": "string",
                     "format": "binary"
                   }
-                }
+                },
+                "required": [
+                  "file"
+                ]
               }
             }
           }
@@ -5379,14 +5489,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "description": "Success; empty response body"
           },
           "400": {
             "description": "参数无效"
@@ -5417,7 +5520,22 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email",
+                    "maxLength": 254
+                  },
+                  "password": {
+                    "type": "string",
+                    "format": "password"
+                  }
+                },
+                "required": [
+                  "email",
+                  "password"
+                ]
               }
             }
           }
@@ -5478,7 +5596,20 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "format": "password"
+                  },
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
               }
             }
           }
@@ -5539,7 +5670,16 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "code": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "code"
+                ]
               }
             }
           }
@@ -5594,7 +5734,30 @@
           {
             "cookieAuth": []
           }
-        ]
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "format": "password"
+                  },
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "password"
+                ]
+              }
+            }
+          }
+        }
       }
     },
     "/user/access/dav": {
@@ -5651,7 +5814,35 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "readOnly": {
+                    "type": "boolean"
+                  },
+                  "days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 365
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 1,
+                    "format": "password"
+                  },
+                  "otp": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "label",
+                  "days",
+                  "password"
+                ]
               }
             }
           }
@@ -5733,14 +5924,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "description": "Success; empty response body"
           },
           "400": {
             "description": "参数无效"
@@ -5767,7 +5951,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "token"
+                ]
               }
             }
           }
@@ -5824,7 +6018,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "account": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 254
+                  }
+                },
+                "required": [
+                  "account"
+                ]
               }
             }
           }
@@ -5847,14 +6051,7 @@
         ],
         "responses": {
           "200": {
-            "description": "成功；具体 JSON 结构见 docs/api.md",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object"
-                }
-              }
-            }
+            "description": "Success; empty response body"
           },
           "400": {
             "description": "参数无效"
@@ -5881,7 +6078,24 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "password": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 64,
+                    "format": "password"
+                  }
+                },
+                "required": [
+                  "token",
+                  "password"
+                ]
               }
             }
           }
@@ -5999,7 +6213,59 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "host": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "port": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "username": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "password": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "from": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "tls": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "ssl": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "baseUrl": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "secret": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "defaultBackend": {
+                    "type": "string",
+                    "maxLength": 4096
+                  },
+                  "warningPercent": {
+                    "type": "string",
+                    "maxLength": 4096
+                  }
+                },
+                "additionalProperties": false,
+                "description": "mail: host/port/username/password/from/tls/ssl/baseUrl; office: url/secret/baseUrl; storage: defaultBackend/warningPercent. Values are strings; other section fields are rejected. Empty password/secret preserves the saved value."
               }
             }
           }
@@ -6068,7 +6334,13 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  }
+                }
               }
             }
           }
@@ -6171,7 +6443,44 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{12}$"
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "endpoint": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "bucket": {
+                    "type": "string",
+                    "maxLength": 100
+                  },
+                  "accessKey": {
+                    "type": "string",
+                    "maxLength": 500
+                  },
+                  "secretKey": {
+                    "type": "string",
+                    "maxLength": 1000,
+                    "format": "password"
+                  },
+                  "region": {
+                    "type": "string",
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "name",
+                  "endpoint",
+                  "bucket"
+                ]
               }
             }
           }
@@ -6291,7 +6600,16 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "backend": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "backend"
+                ]
               }
             }
           }
@@ -6352,7 +6670,21 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "source": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "target": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "source",
+                  "target"
+                ]
               }
             }
           }
@@ -6472,15 +6804,27 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "mode",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "view",
+                "edit"
+              ],
+              "default": "view"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "成功；具体 JSON 结构见 docs/api.md",
             "content": {
-              "application/json": {
+              "text/html": {
                 "schema": {
-                  "type": "object"
+                  "type": "string"
                 }
               }
             }
@@ -6608,7 +6952,18 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object"
+                "type": "object",
+                "properties": {
+                  "status": {
+                    "type": "integer"
+                  },
+                  "url": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
               }
             }
           }
@@ -6668,7 +7023,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
                 }
               }
             }
@@ -6942,7 +7300,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
                 }
               }
             }
@@ -7939,7 +8300,10 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "type": "array",
+                  "items": {
+                    "type": "object"
+                  }
                 }
               }
             }

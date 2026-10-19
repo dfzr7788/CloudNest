@@ -36,6 +36,7 @@ jobs:
           npm run build
       - name: Test deployment workers
         run: |
+          python3 scripts/check-api-contract.py
           python3 scripts/test-updater.py
           python3 scripts/test-backup.py
       - name: Package Linux amd64 images

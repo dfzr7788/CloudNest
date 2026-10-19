@@ -11,7 +11,7 @@
 | 方法与路径 | 输入 | 成功结果/主要失败 |
 | --- | --- | --- |
 | POST /auth/register | username、password | 用户资料 + CN_AUTH；重复 409，格式不符 400，频率 429 |
-| POST /auth/login | username、password | 用户资料 + CN_AUTH；凭据错误 401 |
+| POST /auth/login | username、password；启用双重验证时还需 otp（身份验证器代码或恢复码） | 用户资料 + CN_AUTH；凭据错误 401 |
 | POST /auth/logout | 无 | 空响应，撤销当前会话并清 Cookie |
 | GET /user/me | 无 | id、username、nickname、rootId、quota、used、reserved |
 | PATCH /user/me | nickname，1～80 字符 | 更新后的资料 |
