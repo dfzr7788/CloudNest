@@ -262,6 +262,9 @@ void load();
           v-for="message in current.messages"
           :key="message.id"
           class="qa-message"
+          :class="
+            message.role === 'user' ? 'qa-message-user' : 'qa-message-assistant'
+          "
         >
           <strong>{{ message.role === "user" ? "你" : "文档助手" }}</strong>
           <p class="qa-text">{{ message.content }}</p>
@@ -344,7 +347,8 @@ void load();
       <el-button @click="open(current.id)">刷新会话</el-button
       ><el-button type="danger" plain @click="remove">删除会话</el-button>
     </template>
-    <el-dialog class="cn-dialog"
+    <el-dialog
+      class="cn-dialog"
       :model-value="!!citation"
       title="引用原文"
       width="min(600px, 94vw)"

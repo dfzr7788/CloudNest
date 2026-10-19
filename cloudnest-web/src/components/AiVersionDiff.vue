@@ -185,7 +185,7 @@ onBeforeUnmount(stop);
 <style scoped>
 .version-diff {
   margin-top: 24px;
-  border-top: 1px solid #dce3ef;
+  border-top: 1px solid var(--cn-border);
   padding-top: 12px;
   overflow-wrap: anywhere;
 }
@@ -202,7 +202,7 @@ pre {
   max-height: 350px;
   overflow: auto;
   overflow-wrap: anywhere;
-  background: #f6f7fc;
+  background: var(--cn-subtle);
   padding: 12px;
 }
 </style>

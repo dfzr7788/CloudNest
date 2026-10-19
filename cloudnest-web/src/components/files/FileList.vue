@@ -1,14 +1,21 @@
 <script setup lang="ts">
-import { Download, Share } from "@element-plus/icons-vue";
+import { Download, Share, ArrowDown, ArrowUp } from "@element-plus/icons-vue";
 import { bytes, date, type Entry } from "../../api";
 import FileMark from "../FileMark.vue";
 import FileActionMenu from "./FileActionMenu.vue";
 import type { FileAction } from "./actions";
-defineProps<{ items: Entry[]; selected: Entry[]; trash?: boolean }>();
+defineProps<{
+  items: Entry[];
+  selected: Entry[];
+  trash?: boolean;
+  sort?: string;
+  direction?: string;
+}>();
 const emit = defineEmits<{
   toggle: [file: Entry];
   open: [file: Entry];
   action: [action: FileAction, file: Entry];
+  sort: [value: string];
 }>();
 </script>
 <template>
@@ -16,9 +23,65 @@ const emit = defineEmits<{
     <thead>
       <tr>
         <th class="selection-cell"><span class="sr-only">选择</span></th>
-        <th>名称</th>
-        <th class="size-cell">大小</th>
-        <th class="date-cell">{{ trash ? "删除时间" : "修改时间" }}</th>
+        <th
+          :aria-sort="
+            sort === 'name'
+              ? direction === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : 'none'
+          "
+        >
+          <button
+            v-if="!trash"
+            class="column-sort"
+            @click="emit('sort', 'name')"
+          >
+            名称<el-icon v-if="sort === 'name'"
+              ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
+            /></el-icon></button
+          ><span v-else>名称</span>
+        </th>
+        <th
+          class="size-cell"
+          :aria-sort="
+            sort === 'size'
+              ? direction === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : 'none'
+          "
+        >
+          <button
+            v-if="!trash"
+            class="column-sort"
+            @click="emit('sort', 'size')"
+          >
+            大小<el-icon v-if="sort === 'size'"
+              ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
+            /></el-icon></button
+          ><span v-else>大小</span>
+        </th>
+        <th
+          class="date-cell"
+          :aria-sort="
+            sort === 'updatedAt'
+              ? direction === 'asc'
+                ? 'ascending'
+                : 'descending'
+              : 'none'
+          "
+        >
+          <button
+            v-if="!trash"
+            class="column-sort"
+            @click="emit('sort', 'updatedAt')"
+          >
+            修改时间<el-icon v-if="sort === 'updatedAt'"
+              ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
+            /></el-icon></button
+          ><span v-else>删除时间</span>
+        </th>
         <th class="actions-cell">操作</th>
       </tr>
     </thead>
@@ -46,7 +109,11 @@ const emit = defineEmits<{
             @click.stop="emit('open', file)"
             @dblclick.stop
           >
-            <FileMark :kind="file.kind" :mime="file.mime" /><span
+            <FileMark
+              :kind="file.kind"
+              :mime="file.mime"
+              :name="file.name"
+            /><span
               ><strong>{{ file.favorite ? "★ " : "" }}{{ file.name }}</strong
               ><small v-if="file.path">{{ file.path }}</small
               ><small class="mobile-file-meta"

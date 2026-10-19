@@ -1,14 +1,30 @@
 .share-list {
   border: 1px solid var(--cn-border);
-  border-radius: 16px;
+  border-radius: 8px;
   overflow: hidden;
-  background: white;
+  background: var(--cn-surface);
+}
+.workspace-surface .share-list {
+  border: 0;
+  border-top: 1px solid var(--cn-border);
+  border-radius: 0;
+}
+.share-item-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  color: var(--cn-brand);
+  background: var(--cn-selected);
+  font-size: 22px;
 }
 .share-list-item {
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 24px;
+  gap: var(--cn-space-3);
+  padding: var(--cn-space-3);
   border-bottom: 1px solid var(--cn-border);
 }
 .share-list-item:last-child {
@@ -46,18 +62,18 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #64748b;
+  background: var(--cn-muted);
 }
 .share-status.is-active {
-  color: #287d6b;
+  color: var(--cn-success);
 }
 .share-status.is-active i {
-  background: #287d6b;
+  background: var(--cn-success);
 }
 .share-item-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--cn-space-1);
 }
 .share-page {
   min-height: 100dvh;
@@ -80,8 +96,8 @@
   margin: 48px auto;
   min-height: 360px;
   border: 1px solid var(--cn-border);
-  border-radius: 20px;
-  background: white;
+  border-radius: 8px;
+  background: var(--cn-surface);
   padding: 40px;
   text-align: center;
 }
@@ -102,7 +118,7 @@
 .share-card form {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--cn-space-2);
   max-width: 360px;
   margin: 24px auto;
 }
@@ -146,9 +162,9 @@
 }
 .collect-panel {
   border: 1px dashed #a9b3f8;
-  background: #f8faff;
-  border-radius: 16px;
-  padding: 24px;
+  background: var(--cn-hover);
+  border-radius: 8px;
+  padding: var(--cn-space-3);
   margin-top: 24px;
   line-height: 1.8;
 }
@@ -158,12 +174,12 @@
 }
 @media (max-width: 767px) {
   .share-list-item {
-    padding: 16px;
+    padding: var(--cn-space-2);
     gap: 12px;
     flex-wrap: wrap;
   }
   .share-item-main {
-    flex-basis: 100%;
+    flex-basis: calc(100% - 72px);
   }
   .share-item-meta {
     min-width: 0;
@@ -193,7 +209,7 @@
     font-size: 20px;
   }
   .collect-panel {
-    padding: 16px;
+    padding: var(--cn-space-2);
   }
   .share-selection {
     gap: 8px !important;
@@ -202,6 +218,6 @@
     padding-inline: 8px;
   }
   .share-actions {
-    gap: 8px;
+    gap: var(--cn-space-1);
   }
 }

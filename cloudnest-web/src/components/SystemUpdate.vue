@@ -189,9 +189,9 @@ async function request(action: "check" | "update" | "backup") {
 <style scoped>
 .update-card {
   padding: 24px;
-  border: 1px solid #e5e8f3;
-  border-radius: 18px;
-  background: white;
+  border: 1px solid var(--cn-border);
+  border-radius: 8px;
+  background: var(--cn-surface);
 }
 .update-heading {
   display: flex;
@@ -207,7 +207,7 @@ async function request(action: "check" | "update" | "backup") {
 h3 {
   margin: 8px 0;
   font-size: 21px;
-  color: #22314c;
+  color: var(--cn-heading);
 }
 .update-description,
 .update-footnote {
@@ -222,8 +222,8 @@ h3 {
   margin: 22px 0;
 }
 .version-grid div {
-  background: #f6f7fc;
-  border-radius: 12px;
+  background: var(--cn-subtle);
+  border-radius: 6px;
   padding: 16px;
 }
 .version-grid span,
@@ -237,14 +237,14 @@ h3 {
 }
 .version-grid strong {
   font-size: 18px;
-  color: #34446a;
+  color: var(--cn-text);
   font-family: monospace;
 }
 .setup-note,
 .update-message {
   padding: 16px;
-  background: #f1f4ff;
-  border-radius: 12px;
+  background: var(--cn-subtle);
+  border-radius: 6px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }

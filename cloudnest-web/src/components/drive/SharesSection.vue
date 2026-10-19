@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from "@element-plus/icons-vue";
 import EmptyState from "../common/EmptyState.vue";
 import { date } from "../../api";
 export interface ShareItem {
@@ -33,6 +34,9 @@ const emit = defineEmits<{ edit: [id: string]; revoke: [id: string] }>();
     </div>
     <div class="share-list">
       <article v-for="share in shares" :key="share.id" class="share-list-item">
+        <span class="share-item-symbol" aria-hidden="true"
+          ><el-icon><Link /></el-icon
+        ></span>
         <div class="share-item-main">
           <h3 :title="share.name">{{ share.name }}</h3>
           <p>
@@ -72,6 +76,7 @@ const emit = defineEmits<{ edit: [id: string]; revoke: [id: string] }>();
       </article>
       <EmptyState
         v-if="!shares.length && !busy"
+        variant="share"
         :title="filter === 'all' ? '还没有分享' : '没有此状态的分享'"
         description="从文件的分享菜单创建链接，在这里管理权限与有效期。"
       />

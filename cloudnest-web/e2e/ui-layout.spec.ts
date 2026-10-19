@@ -585,3 +585,37 @@ test("LAYOUT07 图片变换、音视频实际解码和 AI 关闭/失败门控", 
     page.getByRole("button", { name: "AI 阅读助手", exact: true }),
   ).toBeFocused();
 });
+
+test("LAYOUT08 表头排序、网格快捷多选与选中后批量操作", async ({ page }) => {
+  const root = await account(page);
+  for (const name of ["Alpha", "Bravo", "Charlie"])
+    await post(page, "/folders", { parentId: root, name });
+  await page.reload();
+  const names = page.locator(".cn-file-list .entry-name strong");
+  await expect(names).toHaveText(["Alpha", "Bravo", "Charlie"]);
+  await expect(page.locator(".batch-action-bar")).toHaveCount(0);
+  await page.getByRole("button", { name: "名称", exact: true }).click();
+  await expect(names).toHaveText(["Charlie", "Bravo", "Alpha"]);
+  await expect(
+    page.getByRole("columnheader", { name: "名称" }),
+  ).toHaveAttribute("aria-sort", "descending");
+  await page.getByRole("button", { name: "网格视图", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Alpha", exact: true })
+    .click({ modifiers: ["Control"] });
+  await page
+    .getByRole("button", { name: "Bravo", exact: true })
+    .click({ modifiers: ["Control"] });
+  await expect(page.locator(".file-tile.selected")).toHaveCount(2);
+  await expect(
+    page.getByRole("button", { name: "打包下载 (2)", exact: true }),
+  ).toBeEnabled();
+  await expect(page.locator(".crumb-button")).toHaveCount(1);
+  await page.getByRole("button", { name: "取消选择", exact: true }).click();
+  await expect(page.locator(".batch-action-bar")).toHaveCount(0);
+  await page.getByRole("button", { name: "Alpha", exact: true }).click();
+  await expect(page.locator(".crumb-button").last()).toHaveText("Alpha");
+  await expect(
+    page.getByRole("region", { name: "这个目录还没有文件" }),
+  ).toBeVisible();
+});

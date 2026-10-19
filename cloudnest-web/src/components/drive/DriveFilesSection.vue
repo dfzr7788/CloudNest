@@ -13,6 +13,9 @@ defineProps<{
   emptyTitle: string;
   emptyDescription: string;
   trash?: boolean;
+  sort?: string;
+  direction?: string;
+  emptyVariant?: "folder" | "search" | "trash" | "favorite" | "recent";
 }>();
 const emit = defineEmits<{
   toggle: [file: Entry];
@@ -20,6 +23,7 @@ const emit = defineEmits<{
   action: [action: FileAction, file: Entry];
   retry: [];
   upload: [];
+  sort: [value: string];
 }>();
 </script>
 <template>
@@ -30,11 +34,27 @@ const emit = defineEmits<{
       role="status"
       aria-label="正在加载文件"
     >
-      <el-skeleton animated :rows="6" />
+      <div v-if="grid && !trash" class="skeleton-grid" aria-hidden="true">
+        <el-skeleton v-for="n in 8" :key="n" animated
+          ><template #template
+            ><div class="skeleton-tile">
+              <el-skeleton-item variant="image" /><el-skeleton-item
+                variant="text"
+              /><el-skeleton-item variant="text" /></div></template
+        ></el-skeleton>
+      </div>
+      <el-skeleton v-else animated :count="6" aria-hidden="true"
+        ><template #template
+          ><div class="skeleton-row">
+            <el-skeleton-item variant="rect" /><el-skeleton-item
+              variant="text"
+            /><el-skeleton-item variant="text" /></div></template
+      ></el-skeleton>
     </div>
     <EmptyState
       v-else-if="failure"
       title="文件暂时无法加载"
+      variant="error"
       :description="failure"
       ><el-button @click="emit('retry')">重新加载</el-button></EmptyState
     >
@@ -51,12 +71,16 @@ const emit = defineEmits<{
         :items="items"
         :selected="selected"
         :trash="trash"
+        :sort="sort"
+        :direction="direction"
         @toggle="emit('toggle', $event)"
         @open="emit('open', $event)"
-        @action="(action, file) => emit('action', action, file)" /><EmptyState
+        @action="(action, file) => emit('action', action, file)"
+        @sort="emit('sort', $event)" /><EmptyState
         v-else
         :title="emptyTitle"
         :description="emptyDescription"
+        :variant="emptyVariant"
         ><slot name="empty-action" /></EmptyState
     ></template>
   </section>

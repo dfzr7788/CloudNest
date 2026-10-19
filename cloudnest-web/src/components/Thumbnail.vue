@@ -39,10 +39,10 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <img
-    v-if="url"
-    :src="url"
-    :alt="file.name"
-    class="cn-thumbnail"
-  /><FileMark v-else :kind="file.kind" :mime="file.mime" />
+  <img v-if="url" :src="url" :alt="file.name" class="cn-thumbnail" /><FileMark
+    v-else
+    :kind="file.kind"
+    :mime="file.mime"
+    :name="file.name"
+  />
 </template>

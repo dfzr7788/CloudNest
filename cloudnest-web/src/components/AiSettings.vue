@@ -524,7 +524,7 @@ onBeforeUnmount(() => {
 .connection-card {
   padding: 14px;
   margin: 12px 0;
-  border: 1px solid #dce3ef;
+  border: 1px solid var(--cn-border);
   border-radius: 10px;
   overflow-wrap: anywhere;
 }

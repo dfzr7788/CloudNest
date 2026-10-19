@@ -19,7 +19,7 @@ async function account(page: Page) {
     if ((await response).status() !== 429) break;
     await page.waitForTimeout(Math.min(30000, 60050 - (Date.now() % 60000)));
   }
-  await expect(page.getByRole("heading", { name: "我的文件." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的云盘" })).toBeVisible();
   return (await (await page.request.get("/api/user/me")).json())
     .rootId as string;
 }

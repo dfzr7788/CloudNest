@@ -2,14 +2,14 @@
   box-sizing: border-box;
 }
 html {
-  color-scheme: light;
+  color-scheme: dark;
 }
 body {
   margin: 0;
   background: var(--cn-canvas);
   color: var(--cn-text);
   font:
-    14px/1.6 Inter,
+    var(--cn-font-body)/1.6 Inter,
     "Segoe UI",
     "PingFang SC",
     "Microsoft YaHei",
@@ -75,6 +75,7 @@ h3 {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }

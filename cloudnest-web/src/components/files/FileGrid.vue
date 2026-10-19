@@ -34,7 +34,11 @@ const emit = defineEmits<{
         class="tile-open"
         :aria-label="(file.favorite ? '★ ' : '') + file.name"
         :title="file.name"
-        @click.stop="emit('open', file)"
+        @click.stop="
+          $event.ctrlKey || $event.metaKey || $event.shiftKey
+            ? emit('toggle', file)
+            : emit('open', file)
+        "
         @dblclick.stop
       >
         <span class="tile-thumbnail"><Thumbnail :file="file" /></span

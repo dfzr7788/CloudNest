@@ -208,7 +208,7 @@ watch(
 <style scoped>
 .access-settings section {
   padding: 16px 0;
-  border-bottom: 1px solid #e6ebf5;
+  border-bottom: 1px solid var(--cn-border);
 }
 .access-settings .el-input {
   max-width: 460px;

@@ -32,7 +32,7 @@ async function register(page: Page) {
   await page.getByLabel("账号", { exact: true }).fill("imp_" + Date.now());
   await page.getByLabel("密码", { exact: true }).fill("Improvement-123");
   await page.getByRole("button", { name: "注册并进入云盘" }).click();
-  await expect(page.getByRole("heading", { name: "我的文件." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的云盘" })).toBeVisible();
   await expect(page.locator(".crumb-button").first()).toBeVisible();
 }
 async function upload(page: Page, name: string, text: string) {

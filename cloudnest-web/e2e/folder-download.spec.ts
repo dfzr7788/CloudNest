@@ -53,7 +53,7 @@ test("ZIPUI01 勾选多个文件夹打包并校验 ZIP 目录和文件内容", a
   await page.getByLabel("账号", { exact: true }).fill("zipui_" + Date.now());
   await page.getByLabel("密码", { exact: true }).fill("Folder-Zip-123");
   await page.getByRole("button", { name: "注册并进入云盘" }).click();
-  await expect(page.getByRole("button", { name: /打包下载/ })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /打包下载/ })).toHaveCount(0);
   const directory = resolve("../.tools/zipui-" + Date.now());
   const name = directory.split(/[\\/]/).at(-1)!;
   mkdirSync(resolve(directory, "算法"), { recursive: true });

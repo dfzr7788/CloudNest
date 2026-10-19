@@ -565,8 +565,8 @@ async function change() {
   margin-bottom: 20px;
 }
 .admin-stat {
-  background: #f4f6fd;
-  border: 1px solid #e9ecf7;
+  background: var(--cn-subtle);
+  border: 1px solid var(--cn-border);
   border-radius: 14px;
   padding: 20px;
 }
@@ -577,7 +577,7 @@ async function change() {
   margin-bottom: 12px;
 }
 .admin-stat strong {
-  color: #2c3c62;
+  color: var(--cn-heading);
   font-size: 24px;
   font-weight: 600;
 }
@@ -587,8 +587,8 @@ async function change() {
   font-weight: 400;
 }
 .admin-card {
-  border: 1px solid #e6eaf4;
-  background: #fff;
+  border: 1px solid var(--cn-border);
+  background: var(--cn-surface);
   border-radius: 16px;
   padding: 22px;
   margin-bottom: 18px;
@@ -601,7 +601,7 @@ async function change() {
   margin-bottom: 18px;
 }
 .admin-section-heading h3 {
-  color: #2d3b59;
+  color: var(--cn-heading);
   margin: 0 0 7px;
   font-size: 17px;
 }
@@ -619,14 +619,14 @@ async function change() {
 .invitation-result {
   margin-top: 20px;
   padding: 16px;
-  border-radius: 12px;
-  background: #f5f7ff;
+  border-radius: 6px;
+  background: var(--cn-subtle);
 }
 .invitation-result label {
   display: block;
   font-size: 12px;
   margin-bottom: 8px;
-  color: #626e8a;
+  color: var(--cn-muted);
 }
 .invitation-link {
   display: flex;

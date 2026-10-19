@@ -1,23 +1,40 @@
-:root {
-  --el-color-primary: var(--cn-brand);
+/* Match Element Plus dark selectors so every teleported control shares the theme. */
+:root,
+html.dark {
+  --el-color-primary: var(--cn-accent);
   --el-color-primary-dark-2: var(--cn-brand-pressed);
-  --el-color-primary-light-3: #8593f5;
-  --el-color-primary-light-5: #a9b3f8;
-  --el-color-primary-light-7: #cbd1fb;
-  --el-color-primary-light-8: #dce0fc;
-  --el-color-primary-light-9: var(--cn-selected);
+  --el-color-primary-light-3: #999ce9;
+  --el-color-primary-light-5: #515374;
+  --el-color-primary-light-7: #3e4053;
+  --el-color-primary-light-8: #32333f;
+  --el-color-primary-light-9: #2c2d36;
   --el-color-danger: var(--cn-danger);
+  --el-color-success: var(--cn-success);
+  --el-color-warning: var(--cn-warning);
+  --el-color-info: var(--cn-muted);
+  --el-bg-color: var(--cn-canvas);
+  --el-bg-color-page: var(--cn-sidebar);
+  --el-bg-color-overlay: var(--cn-surface);
   --el-text-color-primary: var(--cn-heading);
   --el-text-color-regular: var(--cn-text);
   --el-text-color-secondary: var(--cn-muted);
-  --el-text-color-placeholder: #6d7b91;
-  --el-border-color: var(--cn-border);
+  --el-text-color-placeholder: #868892;
+  --el-border-color: var(--cn-border-strong);
   --el-border-color-light: var(--cn-border);
+  --el-border-color-lighter: var(--cn-border);
+  --el-border-color-extra-light: var(--cn-border);
+  --el-fill-color: var(--cn-hover);
+  --el-fill-color-light: var(--cn-subtle);
+  --el-fill-color-lighter: var(--cn-subtle);
+  --el-fill-color-extra-light: var(--cn-canvas);
+  --el-fill-color-blank: var(--cn-canvas);
+  --el-mask-color: #202124cc;
+  --el-mask-color-extra-light: #20212455;
   --el-border-radius-base: var(--cn-radius-control);
   --el-font-size-base: 14px;
-  --el-component-size: 40px;
-  --el-component-size-large: 48px;
-  --el-fill-color-light: var(--cn-subtle);
+  --el-component-size: 32px;
+  --el-component-size-large: 44px;
+  --el-box-shadow-light: var(--cn-shadow);
 }
 .cn-dialog.el-dialog,
 .cn-drawer.el-drawer {
@@ -73,14 +90,57 @@
 }
 .el-message-box {
   max-width: calc(100vw - 32px);
-  border-radius: 16px;
+  border-radius: 10px;
 }
 .el-dropdown-menu__item {
-  min-height: 40px;
+  min-height: 32px;
   font-size: 14px;
 }
 .el-button--primary {
   box-shadow: none;
+}
+.el-button {
+  transition:
+    background-color var(--cn-duration) var(--cn-ease),
+    border-color var(--cn-duration) var(--cn-ease),
+    color var(--cn-duration) var(--cn-ease);
+}
+.el-popover.el-popper {
+  border-radius: 8px;
+  border-color: var(--cn-border);
+  box-shadow: var(--cn-shadow);
+}
+.el-dropdown__popper.el-popper {
+  border-radius: 8px;
+  border-color: var(--cn-border);
+  box-shadow: var(--cn-shadow);
+}
+.el-dropdown-menu {
+  padding: 6px;
+  border-radius: 8px;
+}
+.el-dropdown-menu__item {
+  border-radius: 7px;
+}
+.el-message {
+  border-radius: 8px;
+  box-shadow: var(--cn-shadow-hover);
+}
+.el-checkbox__inner {
+  border-radius: 5px;
+}
+.el-progress-bar__outer {
+  background-color: var(--cn-hover);
+}
+.cn-dialog .el-dialog__headerbtn {
+  top: 18px;
+  right: 18px;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+}
+.cn-dialog .el-dialog__headerbtn:hover {
+  background: var(--cn-subtle);
 }
 .el-button--primary:not(.is-plain) {
   --el-button-hover-bg-color: var(--cn-brand-hover);
@@ -89,11 +149,11 @@
   --el-button-active-border-color: var(--cn-brand-pressed);
 }
 .el-button:not(.el-button--small) {
-  min-height: 40px;
+  min-height: 32px;
 }
 .el-input:not(.el-input--small) .el-input__wrapper,
 .el-select .el-select__wrapper {
-  min-height: 40px;
+  min-height: 32px;
 }
 @media (max-width: 767px) {
   .cn-dialog.el-dialog {
@@ -116,4 +176,35 @@
   .el-dropdown-menu__item {
     min-height: 44px;
   }
+}
+
+.el-button--primary:not(.is-plain):not(.is-text):not(.is-link) {
+  --el-button-bg-color: var(--cn-brand);
+  --el-button-border-color: var(--cn-brand);
+  --el-button-text-color: #fff;
+  --el-button-hover-text-color: #fff;
+}
+.el-checkbox {
+  --el-checkbox-checked-bg-color: var(--cn-brand);
+  --el-checkbox-checked-input-border-color: var(--cn-brand);
+}
+.el-button:not(.el-button--primary):not(.el-button--danger):not(.is-text):not(
+    .is-link
+  ) {
+  --el-button-bg-color: var(--cn-subtle);
+  --el-button-hover-bg-color: var(--cn-hover);
+}
+.el-input__wrapper,
+.el-select__wrapper {
+  background: var(--cn-canvas);
+}
+.cn-dialog.el-dialog,
+.el-message-box {
+  border: 1px solid var(--cn-border-strong);
+  box-shadow: var(--cn-shadow);
+}
+.el-table {
+  --el-table-bg-color: var(--cn-canvas);
+  --el-table-tr-bg-color: var(--cn-canvas);
+  --el-table-expanded-cell-bg-color: var(--cn-surface);
 }

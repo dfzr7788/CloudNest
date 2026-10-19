@@ -78,7 +78,11 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section id="download-tasks" class="download-center">
+  <section
+    id="download-tasks"
+    class="download-center"
+    :class="{ 'is-empty': !jobs.length && !error }"
+  >
     <div class="download-heading">
       <strong>下载任务</strong
       ><el-button size="small" @click="load">刷新任务</el-button>

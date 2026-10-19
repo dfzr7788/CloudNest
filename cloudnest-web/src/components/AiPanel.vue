@@ -492,7 +492,7 @@ void load();
 .ai-result {
   margin: 16px 0;
   padding: 14px;
-  background: #f4f6fb;
+  background: var(--cn-subtle);
   border-radius: 10px;
 }
 .history-item {
@@ -501,7 +501,7 @@ void load();
 }
 .notice {
   font-size: 12px;
-  color: #65758e;
+  color: var(--cn-muted);
 }
 .answer :deep(pre),
 .answer :deep(table) {
@@ -510,11 +510,11 @@ void load();
 }
 .answer :deep(pre) {
   padding: 10px;
-  background: #e8ecf4;
+  background: var(--cn-hover);
 }
 .answer :deep(td),
 .answer :deep(th) {
-  border: 1px solid #ccd3df;
+  border: 1px solid var(--cn-border);
   padding: 5px;
 }
 </style>

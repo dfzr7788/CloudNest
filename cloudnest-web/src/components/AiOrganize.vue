@@ -290,14 +290,14 @@ watch(
   overflow-wrap: anywhere;
 }
 .card {
-  border: 1px solid #dce3ef;
+  border: 1px solid var(--cn-border);
   padding: 14px;
   margin: 14px 0;
   border-radius: 10px;
 }
 .suggestion {
   padding: 12px 0;
-  border-top: 1px solid #eee;
+  border-top: 1px solid var(--cn-border);
 }
 .suggestion :deep(.el-checkbox) {
   display: flex;

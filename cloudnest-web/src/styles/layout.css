@@ -4,19 +4,19 @@
   overflow: hidden;
 }
 .sidebar {
-  width: 232px;
-  flex: 0 0 232px;
+  width: 220px;
+  flex: 0 0 220px;
   display: flex;
   flex-direction: column;
-  padding: 28px 16px 20px;
-  background: var(--cn-surface);
+  padding: 20px 12px 16px;
+  background: var(--cn-sidebar);
   border-right: 1px solid var(--cn-border);
 }
 .sidebar-brand {
   padding: 0 12px;
 }
 .workspace-caption {
-  margin: 40px 16px 16px;
+  margin: 32px 12px 12px;
   font-size: 12px;
   color: var(--cn-muted);
 }
@@ -26,14 +26,15 @@
   gap: 4px;
 }
 .sidebar nav button {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   width: 100%;
-  min-height: 44px;
-  padding: 10px 16px;
+  min-height: 36px;
+  padding: 6px 12px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 6px;
   color: var(--cn-muted);
   background: transparent;
   text-align: left;
@@ -42,7 +43,7 @@
     color var(--cn-duration);
 }
 .sidebar nav .el-icon {
-  font-size: 20px;
+  font-size: 17px;
   flex-shrink: 0;
 }
 .sidebar nav button:hover {
@@ -51,8 +52,8 @@
 }
 .sidebar nav button.active {
   background: var(--cn-selected);
-  color: #3f51cb;
-  font-weight: 600;
+  color: var(--cn-heading);
+  font-weight: 500;
 }
 .nav-divider {
   height: 1px;
@@ -61,7 +62,8 @@
 }
 .storage-card {
   margin-top: auto;
-  padding: 32px 12px 24px;
+  padding: 20px 12px;
+  border-top: 1px solid var(--cn-border);
 }
 .storage-card > div:first-child {
   display: flex;
@@ -102,7 +104,7 @@
   height: 36px;
   flex-shrink: 0;
   border-radius: 50%;
-  color: #495ac7;
+  color: var(--cn-accent);
   background: var(--cn-selected);
   font-weight: 600;
 }
@@ -133,17 +135,17 @@
   top: 0;
   display: flex;
   align-items: center;
-  gap: 24px;
-  min-height: 72px;
-  padding: 12px 32px;
-  background: var(--cn-surface);
+  gap: var(--cn-space-3);
+  min-height: 56px;
+  padding: 10px 28px;
+  background: var(--cn-canvas);
   border-bottom: 1px solid var(--cn-border);
   z-index: var(--cn-z-toolbar);
 }
 .topbar-context {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--cn-space-1);
   color: var(--cn-muted);
   white-space: nowrap;
 }
@@ -154,26 +156,46 @@
 .topbar-search {
   flex: 1;
   min-width: 0;
-  max-width: 640px;
+  max-width: 440px;
   margin-left: auto;
 }
 .file-search {
   display: flex;
   min-width: 0;
-  gap: 8px;
+  gap: var(--cn-space-1);
 }
 .file-search > .el-input {
   flex: 1;
   min-width: 80px;
 }
+.file-search {
+  background: var(--cn-subtle);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 2px;
+  gap: 0;
+  transition:
+    border-color var(--cn-duration),
+    box-shadow var(--cn-duration);
+}
+.file-search:focus-within {
+  border-color: var(--cn-brand);
+  box-shadow: 0 0 0 3px #5266f112;
+}
+.file-search .el-input__wrapper,
+.file-search .el-select__wrapper {
+  background: transparent;
+  box-shadow: none !important;
+}
 .file-search > .el-select {
   width: 116px;
   flex-shrink: 0;
+  border-left: 1px solid var(--cn-border);
 }
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--cn-space-1);
 }
 .topbar-right .el-button + .el-button {
   margin-left: 0;
@@ -183,7 +205,8 @@
   display: none;
 }
 .drive-main {
-  padding: 32px 32px 40px;
+  padding: 24px 28px 32px;
+  min-height: calc(100dvh - 100px);
   position: relative;
 }
 .app-footer {
@@ -203,13 +226,13 @@
 }
 @media (min-width: 1600px) {
   .drive-main {
-    padding: 32px 40px 40px;
+    padding: 24px 36px 32px;
   }
   .topbar {
-    padding-inline: 40px;
+    padding-inline: 36px;
   }
   .app-footer {
-    padding-inline: 40px;
+    padding-inline: 36px;
   }
 }
 @media (min-width: 768px) and (max-width: 1199px) {
@@ -247,11 +270,11 @@
     margin: 12px 4px;
   }
   .drive-main {
-    padding: 24px;
+    padding: var(--cn-space-3);
   }
   .topbar {
     padding-inline: 24px;
-    gap: 16px;
+    gap: var(--cn-space-2);
   }
   .desktop-context {
     display: none;
@@ -261,7 +284,7 @@
   .topbar {
     min-height: 56px;
     padding: 8px 16px 12px;
-    gap: 8px;
+    gap: var(--cn-space-1);
     flex-wrap: wrap;
   }
   .topbar-context {
@@ -311,7 +334,7 @@
     width: 110px;
   }
   .drive-main {
-    padding: 24px 16px 32px;
+    padding: 20px 16px 24px;
   }
   .app-footer {
     padding: 0 16px 24px;
@@ -321,5 +344,11 @@
   .cn-nav-drawer .storage-card,
   .cn-nav-drawer .profile-copy {
     display: block;
+  }
+}
+
+@media (max-width: 767px) {
+  .sidebar nav button {
+    min-height: 44px;
   }
 }

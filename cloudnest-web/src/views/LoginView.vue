@@ -105,17 +105,65 @@ async function reset() {
       </div>
       <div class="auth-geometry" aria-hidden="true">
         <div class="geometry-folder">
-          <svg viewBox="0 0 240 180" fill="none">
+          <svg viewBox="0 0 420 252" fill="none">
+            <rect
+              x="1"
+              y="1"
+              width="418"
+              height="250"
+              rx="10"
+              fill="#222327"
+              stroke="#3A3B41"
+            />
+            <path d="M1 40h418M112 40v211" stroke="#34353A" />
+            <circle cx="18" cy="21" r="3" fill="#6C6E78" />
+            <circle cx="30" cy="21" r="3" fill="#52545D" />
+            <circle cx="42" cy="21" r="3" fill="#45474F" />
+            <rect x="16" y="60" width="80" height="25" rx="4" fill="#33343B" />
             <path
-              d="M24 48a16 16 0 0 1 16-16h57l23 24h80a16 16 0 0 1 16 16v76a16 16 0 0 1-16 16H40a16 16 0 0 1-16-16V48Z"
-              fill="#FFFFFF0C"
-              stroke="#FFFFFF66"
-              stroke-width="2"
+              d="M28 72h54M28 105h45M28 137h51M28 169h37"
+              stroke="#696B76"
+              stroke-width="3"
+              stroke-linecap="round"
             />
             <path
-              d="M58 94h120M58 116h78"
-              stroke="#FFFFFF55"
-              stroke-width="2"
+              d="M128 87h275M128 128h275M128 169h275M128 210h275"
+              stroke="#2E3035"
+            />
+            <g
+              stroke="#8A8D9C"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M132 58h6l3 3h11v13h-20V58ZM132 99h6l3 3h11v13h-20V99Z"
+              />
+              <path
+                d="M135 140h11l5 5v13h-16v-18ZM146 140v5h5M135 181h11l5 5v13h-16v-18ZM146 181v5h5"
+              />
+            </g>
+            <g
+              fill="#B9BBC6"
+              font-size="12"
+              font-family="Inter, Segoe UI, Microsoft YaHei, sans-serif"
+            >
+              <text x="166" y="71">工作与项目</text>
+              <text x="166" y="112">灵感与收藏</text>
+              <text x="166" y="153">阅读笔记.md</text>
+              <text x="166" y="194">下一段旅程.pdf</text>
+            </g>
+            <path
+              d="M343 68h42M355 109h30M343 150h42M355 191h30"
+              stroke="#4A4C55"
+              stroke-width="3"
+              stroke-linecap="round"
+            />
+            <circle cx="136" cy="231" r="3" fill="#83BFA4" />
+            <path
+              d="M148 231h77"
+              stroke="#555762"
+              stroke-width="3"
               stroke-linecap="round"
             />
           </svg>

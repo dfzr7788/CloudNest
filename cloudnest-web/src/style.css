@@ -13,11 +13,11 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #f1e8d6;
-  background: #fffcf4;
+  border: 1px solid var(--cn-border);
+  background: var(--cn-subtle);
   padding: 15px 18px;
   color: var(--cn-muted);
-  font-size: 12px;
+  font-size: 14px;
   margin-bottom: 24px;
   border-radius: 10px;
 }
@@ -39,13 +39,13 @@
   width: 100%;
   background: none;
   border: 0;
-  border-bottom: 1px solid #eff1f8;
+  border-bottom: 1px solid var(--cn-border);
   padding: 16px;
   text-align: left;
-  color: #71809d;
+  color: var(--cn-muted);
 }
 .folder-picker > button:hover {
-  background: #f6f7ff;
+  background: var(--cn-hover);
 }
 .folder-picker > button span:not(.el-icon) {
   flex: 1;
@@ -54,7 +54,7 @@
   display: flex;
   gap: 14px;
   align-items: center;
-  background: #f6f8fd;
+  background: var(--cn-subtle);
   padding: 17px;
   border-radius: 10px;
   margin-bottom: 22px;
@@ -79,17 +79,24 @@
   position: absolute;
   inset: 8px;
   z-index: 15;
-  background: #f0f3fff0;
-  border: 2px dashed #98a7ea;
+  background: #202126ed;
+  border: 2px dashed var(--cn-border);
   border-radius: 15px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   pointer-events: none;
-  color: #6b7cce;
+  color: var(--cn-accent);
 }
 .drop-zone .el-icon {
   font-size: 60px;
   margin-bottom: 20px;
+}
+.drop-zone p {
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--cn-muted);
+  text-align: center;
+  padding-inline: 16px;
 }

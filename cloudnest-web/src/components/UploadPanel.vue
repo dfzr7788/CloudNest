@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useUploads, type UploadTask } from "../stores/uploads";
+import FileMark from "./FileMark.vue";
 import { bytes, errorText } from "../api";
 import { ElMessage } from "element-plus";
 import {
@@ -62,7 +63,9 @@ async function cancel(t: UploadTask) {
       </div>
       <div v-for="t in store.tasks" :key="t.key" class="upload-task">
         <div class="task-top">
-          <strong :title="t.name">{{ t.name }}</strong
+          <FileMark kind="FILE" :name="t.name" /><strong :title="t.name">{{
+            t.name
+          }}</strong
           ><span>{{ bytes(t.size) }}</span>
         </div>
         <el-progress

@@ -22,7 +22,7 @@ const percent = computed(() =>
       :percentage="percent"
       :show-text="false"
       :stroke-width="5"
-      :color="percent > 90 ? '#bd690a' : '#5266f1'"
+      :color="percent > 90 ? 'var(--cn-warning)' : 'var(--cn-brand)'"
     />
     <p>{{ bytes(user?.used || 0) }} / {{ bytes(user?.quota || 0) }}</p>
     <small v-if="user?.reserved"

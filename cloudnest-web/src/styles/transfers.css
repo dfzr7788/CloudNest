@@ -5,21 +5,21 @@
   width: 360px;
   max-width: calc(100vw - 32px);
   z-index: var(--cn-z-transfer);
-  background: white;
+  background: var(--cn-surface);
   border: 1px solid var(--cn-border);
-  border-radius: 16px;
+  border-radius: 8px;
   box-shadow: var(--cn-shadow);
   overflow: hidden;
 }
 .upload-panel-head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--cn-space-1);
   width: 100%;
   min-height: 52px;
   padding: 12px 16px;
   border: 0;
-  background: white;
+  background: var(--cn-surface);
   color: var(--cn-heading);
   text-align: left;
 }
@@ -36,7 +36,7 @@
 }
 .upload-panel-head > span:last-child {
   margin-left: auto;
-  color: #3f51cb;
+  color: var(--cn-accent);
 }
 .upload-list {
   max-height: min(420px, 55dvh);
@@ -53,7 +53,7 @@
   margin: 0;
 }
 .upload-task {
-  padding: 16px;
+  padding: var(--cn-space-2);
   border-top: 1px solid var(--cn-border);
 }
 .task-top,
@@ -61,7 +61,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--cn-space-1);
 }
 .task-top {
   margin-bottom: 12px;
@@ -73,6 +73,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
+  flex: 1;
+}
+.task-top > .file-mark {
+  width: 30px;
+  height: 34px;
+  font-size: 20px;
 }
 .task-top > span {
   flex-shrink: 0;
@@ -90,7 +96,7 @@
 }
 .task-bottom .el-button {
   font-size: 12px;
-  padding: 8px;
+  padding: var(--cn-space-1);
 }
 .task-error {
   margin-top: 8px;
@@ -102,8 +108,8 @@
   margin-top: 24px;
   padding: 20px;
   border: 1px solid var(--cn-border);
-  border-radius: 16px;
-  background: white;
+  border-radius: 8px;
+  background: var(--cn-surface);
 }
 .download-heading {
   display: flex;
@@ -116,10 +122,13 @@
   margin-top: 16px;
 }
 .download-center a {
-  color: #3f51cb;
+  color: var(--cn-accent);
   text-decoration: underline;
 }
 .drive-main:has(.upload-panel) {
+  padding-bottom: 96px;
+}
+.drive-main:has(.upload-panel .upload-list) {
   padding-bottom: min(520px, 65dvh);
 }
 .drop-zone {
@@ -138,9 +147,20 @@
     min-height: 36px;
   }
   .download-center {
-    padding: 16px;
+    padding: var(--cn-space-2);
   }
   .task-bottom .el-button {
     min-height: 36px;
   }
+}
+
+.download-center.is-empty {
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--cn-border);
+  border-radius: 0;
+  padding: 16px 0;
+}
+.download-center.is-empty .download-heading {
+  margin-bottom: 8px;
 }

@@ -199,7 +199,31 @@ watch(
     :width="aiOpen ? 'min(1440px,96vw)' : 'min(1100px,96vw)'"
     destroy-on-close
     @close="emit('close')"
-    ><div class="reading-workspace" :class="{ 'with-assistant': aiOpen }">
+  >
+    <template #header
+      ><div class="preview-heading">
+        <FileMark
+          v-if="file"
+          :kind="file.kind"
+          :mime="file.mime"
+          :name="file.name"
+        />
+        <div>
+          <h2 :title="file?.name">{{ file?.name }}</h2>
+          <p>
+            文件预览<span v-if="file"> · {{ bytes(file.size) }}</span>
+          </p>
+        </div>
+        <a
+          v-if="file && allowDownload !== false"
+          :href="(base || `/api/files/${file.id}`) + '/download'"
+          class="el-button preview-download"
+          download
+          >下载</a
+        >
+      </div></template
+    >
+    <div class="reading-workspace" :class="{ 'with-assistant': aiOpen }">
       <div
         class="preview-body"
         :class="{
@@ -250,7 +274,6 @@ watch(
             v-else-if="file.mime?.startsWith('video/') && supported"
             :src="url"
             controls
-            style="max-width: 100%"
             @loadeddata="opened"
             @error="error = '浏览器无法解码此视频，请下载后查看'"
           />
@@ -361,7 +384,7 @@ watch(
   width: 100%;
   align-self: flex-start;
   min-height: 360px;
-  padding: 24px;
+  padding: 24px 32px 48px;
 }
 .document-toolbar {
   display: flex;
@@ -373,26 +396,58 @@ watch(
   margin-bottom: 24px;
 }
 .rendered-document {
-  max-width: 860px;
+  max-width: 780px;
   margin: auto;
+  padding: 40px 48px;
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: 4px;
+  font-size: 15px;
   overflow-wrap: anywhere;
   line-height: 1.85;
-  color: #243650;
+  color: var(--cn-text);
+}
+.rendered-document :deep(p),
+.rendered-document :deep(ul),
+.rendered-document :deep(ol) {
+  margin: 0 0 16px;
+}
+.rendered-document :deep(h1) {
+  font-size: 28px;
+}
+.rendered-document :deep(h2) {
+  font-size: 22px;
+}
+.rendered-document :deep(h3) {
+  font-size: 18px;
+}
+.rendered-document :deep(h1),
+.rendered-document :deep(h2),
+.rendered-document :deep(h3) {
+  margin: 24px 0 16px;
+}
+.rendered-document :deep(> :first-child) {
+  margin-top: 0;
+}
+@media (max-width: 767px) {
+  .rendered-document {
+    padding: 24px 20px;
+  }
 }
 .rendered-document :deep(h1),
 .rendered-document :deep(h2) {
-  border-bottom: 1px solid #e1e7f3;
+  border-bottom: 1px solid var(--cn-border);
   padding-bottom: 8px;
 }
 .rendered-document :deep(pre) {
   padding: 16px;
-  background: #edf1f9;
+  background: var(--cn-subtle);
   overflow: auto;
   white-space: pre;
 }
 .rendered-document :deep(code) {
   font-family: Consolas, monospace;
-  background: #edf1f9;
+  background: var(--cn-subtle);
   border-radius: 4px;
   padding: 2px 4px;
 }
@@ -405,18 +460,18 @@ watch(
 }
 .rendered-document :deep(td),
 .rendered-document :deep(th) {
-  border: 1px solid #d5deed;
+  border: 1px solid var(--cn-border);
   padding: 8px 12px;
   min-width: 80px;
 }
 .rendered-document :deep(blockquote) {
-  border-left: 4px solid #7d89f5;
+  border-left: 4px solid var(--cn-accent);
   margin-left: 0;
   padding-left: 18px;
-  color: #687896;
+  color: var(--cn-muted);
 }
 .rendered-document :deep(a) {
-  color: #5264dd;
+  color: var(--cn-accent);
   text-decoration: underline;
 }
 </style>

@@ -24,7 +24,7 @@ test("UI01 完整浏览器流程：注册、目录、上传预览、分享、恢
   await page.getByLabel("账号", { exact: true }).fill(username);
   await page.getByLabel("密码", { exact: true }).fill(password);
   await page.getByRole("button", { name: "注册并进入云盘" }).click();
-  await expect(page.getByRole("heading", { name: "我的文件." })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的云盘" })).toBeVisible();
   await expect(page.getByText("无法连接服务器")).toHaveCount(0);
   await page.getByRole("button", { name: "新建文件夹", exact: true }).click();
   await page.locator(".el-message-box input").fill("浏览器验收");

@@ -531,7 +531,7 @@ onBeforeUnmount(stop);
 .card {
   padding: 14px;
   margin: 14px 0;
-  border: 1px solid #dce3ef;
+  border: 1px solid var(--cn-border);
   border-radius: 10px;
 }
 .answer,
@@ -540,7 +540,7 @@ pre {
   overflow-wrap: anywhere;
 }
 .source {
-  background: #f6f7fc;
+  background: var(--cn-subtle);
   padding: 8px;
   margin: 8px 0;
 }

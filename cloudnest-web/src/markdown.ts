@@ -11,7 +11,7 @@ import typescript from "highlight.js/lib/languages/typescript";
 import json from "highlight.js/lib/languages/json";
 import bash from "highlight.js/lib/languages/bash";
 import sql from "highlight.js/lib/languages/sql";
-import "highlight.js/styles/github.css";
+import "highlight.js/styles/github-dark.css";
 for (const [name, language] of Object.entries({
   java,
   cpp,
