@@ -10,6 +10,7 @@ if ($Action -eq 'web') {
 }
 $mavenCommand = Get-Command mvn.cmd -ErrorAction SilentlyContinue
 if ($mavenCommand) { $mavenPath=$mavenCommand.Source }
+elseif (Test-Path 'D:\maven\apache-maven-3.9.16\bin\mvn.cmd') { $mavenPath='D:\maven\apache-maven-3.9.16\bin\mvn.cmd' }
 elseif (Test-Path 'D:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd') { $mavenPath='D:\maven\apache-maven-3.9.16-bin\apache-maven-3.9.16\bin\mvn.cmd' }
 else { throw 'Install Maven 3.9+ and add mvn to PATH.' }
 $mavenOptions=@('-B',"-Dmaven.repo.local=$projectRoot/.tools/m2",'-f','cloudnest-server/pom.xml')

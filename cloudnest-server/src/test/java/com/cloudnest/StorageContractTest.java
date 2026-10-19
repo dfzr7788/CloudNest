@@ -24,6 +24,21 @@ import org.springframework.test.context.DynamicPropertySource;
     })
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class StorageContractTest {
+  @Test
+  void M10_wholeObjectReadsHandleEmptyObjectsAndDoNotHideTrailingBytes() throws Exception {
+    String key = "objects/" + Util.id();
+    byte[] content = "full-object-with-trailing-bytes".getBytes(StandardCharsets.UTF_8);
+    storage.put("minio", key, new ByteArrayInputStream(content), content.length);
+    try (var input = storage.openWhole("minio", key, 1)) {
+      assertArrayEquals(content, input.readAllBytes());
+    }
+    storage.put("minio", key, new ByteArrayInputStream(new byte[0]), 0);
+    try (var input = storage.openWhole("minio", key, 0)) {
+      assertEquals(-1, input.read());
+    }
+    storage.delete("minio", key);
+  }
+
   static final Map<String, byte[]> objects = new ConcurrentHashMap<>();
   static HttpServer server;
   static Path data;

@@ -7,6 +7,7 @@ import {
   Share,
   Delete,
   MoreFilled,
+  Connection,
 } from "@element-plus/icons-vue";
 import type { User } from "../../api";
 import CloudNestLogo from "../brand/CloudNestLogo.vue";
@@ -69,6 +70,13 @@ const links = [
         >
           <el-icon><Delete /></el-icon><span>回收站</span>
         </button></el-tooltip
+      >
+      <router-link
+        v-if="user?.administrator"
+        to="/admin/nodes"
+        class="node-center-link"
+        aria-label="节点中心"
+        ><el-icon><Connection /></el-icon><span>节点中心</span></router-link
       >
     </nav>
     <StorageUsage :user="user" />

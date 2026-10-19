@@ -196,6 +196,9 @@ public class StorageController {
         nodes.locked(
             () -> {
               if (db.count(
+                      "SELECT COUNT(*) FROM storage_job_item WHERE status IN ('QUEUED','RUNNING')")
+                  > 0) throw Problem.conflict("已有文件级任务正在进行");
+              if (db.count(
                       "SELECT COUNT(*) FROM maintenance_job WHERE status IN ('QUEUED','RUNNING')")
                   > 0) throw Problem.conflict("已有维护任务正在进行");
               long bytes =

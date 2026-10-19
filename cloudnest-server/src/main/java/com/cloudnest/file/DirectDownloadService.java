@@ -41,7 +41,12 @@ public class DirectDownloadService {
     } catch (Problem missing) {
       return Map.of("mode", "proxy", "url", proxy, "expiresAt", now + seconds * 1000L);
     }
-    if (b(node, "direct_download") && !"local".equals(backend)) {
+    if (b(node, "direct_download")
+        && !"local".equals(backend)
+        && "ONLINE".equals(s(node, "state"))
+        && b(node, "validated")
+        && now - n(node, "checked_at") <= 120000
+        && !(blob.get("desired_replicas") instanceof Number count && count.intValue() > 1)) {
       try {
         var signed =
             storage.presign(

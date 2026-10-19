@@ -9,12 +9,13 @@ export const router = createRouter({
       component: () => import("../views/ShareView.vue"),
       props: true,
     },
+    { path: "/admin/nodes", component: () => import("../views/NodeCenterView.vue") },
     { path: "/", component: () => import("../views/DriveView.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
 router.beforeEach(async (to) => {
-  if (to.path === "/") {
+  if (to.path === "/" || to.path.startsWith("/admin/")) {
     try {
       await api.get("/user/me");
     } catch {

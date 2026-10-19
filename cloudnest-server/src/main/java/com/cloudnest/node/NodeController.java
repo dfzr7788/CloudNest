@@ -113,8 +113,10 @@ public class NodeController {
   public List<Map<String, Object>> copies(Authentication a, @PathVariable String backend) {
     settings.admin(a.getName());
     return db.list(
-        "SELECT c.* FROM storage_copy c WHERE backend=? AND NOT EXISTS(SELECT 1 FROM file_blob b"
-            + " WHERE b.backend=c.backend AND b.object_key=c.object_key) ORDER BY created_at",
+        "SELECT c.* FROM storage_copy c WHERE backend=? AND NOT EXISTS(SELECT 1 FROM blob_replica r"
+            + " WHERE r.backend=c.backend AND r.object_key=c.object_key) AND NOT EXISTS(SELECT 1"
+            + " FROM file_blob b WHERE b.backend=c.backend AND b.object_key=c.object_key) ORDER BY"
+            + " created_at",
         backend);
   }
 
@@ -125,7 +127,17 @@ public class NodeController {
         () -> {
           var copy =
               db.one("SELECT * FROM storage_copy WHERE backend=? AND object_key=?", backend, key);
-          if (System.currentTimeMillis() - n(copy, "created_at") < 120000
+          if (db.count(
+                      "SELECT COUNT(*) FROM blob_replica WHERE backend=? AND object_key=?",
+                      backend,
+                      key)
+                  > 0
+              || db.count(
+                      "SELECT COUNT(*) FROM storage_job_item WHERE target_backend=? AND status IN"
+                          + " ('QUEUED','RUNNING')",
+                      backend)
+                  > 0
+              || System.currentTimeMillis() - n(copy, "created_at") < 120000
               || db.count(
                       "SELECT COUNT(*) FROM file_blob WHERE backend=? AND object_key=?",
                       backend,

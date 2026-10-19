@@ -15,7 +15,7 @@ class AiMigrationTest {
         "sa",
         "h2",
         "12",
-        "16");
+        "17");
   }
 
   @Test
@@ -23,7 +23,7 @@ class AiMigrationTest {
     String url = System.getenv("CN_AI_TEST_DATABASE_URL");
     Assumptions.assumeTrue(
         url != null, "Set CN_AI_TEST_DATABASE_URL to a local disposable MySQL test database");
-    upgrade(url, "root", "mysql", "13", "17");
+    upgrade(url, "root", "mysql", "13", "18");
   }
 
   private void upgrade(String url, String user, String vendor, String previous, String current)
@@ -91,6 +91,16 @@ class AiMigrationTest {
       }
       latest.migrate();
       latest.validate();
+      try (var c = DriverManager.getConnection(url, user, "")) {
+        if (vendor.equals("mysql")) c.setCatalog(schema);
+        else c.setSchema(schema);
+        try (var statement = c.createStatement();
+            var row =
+                statement.executeQuery("SELECT state FROM blob_replica WHERE blob_id='old-blob'")) {
+          assertTrue(row.next());
+          assertEquals("UNVERIFIED", row.getString(1));
+        }
+      }
       assertEquals(0, latest.migrate().migrationsExecuted);
       assertEquals(current, latest.info().current().getVersion().toString());
       try (var connection = DriverManager.getConnection(url, user, "")) {

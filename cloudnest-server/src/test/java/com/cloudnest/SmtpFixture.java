@@ -8,7 +8,7 @@ import java.util.concurrent.*;
 
 /** Loopback SMTP protocol fixture; no external mail delivery. */
 final class SmtpFixture implements AutoCloseable {
-  final ServerSocket socket = new ServerSocket(0, 8, InetAddress.getLoopbackAddress());
+  final ServerSocket socket = new ServerSocket(0, 8, InetAddress.getByName("127.0.0.1"));
   final BlockingQueue<String> messages = new LinkedBlockingQueue<>();
   volatile boolean stopped;
   final Thread worker;
@@ -21,7 +21,8 @@ final class SmtpFixture implements AutoCloseable {
                 () -> {
                   while (!stopped)
                     try (var client = socket.accept()) {
-                      client.setSoTimeout(5000);
+                      // JavaMail may resolve the host name before its first EHLO on Windows.
+                      client.setSoTimeout(30000);
                       var reader =
                           new BufferedReader(
                               new InputStreamReader(
@@ -56,13 +57,16 @@ final class SmtpFixture implements AutoCloseable {
                         writer.flush();
                       }
                     } catch (Exception error) {
-                      if (!stopped) messages.offer("SMTP_FIXTURE_ERROR");
+                      if (!stopped) {
+                        error.printStackTrace();
+                        messages.offer("SMTP_FIXTURE_ERROR");
+                      }
                     }
                 });
   }
 
   String token(String parameter) throws Exception {
-    String body = messages.poll(8, TimeUnit.SECONDS);
+    String body = messages.poll(30, TimeUnit.SECONDS);
     if (body == null) throw new AssertionError("No SMTP message received");
     var matcher = java.util.regex.Pattern.compile(parameter + "=([A-Za-z0-9_-]{43})").matcher(body);
     if (!matcher.find()) throw new AssertionError("Missing recovery token in SMTP message");

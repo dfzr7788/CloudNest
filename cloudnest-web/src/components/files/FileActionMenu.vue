@@ -29,6 +29,7 @@ const emit = defineEmits<{ action: [action: FileAction] }>();
         <el-dropdown-item v-if="file.kind === 'FOLDER'" command="collect"
           >收集文件</el-dropdown-item
         >
+        <el-dropdown-item command="storage">存储与副本</el-dropdown-item>
         <el-dropdown-item command="zip">压缩下载</el-dropdown-item>
         <el-dropdown-item command="delete" divided class="cn-danger-action"
           >移入回收站</el-dropdown-item

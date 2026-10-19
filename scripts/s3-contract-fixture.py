@@ -3,6 +3,7 @@
 Public GETs validate SigV4; internal requests support the SDK's small-object contract.
 """
 import datetime
+import argparse
 import hashlib
 import hmac
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -61,7 +62,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(body)
     def handle_request(self):
         uri=urlsplit(self.path)
-        public=self.server.server_address[1]==18093
+        public=self.server.public_endpoint
         if uri.path=='/__stats':
             return self.reply(200,json.dumps(stats).encode(),{'Content-Type':'application/json'})
         if public:
@@ -109,8 +110,15 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__=='__main__':
-    servers=[ThreadingHTTPServer(('127.0.0.1',port),Handler) for port in (18092,18093)]
-    for server in servers:
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--internal-port',type=int,default=18092)
+    parser.add_argument('--public-port',type=int,default=18093)
+    args=parser.parse_args()
+    if args.internal_port==args.public_port or any(not 1024<=port<=65535 for port in (args.internal_port,args.public_port)):
+        parser.error('Use two different unprivileged ports')
+    servers=[ThreadingHTTPServer(('127.0.0.1',port),Handler) for port in (args.internal_port,args.public_port)]
+    for index,server in enumerate(servers):
+        server.public_endpoint=index==1
         threading.Thread(target=server.serve_forever,daemon=True).start()
     print('Loopback S3 contract fixture ready (not Garage)',flush=True)
     threading.Event().wait()

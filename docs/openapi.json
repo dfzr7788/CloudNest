@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "CloudNest API",
-    "version": "1.0.0",
+    "version": "2.0.0-rc.1",
     "description": "单实例私人云盘。完整请求与成功结果见 docs/api.md；导入后先执行 GET /auth/csrf，再填写当前 X-XSRF-TOKEN 并启用 Cookie jar。"
   },
   "servers": [
@@ -11083,6 +11083,452 @@
           }
         },
         "security": []
+      }
+    },
+    "/admin/horizon": {
+      "get": {
+        "summary": "节点中心概览",
+        "operationId": "get__admin_horizon",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/horizon/placement": {
+      "put": {
+        "summary": "保存调度策略",
+        "operationId": "put__admin_horizon_placement",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "enum": [
+                      "MANUAL",
+                      "CAPACITY",
+                      "STABILITY",
+                      "HIGH_AVAILABILITY"
+                    ]
+                  },
+                  "minReliability": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/horizon/nodes/{backend}": {
+      "put": {
+        "summary": "保存节点调度属性",
+        "operationId": "put__admin_horizon_nodes__backend",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "failureDomain": {
+                    "type": "string",
+                    "maxLength": 80
+                  },
+                  "reliability": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "cost": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/targets": {
+      "get": {
+        "summary": "列出存储目标",
+        "operationId": "get__storage_targets",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/storage/jobs": {
+      "get": {
+        "summary": "列出自己的文件任务",
+        "operationId": "get__storage_jobs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "post": {
+        "summary": "提交文件或目录任务",
+        "operationId": "post__storage_jobs",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "MIGRATE",
+                      "REPLICATE"
+                    ]
+                  },
+                  "target": {
+                    "type": "string"
+                  },
+                  "fileIds": {
+                    "type": "array",
+                    "maxItems": 200,
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "folderId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/jobs/{id}/retry": {
+      "post": {
+        "summary": "重试文件任务",
+        "operationId": "post__storage_jobs__id__retry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/storage/jobs/{id}": {
+      "delete": {
+        "summary": "取消文件任务",
+        "operationId": "delete__storage_jobs__id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/storage/files/{id}/replicas": {
+      "get": {
+        "summary": "查询文件副本和异域保护状态",
+        "operationId": "get__storage_files__id__replicas",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；返回契约见 docs/api.md"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "需要管理员权限、对象授权或 CSRF"
+          },
+          "404": {
+            "description": "对象不存在或无权访问"
+          },
+          "409": {
+            "description": "任务冲突或节点不符合健康、容量、故障域要求"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/storage/files/{id}/protection": {
+      "delete": {
+        "summary": "停止自动副本保护并取消复制任务，保留现有副本",
+        "operationId": "delete__storage_files_id_protection",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功，已有数据保留"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "CSRF 失败"
+          },
+          "404": {
+            "description": "无权访问此文件"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
       }
     }
   },

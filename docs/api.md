@@ -280,3 +280,26 @@ source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识
 索引身份为 embedding 模型 ID/配置版本/连接版本/维度/structured-v1/chunk-v1；块按最多 900 字符（小输入模型进一步缩小），保留原提取定位及片段字符位置。受 UTF-8 字节保守预算、每批 1–32 条及每日 100 次约束。增量按同身份/文件/修订/块序号/内容哈希复用；更换维度或模型重建新代次。全部块有有效向量后原子切换，清理旧代次；执行失败保留成功块、未知批次不自动重试。
 
 新表随数据库备份；索引、查询及问答不新增外部服务。普通任务 7 天，知识库会话任务与其引用的搜索任务从最近活动后 30 天；未完成索引代次 7 天清理，已完成索引由用户/源文件生命周期控制。所有新正文/向量均计入 100 MiB 派生额度（待向量块按实际维度预留）；永久删除源文件同步清除块和通过 ai_task_source 关联的任务正文。AI 关闭阻止新任务，不阻止本人的删除清理操作。
+
+
+## Horizon 2.0
+
+所有接口要求登录。写接口要求当前 CSRF token；`/admin/horizon` 下所有接口要求管理员。
+
+| 方法与路径（省略 `/api`） | 请求与结果 |
+| --- | --- |
+| `GET /admin/horizon` | 返回 `placement`、最近 100 条 `decisions` 和 `jobs`、`alerts`、`events`、最近保护副本 `protection`、`logicalBytes` |
+| `PUT /admin/horizon/placement` | `{mode,minReliability}`；模式 `MANUAL/CAPACITY/STABILITY/HIGH_AVAILABILITY`，最低可靠性 0–100；成功空响应 |
+| `PUT /admin/horizon/nodes/{backend}` | `{failureDomain,reliability,priority,cost}`；域最长 80 字符，其余 0–100；成功空响应 |
+| `GET /storage/targets` | 返回启用节点的 `backend,name,failure_domain,reliability`，不含提供商凭据 |
+| `POST /storage/jobs` | `{kind,target,fileIds?,folderId?}`；`kind=MIGRATE/REPLICATE`，最多 200 个文件对象；目录包含未删除子文件；返回 `{ids:[任务ID]}` |
+| `GET /storage/jobs` | 自己最近 200 项任务，含 `file_name,blob_id,target_backend,kind,status,error,attempts,created_at,updated_at,size` |
+| `DELETE /storage/jobs/{id}` | 本人或管理员取消；阻止后续更新主引用，保留物理候选占用；空响应 |
+| `POST /storage/jobs/{id}/retry` | 本人或管理员重试 `FAILED/INTERRUPTED/CANCELLED` 任务；创建新任务并返回 `{id}` |
+| `GET /storage/files/{id}/replicas` | 自己的文件；返回 `{backend,desiredReplicas,protected,replicas}`；`protected` 只在两份在线、健康未过期、已验证且故障域不同的副本存在时为真 |
+
+上传会话新增 `backend,replicaBackend`，会话创建后目标固定。高可用上传完成后副本可能仍在排队，不能根据上传 `COMPLETE` 声称双副本完成。受保护对象读取（含分享、版本及 Range）通过校验副本回退；全部不可用返回 `503 REPLICAS_UNAVAILABLE`。任务状态：`QUEUED/RUNNING/COMPLETE/FAILED/INTERRUPTED/CANCELLED`；副本状态：`UNVERIFIED/VERIFIED/CORRUPT`。
+
+调度或容量不满足返回 `409 NO_PLACEMENT/NODE_CAPACITY/NODE_UNAVAILABLE/NODE_WRITE_PAUSED`；暂存不足返回 507。`fileIds` 与目录展开去重的是逻辑内容对象，同内容引用会共享迁移结果；不会访问其他用户对象。完整语义、升级与发布门槛见 [Horizon 2.0](horizon.md)。
+
+`DELETE /storage/files/{id}/protection`：本人停止该内容对象的自动副本保护，取消排队或执行中的副本任务，保留已有数据。成功空响应；不删除物理副本。

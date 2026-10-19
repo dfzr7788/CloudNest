@@ -13,6 +13,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ContentService {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.storage.ReplicaService replicas;
+
   private final Db db;
   private final DriveService drive;
   private final StorageService storage;
@@ -51,7 +54,7 @@ public class ContentService {
   }
 
   public InputStream open(Map<String, Object> b) throws IOException {
-    return storage.open(s(b, "backend"), s(b, "object_key"), 0, n(b, "size"));
+    return replicas.open(b, 0, n(b, "size"));
   }
 
   public String attachment(String uid, String note, String path, String boundary) {
@@ -171,10 +174,7 @@ public class ContentService {
     }
     // Open storage before committing response headers, so failures still produce a structured
     // error.
-    InputStream in =
-        length == 0
-            ? InputStream.nullInputStream()
-            : storage.open(s(b, "backend"), s(b, "object_key"), offset, length);
+    InputStream in = replicas.open(b, offset, length);
     try (in) {
       res.setHeader("Accept-Ranges", "bytes");
       res.setHeader("Cache-Control", "no-store");

@@ -25,7 +25,8 @@
   flex-direction: column;
   gap: 4px;
 }
-.sidebar nav button {
+.sidebar nav button,
+.sidebar nav .node-center-link {
   position: relative;
   display: flex;
   align-items: center;
@@ -46,7 +47,8 @@
   font-size: 17px;
   flex-shrink: 0;
 }
-.sidebar nav button:hover {
+.sidebar nav button:hover,
+.sidebar nav .node-center-link:hover {
   background: var(--cn-subtle);
   color: var(--cn-heading);
 }
@@ -247,6 +249,7 @@
   }
   .app-shell .sidebar .cn-logo-name,
   .sidebar .workspace-caption,
+  .sidebar nav .node-center-link > span:not(.el-icon),
   .sidebar nav button > span:not(.el-icon),
   .sidebar .storage-card,
   .sidebar .profile-copy,
@@ -257,7 +260,8 @@
     margin-top: 32px;
     width: 100%;
   }
-  .sidebar nav button {
+  .sidebar nav button,
+  .sidebar nav .node-center-link {
     padding: 12px;
     justify-content: center;
   }
@@ -348,7 +352,12 @@
 }
 
 @media (max-width: 767px) {
-  .sidebar nav button {
+  .sidebar nav button,
+  .sidebar nav .node-center-link {
     min-height: 44px;
   }
+}
+
+.sidebar nav .node-center-link {
+  text-decoration: none;
 }

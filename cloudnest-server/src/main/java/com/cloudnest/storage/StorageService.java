@@ -7,6 +7,11 @@ public interface StorageService {
 
   InputStream open(String backend, String key, long offset, long length) throws IOException;
 
+  /** Full object, without a Range that could hide appended corruption or reject empty objects. */
+  default InputStream openWhole(String backend, String key, long expectedSize) throws IOException {
+    return open(backend, key, 0, expectedSize);
+  }
+
   void delete(String backend, String key) throws IOException;
 
   boolean exists(String backend, String key) throws IOException;

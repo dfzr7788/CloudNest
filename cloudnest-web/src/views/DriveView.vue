@@ -8,6 +8,7 @@ import SharesSection from "../components/drive/SharesSection.vue";
 import FileCollectionTabs from "../components/files/FileCollectionTabs.vue";
 import FileFilters from "../components/files/FileFilters.vue";
 import BatchActionBar from "../components/files/BatchActionBar.vue";
+import FileStorageDialog from "../components/nodes/FileStorageDialog.vue";
 import type { FileAction } from "../components/files/actions";
 import AppSidebar from "../components/layout/AppSidebar.vue";
 import AppTopbar from "../components/layout/AppTopbar.vue";
@@ -106,6 +107,7 @@ const editingShare = ref<{
     allowDownload: boolean;
   } | null>(null),
   downloadRevision = ref(0);
+const storageFiles = ref<Entry[]>([]);
 const historyFile = ref<Entry | null>(null),
   shareFilter = ref("all");
 const visibleShares = computed(() =>
@@ -771,6 +773,7 @@ async function editTags(e: Entry) {
   }
 }
 function command(c: FileAction, e: Entry) {
+  if (c === "storage") storageFiles.value=[e];
   if (c === "download" && e.kind === "FILE")
     void download(`/api/files/${e.id}/download`);
   if (c === "restore") void restore(e);
@@ -792,6 +795,7 @@ function command(c: FileAction, e: Entry) {
 </script>
 <template>
   <div class="app-shell">
+    <FileStorageDialog :files="storageFiles" @close="storageFiles=[]" />
     <el-drawer
       v-if="isMobile"
       v-model="navOpen"
@@ -1061,6 +1065,7 @@ function command(c: FileAction, e: Entry) {
               >粘贴到当前目录</el-button
             >
           </div>
+          <el-button v-if="selected.length && section !== 'trash'" @click="storageFiles=[...selected]">存储与副本</el-button>
           <BatchActionBar :count="selected.length"
             ><strong>已选 {{ selected.length }} 项</strong
             ><SelectionBasket v-model="selected" /><template

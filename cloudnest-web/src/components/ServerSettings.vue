@@ -107,6 +107,7 @@ function clean(config: Record<string, string>) {
       磁盘剩余 {{ bytes(storage.freeBytes || 0) }} /
       {{ bytes(storage.totalBytes || 0) }}
     </p>
+    <p><router-link to="/admin/nodes">打开独立节点中心：调度策略、文件任务、副本与告警</router-link></p>
     <NodeSettings :active="active" />
     <h3>存储策略</h3>
     <p>

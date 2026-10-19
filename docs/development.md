@@ -109,3 +109,21 @@ GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端�
 ## 接口契约维护
 
 `docs/openapi.json` 是可直接导入的接口契约，修改接口时同时维护该文件和 `docs/api.md`。已移除会覆盖新增字段的旧导出脚本。`python scripts/check-api-contract.py` 只读核对控制器路由、路径参数和关键请求字段，CI 同步运行；该检查不替代请求/响应的集成测试。
+
+
+## Horizon 浏览器验收
+
+`e2e/horizon.spec.ts` 只对独立测试实例运行，要求合成管理员 `horizonadmin`（密码见测试用例），并使用项目内独立数据目录。勿复用生产账号或存储。
+
+```powershell
+python scripts/s3-contract-fixture.py --internal-port 18096 --public-port 18097
+# 另一个终端：启动专用后端与代理该后端的 Vite / preview
+# 将其数据目录与地址填入以下环境变量
+$env:CN_E2E_BASE_URL='http://127.0.0.1:15184'
+$env:CN_HORIZON_FIXTURE='1'
+$env:CN_HORIZON_DATA=(Resolve-Path '.tools/horizon-browser/data').Path
+cd cloudnest-web
+npx playwright test e2e/horizon.spec.ts
+```
+
+该用例会修改专用数据目录中的合成主对象，再确认 SHA-256 校验回退和 Range；之后恢复原始内容并重新验证副本。`CN_HORIZON_DATA` 必须与测试服务的数据目录严格一致。这是模拟协议验收，不是真实 Garage 测试。未提供这些变量时跳过此用例；不可将跳过计为通过。

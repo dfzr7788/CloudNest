@@ -1,4 +1,5 @@
 export type FileAction =
+  | "storage"
   | "download"
   | "tags"
   | "collect"

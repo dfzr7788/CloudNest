@@ -153,7 +153,13 @@ public class NodeService {
   }
 
   public boolean referenced(String backend) {
-    return defaultBackend().equals(backend)
+    return db.count("SELECT COUNT(*) FROM blob_replica WHERE backend=?", backend) > 0
+        || db.count(
+                "SELECT COUNT(*) FROM storage_job_item WHERE target_backend=? AND status IN"
+                    + " ('QUEUED','RUNNING')",
+                backend)
+            > 0
+        || defaultBackend().equals(backend)
         || db.count("SELECT COUNT(*) FROM file_blob WHERE backend=?", backend) > 0
         || db.count("SELECT COUNT(*) FROM upload_session WHERE backend=?", backend) > 0
         || db.count("SELECT COUNT(*) FROM storage_reservation WHERE backend=?", backend) > 0
@@ -274,11 +280,15 @@ public class NodeService {
   public void poll() {
     for (var n : db.list("SELECT backend FROM storage_node WHERE enabled=TRUE")) {
       try {
-        check(s(n, "backend"), false);
+        String backend = s(n, "backend");
+        check(backend, Set.of("OFFLINE", "DEGRADED").contains(s(node(backend), "state")));
       } catch (Problem removed) {
         if (removed.status != 404) throw removed;
       }
     }
+    db.update(
+        "DELETE FROM storage_placement_log WHERE created_at<?",
+        System.currentTimeMillis() - 30L * 86400000);
     db.update(
         "DELETE FROM storage_node_event WHERE created_at<?",
         System.currentTimeMillis() - 30L * 86400000);

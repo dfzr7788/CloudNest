@@ -173,6 +173,26 @@ public class Maintenance implements ApplicationRunner {
       report.add(result);
       if (Boolean.FALSE.equals(result.get("checksumValid"))) problems++;
     }
+    for (var replica :
+        db.list(
+            "SELECT r.*,b.sha256 FROM blob_replica r JOIN file_blob b ON b.id=r.blob_id WHERE"
+                + " b.status='READY' AND b.desired_replicas=2")) {
+      boolean valid = false;
+      try (var input =
+          storage.openWhole(s(replica, "backend"), s(replica, "object_key"), n(replica, "size"))) {
+        valid = Util.hash(input).equals(s(replica, "sha256"));
+      } catch (IOException unavailable) {
+      }
+      report.add(
+          Map.of(
+              "blobId",
+              s(replica, "blob_id"),
+              "backend",
+              s(replica, "backend"),
+              "replicaChecksumValid",
+              valid));
+      if (!valid) problems++;
+    }
     return Map.of("action", action, "problems", problems, "records", report);
   }
 
@@ -181,12 +201,16 @@ public class Maintenance implements ApplicationRunner {
         db.list(
             "SELECT id,backend,object_key,size,sha256 FROM file_blob WHERE status='READY' ORDER BY"
                 + " id");
+    var replicaRecords =
+        db.list(
+            "SELECT r.*,b.sha256 FROM blob_replica r JOIN file_blob b ON b.id=r.blob_id ORDER BY"
+                + " r.blob_id,r.backend");
     var policies = db.list("SELECT id,endpoint,bucket,region FROM storage_policy ORDER BY id");
     var backends =
         db
             .list(
                 "SELECT backend FROM file_blob UNION SELECT backend FROM upload_session UNION"
-                    + " SELECT backend FROM storage_copy")
+                    + " SELECT backend FROM storage_copy UNION SELECT backend FROM blob_replica")
             .stream()
             .map(row -> s(row, "backend"))
             .toList();
@@ -200,6 +224,8 @@ public class Maintenance implements ApplicationRunner {
                   1,
                   "objects",
                   objects,
+                  "replicas",
+                  replicaRecords,
                   "policies",
                   policies,
                   "legacyEndpoint",
@@ -234,6 +260,14 @@ public class Maintenance implements ApplicationRunner {
         if (n(row, "size") != saved.path("size").asLong(-1))
           throw new IOException("Manifest size mismatch");
       }
+      if (manifest.has("replicas")) {
+        var replicas =
+            db.list(
+                "SELECT r.*,b.sha256 FROM blob_replica r JOIN file_blob b ON b.id=r.blob_id ORDER"
+                    + " BY r.blob_id,r.backend");
+        if (!json.readTree(json.writeValueAsBytes(replicas)).equals(manifest.path("replicas")))
+          throw new IOException("Replica manifest mismatch");
+      }
       return Map.of("action", action, "problems", 0, "objects", actual.size());
     } catch (IOException e) {
       throw new IllegalStateException("Restored database does not match checkpoint manifest", e);
@@ -253,6 +287,10 @@ public class Maintenance implements ApplicationRunner {
           db.update(
               "UPDATE storage_node_health SET"
                   + " state='UNKNOWN',validated=FALSE,checked_at=0,failures=0,successes=0");
+          db.update(
+              "UPDATE storage_job_item SET status='INTERRUPTED',error='隔离恢复后需要重新检测并重试' WHERE status"
+                  + " IN ('QUEUED','RUNNING')");
+          db.update("DELETE FROM storage_reservation WHERE id LIKE 'job:%'");
           // Never resume old tasks against restored storage without a fresh operator decision.
           db.update(
               "UPDATE maintenance_job SET status='INTERRUPTED' WHERE status IN"
@@ -320,6 +358,14 @@ public class Maintenance implements ApplicationRunner {
         db.update(
             "UPDATE storage_reservation SET backend='local' WHERE id IN (SELECT id FROM"
                 + " upload_session)");
+        db.update("DELETE FROM blob_replica");
+        db.update(
+            "INSERT INTO blob_replica(blob_id,backend,object_key,size) SELECT"
+                + " id,backend,object_key,size FROM file_blob WHERE status='READY'");
+        db.update(
+            "UPDATE storage_job_item SET status='INTERRUPTED',error='便携恢复只保留本地数据，请重新配置保护目标' WHERE"
+                + " status IN ('QUEUED','RUNNING')");
+        db.update("DELETE FROM storage_reservation WHERE id LIKE 'job:%'");
         db.update("DELETE FROM storage_copy WHERE backend<>'local'");
         db.update(
             "UPDATE storage_node SET enabled=FALSE,direct_download=FALSE,public_endpoint=NULL WHERE"

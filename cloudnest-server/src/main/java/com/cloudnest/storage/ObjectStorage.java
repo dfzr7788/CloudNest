@@ -186,6 +186,20 @@ public class ObjectStorage implements StorageService {
   }
 
   @Override
+  public InputStream openWhole(String backend, String key, long expectedSize) throws IOException {
+    path(key);
+    if ("local".equals(backend)) return open(backend, key, 0, expectedSize);
+    try {
+      var remote = remote(backend);
+      return remote
+          .client()
+          .getObject(GetObjectArgs.builder().bucket(remote.bucket()).object(key).build());
+    } catch (Exception failure) {
+      throw new IOException("Object read failed", failure);
+    }
+  }
+
+  @Override
   public InputStream open(String backend, String key, long offset, long length) throws IOException {
     path(key);
     if (backend.equals("local")) {
@@ -200,6 +214,7 @@ public class ObjectStorage implements StorageService {
     }
     if (!backend.equals("minio") && !backend.startsWith("s3:"))
       throw new IOException("Unknown storage backend");
+    if (length == 0) return openWhole(backend, key, 0);
     try {
       var remote = remote(backend);
       return remote

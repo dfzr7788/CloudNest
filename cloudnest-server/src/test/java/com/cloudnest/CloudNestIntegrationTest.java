@@ -2151,6 +2151,10 @@ class CloudNestIntegrationTest {
             + " public_endpoint='https://objects.example.test',direct_download=TRUE WHERE"
             + " backend=?",
         backend);
+    db.update(
+        "UPDATE storage_node_health SET state='ONLINE',validated=TRUE,checked_at=? WHERE backend=?",
+        System.currentTimeMillis(),
+        backend);
     db.update("UPDATE file_blob SET backend=? WHERE id=?", backend, blob.get("id"));
     var result = call(u, get("/api/files/" + file + "/download-authorization"), null, 200);
     assertEquals("no-store, private", result.getResponse().getHeader("Cache-Control"));

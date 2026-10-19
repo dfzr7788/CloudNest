@@ -24,6 +24,15 @@ public class UploadService {
   @Value("${cloudnest.maintenance:false}")
   private boolean maintenance;
 
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.PlacementService placement;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.storage.ReplicaService replicas;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.storage.MigrationService migrations;
+
   private final Db db;
   private final DriveService drive;
   private final StorageService storage;
@@ -145,16 +154,14 @@ public class UploadService {
                   if (n(user, "storage_used") + n(user, "storage_reserved")
                       > n(user, "storage_quota") - size)
                     throw new Problem(409, "QUOTA_EXCEEDED", "存储空间不足，请清理回收站或取消上传");
-                  String selectedBackend =
-                      settings.get("storage").getOrDefault("defaultBackend", backend);
-                  if (selectedBackend.startsWith("s3:")
-                      && db.count(
-                              "SELECT COUNT(*) FROM storage_policy WHERE id=? AND enabled=TRUE",
-                              selectedBackend.substring(3))
-                          != 1) throw Problem.conflict("默认存储策略不可用，请联系管理员");
+                  var decision = placement.select(uid, size);
+                  String selectedBackend = decision.backend();
                   String id = Util.id(), key = "objects/" + Util.id();
-                  nodes.admit(selectedBackend, false, size);
                   nodes.reserve(id, selectedBackend, size, Math.multiplyExact(size, 3));
+                  if (decision.replicaBackend() != null) {
+                    nodes.admit(decision.replicaBackend(), true, size);
+                    nodes.reserve(id + ":replica", decision.replicaBackend(), size, 0);
+                  }
                   long now = System.currentTimeMillis();
                   db.update(
                       "INSERT INTO"
@@ -172,6 +179,10 @@ public class UploadService {
                       selectedBackend,
                       now,
                       now + lifetime);
+                  db.update(
+                      "UPDATE upload_session SET replica_backend=? WHERE id=?",
+                      decision.replicaBackend(),
+                      id);
                   db.update(
                       "UPDATE sys_user SET storage_reserved=storage_reserved+? WHERE id=?",
                       size,
@@ -194,6 +205,7 @@ public class UploadService {
                   if (!reusable.isEmpty()) {
                     publish(session(uid, id), reusable.getFirst());
                     nodes.release(id);
+                    nodes.release(id + ":replica");
                   }
                   return describe(session(uid, id));
                 }));
@@ -220,6 +232,8 @@ public class UploadService {
   private Map<String, Object> describe(Map<String, Object> s) {
     Map<String, Object> m = new LinkedHashMap<>();
     for (String k : List.of("id", "name", "size", "sha256", "status")) m.put(k, s.get(k));
+    m.put("backend", s.get("backend"));
+    m.put("replicaBackend", s.get("replica_backend"));
     m.put("folderId", s.get("folder_id"));
     m.put("partSize", s.get("part_size"));
     m.put("partCount", s.get("part_count"));
@@ -325,6 +339,11 @@ public class UploadService {
         try (var input = Files.newInputStream(merged)) {
           storage.put(s(s, "backend"), s(s, "object_key"), input, total);
         }
+        var candidate = new LinkedHashMap<String, Object>();
+        candidate.put("size", total);
+        candidate.put("sha256", s(s, "sha256"));
+        if (!replicas.verify(candidate, s(s, "backend"), s(s, "object_key")))
+          throw new Problem(422, "CHECKSUM_MISMATCH", "存储对象校验失败");
         final String detected = mime;
         db.atomic(
             uid,
@@ -367,6 +386,7 @@ public class UploadService {
                             detected,
                             System.currentTimeMillis());
                         blob = db.one("SELECT * FROM file_blob WHERE id=?", bid);
+                        replicas.verified(blob, s(blob, "backend"), s(blob, "object_key"));
                       } else blob = blobs.getFirst();
                       publish(current, blob);
                       return null;
@@ -378,6 +398,7 @@ public class UploadService {
             nodes.locked(
                 () -> {
                   nodes.release(id);
+                  nodes.release(id + ":replica");
                   return null;
                 });
           } catch (IOException e) {
@@ -388,6 +409,7 @@ public class UploadService {
           nodes.locked(
               () -> {
                 nodes.release(id);
+                nodes.release(id + ":replica");
                 return null;
               });
         return describe(session(uid, id));
@@ -404,6 +426,22 @@ public class UploadService {
   private void publish(Map<String, Object> s, Map<String, Object> blob) {
     String uid = s(s, "user_id"), fid = s(s, "target_id") == null ? Util.id() : s(s, "target_id");
     long now = System.currentTimeMillis();
+    String replicaTarget = s(s, "replica_backend");
+    if (replicaTarget != null) {
+      String actualTarget =
+          com.cloudnest.node.PlacementService.independent(
+                  nodes.node(s(blob, "backend")), nodes.node(replicaTarget))
+              ? replicaTarget
+              : s(s, "backend");
+      var active =
+          db.list(
+              "SELECT id FROM storage_job_item WHERE blob_id=? AND kind='REPLICATE' AND status IN"
+                  + " ('QUEUED','RUNNING')",
+              s(blob, "id"));
+      if (active.isEmpty())
+        migrations.enqueue(uid, blob, actualTarget, "REPLICATE", s(s, "id") + ":replica");
+      else nodes.release(s(s, "id") + ":replica");
+    }
     if (s(s, "target_id") != null) {
       var old = drive.file(uid, fid);
       if (n(old, "revision") != n(s, "target_revision")
@@ -490,6 +528,7 @@ public class UploadService {
           nodes.locked(
               () -> {
                 nodes.release(id);
+                nodes.release(id + ":replica");
                 return null;
               });
         }
@@ -541,6 +580,7 @@ public class UploadService {
           nodes.locked(
               () -> {
                 nodes.release(id);
+                nodes.release(id + ":replica");
                 return null;
               });
           if (n(s, "expires_at") < now) {
@@ -558,11 +598,24 @@ public class UploadService {
         db.atomic(
             s(b, "user_id"),
             () -> {
-              if (!drive.referenced(s(b, "id"))) {
+              if (!drive.referenced(s(b, "id"))
+                  && db.count(
+                          "SELECT COUNT(*) FROM storage_job_item WHERE blob_id=? AND status IN"
+                              + " ('QUEUED','RUNNING')",
+                          s(b, "id"))
+                      == 0) {
                 try {
-                  storage.delete(s(b, "backend"), s(b, "object_key"));
-                } catch (IOException e) {
-                  throw new java.io.UncheckedIOException(e);
+                  nodes.locked(
+                      () -> {
+                        try {
+                          replicas.deleteAll(b);
+                        } catch (IOException e) {
+                          throw new UncheckedIOException(e);
+                        }
+                        return null;
+                      });
+                } catch (UncheckedIOException e) {
+                  throw e;
                 }
                 db.update("DELETE FROM file_blob WHERE id=?", s(b, "id"));
               }
