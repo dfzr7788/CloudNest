@@ -5291,7 +5291,8 @@
           {
             "cookieAuth": []
           }
-        ]
+        ],
+        "description": "totals包含views、downloads（原代理/ZIP请求）、download_authorizations（授权取链）、collected；两种下载口径分别统计，不表示客户端完成下载。"
       }
     },
     "/public/shares/{token}/collect": {
@@ -10407,6 +10408,682 @@
           }
         }
       }
+    },
+    "/admin/nodes": {
+      "get": {
+        "summary": "管理员节点与脱敏健康列表",
+        "operationId": "get__admin_nodes",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/StorageNode"
+                      }
+                    },
+                    "defaultBackend": {
+                      "type": "string"
+                    },
+                    "unknownBackends": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "backend": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/nodes/{backend}": {
+      "put": {
+        "summary": "更新节点；暂停/维护阻止新任务，已有任务排空",
+        "operationId": "put__admin_nodes_backend",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "同时携带XSRF-TOKEN Cookie"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageNodeUpdate"
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "删除无引用的远端节点与策略；内置节点不可删除",
+        "operationId": "delete__admin_nodes_backend",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "同时携带XSRF-TOKEN Cookie"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/nodes/{backend}/test": {
+      "post": {
+        "summary": "完整读写、校验、删除检测",
+        "operationId": "post__admin_nodes_backend_test",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "同时携带XSRF-TOKEN Cookie"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean"
+                    },
+                    "state": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/nodes/{backend}/events": {
+      "get": {
+        "summary": "最近100条脱敏健康变化",
+        "operationId": "get__admin_nodes_backend_events",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "state": {
+                        "type": "string"
+                      },
+                      "created_at": {
+                        "type": "integer",
+                        "format": "int64"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/nodes/{backend}/copies": {
+      "get": {
+        "summary": "查询未被当前blob引用的保留副本",
+        "operationId": "get__admin_nodes_backend_copies",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "backend": {
+                        "type": "string"
+                      },
+                      "object_key": {
+                        "type": "string"
+                      },
+                      "size": {
+                        "type": "integer",
+                        "format": "int64"
+                      },
+                      "created_at": {
+                        "type": "integer",
+                        "format": "int64"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      },
+      "delete": {
+        "summary": "显式清理副本；引用/迁移保护及120秒等待期",
+        "operationId": "delete__admin_nodes_backend_copies",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "同时携带XSRF-TOKEN Cookie"
+          },
+          {
+            "name": "key",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "列表返回的object_key"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成"
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/files/{id}/download-authorization": {
+      "get": {
+        "summary": "本人文件的短期下载授权",
+        "operationId": "get__files_id_download_authorization",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadAuthorization"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store, private"
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/public/shares/{token}/download-authorization": {
+      "get": {
+        "summary": "分享固定对象授权；复用提取码、期限和下载权限",
+        "operationId": "get__public_shares_token_download_authorization",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadAuthorization"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store, private"
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": []
+      }
+    },
+    "/public/shares/{token}/entries/{id}/download-authorization": {
+      "get": {
+        "summary": "目录/集合成员授权；先检查范围再签名",
+        "operationId": "get__public_shares_token_entries_id_download_authorization",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "成功；管理操作需管理员；下载授权不代表下载完成",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadAuthorization"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "no-store, private"
+              }
+            }
+          },
+          "400": {
+            "description": "参数无效"
+          },
+          "401": {
+            "description": "未登录"
+          },
+          "403": {
+            "description": "权限、提取码或CSRF失败"
+          },
+          "404": {
+            "description": "资源不存在或不在授权范围"
+          },
+          "409": {
+            "description": "节点状态、容量或引用冲突"
+          },
+          "410": {
+            "description": "分享或授权失效"
+          },
+          "429": {
+            "description": "请求过于频繁"
+          },
+          "502": {
+            "description": "副本删除或上游服务失败"
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -10415,6 +11092,172 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "CN_AUTH"
+      }
+    },
+    "schemas": {
+      "DownloadAuthorization": {
+        "type": "object",
+        "required": [
+          "mode",
+          "url",
+          "expiresAt"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "proxy"
+            ]
+          },
+          "url": {
+            "type": "string",
+            "description": "GET 下载地址。proxy为站内路径，direct为短期签名地址；不要缓存或记录查询串"
+          },
+          "expiresAt": {
+            "type": "integer",
+            "format": "int64",
+            "description": "毫秒时间戳，最长约60秒，分享期限可能更短"
+          }
+        }
+      },
+      "StorageNodeUpdate": {
+        "type": "object",
+        "required": [
+          "name",
+          "enabled",
+          "management",
+          "allowUpload",
+          "allowMigration",
+          "budgetBytes",
+          "directDownload"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "management": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "WRITE_PAUSED",
+              "MAINTENANCE"
+            ]
+          },
+          "allowUpload": {
+            "type": "boolean"
+          },
+          "allowMigration": {
+            "type": "boolean"
+          },
+          "budgetBytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "管理员预算，0不设硬上限，不是真实磁盘总容量"
+          },
+          "publicEndpoint": {
+            "type": "string",
+            "maxLength": 500,
+            "nullable": true,
+            "description": "公网HTTP/HTTPS S3 origin，不含路径；与内部策略地址分离"
+          },
+          "directDownload": {
+            "type": "boolean"
+          }
+        }
+      },
+      "StorageNode": {
+        "type": "object",
+        "description": "仅节点元数据和健康；不含存储凭据",
+        "properties": {
+          "backend": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "management": {
+            "type": "string",
+            "enum": [
+              "ACTIVE",
+              "WRITE_PAUSED",
+              "MAINTENANCE"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "UNKNOWN",
+              "ONLINE",
+              "DEGRADED",
+              "OFFLINE"
+            ]
+          },
+          "validated": {
+            "type": "boolean"
+          },
+          "stale": {
+            "type": "boolean"
+          },
+          "referenced": {
+            "type": "boolean"
+          },
+          "budget_bytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "usedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reservedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "checked_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "latency_ms": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "failures": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "successes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "config_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "allow_upload": {
+            "type": "boolean"
+          },
+          "allow_migration": {
+            "type": "boolean"
+          },
+          "public_endpoint": {
+            "type": "string",
+            "nullable": true
+          },
+          "direct_download": {
+            "type": "boolean"
+          }
+        }
       }
     }
   }

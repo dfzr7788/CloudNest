@@ -152,6 +152,7 @@ const emit = defineEmits<{
               ><a
                 v-if="file.kind === 'FILE'"
                 :href="`/api/files/${file.id}/download`"
+                @click.prevent="emit('action', 'download', file)"
                 class="row-icon"
                 :aria-label="'下载 ' + file.name"
                 ><el-icon><Download /></el-icon></a

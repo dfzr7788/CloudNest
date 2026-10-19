@@ -14,6 +14,10 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/admin/config")
 public class ConfigurationController {
   @org.springframework.beans.factory.annotation.Autowired private Db db;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
   private final RuntimeSettings settings;
   private final MailRecovery mail;
   private static final Map<String, Set<String>> FIELDS =
@@ -98,7 +102,14 @@ public class ConfigurationController {
         throw Problem.invalid("容量告警阈值为 50～95");
       }
     }
-    settings.set(section, value);
+    if (section.equals("storage")) {
+      nodes.locked(
+          () -> {
+            nodes.admit(value.getOrDefault("defaultBackend", "local"), false, 0);
+            settings.set(section, value);
+            return null;
+          });
+    } else settings.set(section, value);
   }
 
   public record Test(@Email String email) {}

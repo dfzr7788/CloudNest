@@ -22,6 +22,9 @@ public class StorageController {
   @Value("${cloudnest.storage:local}")
   private String environmentBackend;
 
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
   private final Db db;
   private final RuntimeSettings settings;
   private final SecretCipher cipher;
@@ -49,6 +52,7 @@ public class StorageController {
     db.update(
         "UPDATE maintenance_job SET status='INTERRUPTED',error='服务重启，请重新发起；已迁移对象会自动跳过' WHERE status"
             + " IN ('QUEUED','RUNNING')");
+    db.update("DELETE FROM storage_reservation WHERE id LIKE 'migration:%'");
   }
 
   @PreDestroy
@@ -101,8 +105,7 @@ public class StorageController {
       throw Problem.invalid("Endpoint 或桶名称无效");
     String id = in.id() == null ? Util.id().replace("-", "").substring(0, 12) : in.id();
     if (!id.matches("[a-f0-9]{12}")) throw Problem.invalid("策略编号无效");
-    return db.atomic(
-        a.getName(),
+    return nodes.locked(
         () -> {
           var old = db.list("SELECT * FROM storage_policy WHERE id=?", id);
           if (old.isEmpty() && db.count("SELECT COUNT(*) FROM storage_policy") >= 16)
@@ -112,7 +115,7 @@ public class StorageController {
             var existing = old.getFirst();
             if ((!in.endpoint().equals(s(existing, "endpoint"))
                     || !in.bucket().equals(s(existing, "bucket")))
-                && db.count("SELECT COUNT(*) FROM file_blob WHERE backend=?", "s3:" + id) > 0)
+                && nodes.referenced("s3:" + id))
               throw Problem.conflict("策略已有对象，请新建策略并迁移，不能直接更改桶位置");
             if (access == null || access.isBlank())
               access = cipher.decrypt(s(existing, "access_key"));
@@ -137,6 +140,12 @@ public class StorageController {
               cipher.encrypt(access),
               cipher.encrypt(secret),
               in.region());
+          nodes.ensure("s3:" + id, in.name(), true);
+          db.update(
+              "UPDATE storage_node_health SET"
+                  + " state='UNKNOWN',validated=FALSE,successes=0,failures=0,config_version=config_version+1"
+                  + " WHERE backend=?",
+              "s3:" + id);
           return Map.of("id", id);
         });
   }
@@ -145,11 +154,15 @@ public class StorageController {
   public void remove(Authentication a, @PathVariable String id) {
     settings.admin(a.getName());
     String backend = "s3:" + id;
-    if (settings.get("storage").getOrDefault("defaultBackend", environmentBackend).equals(backend)
-        || db.count("SELECT COUNT(*) FROM file_blob WHERE backend=?", backend) > 0
-        || db.count("SELECT COUNT(*) FROM upload_session WHERE backend=?", backend) > 0)
-      throw Problem.conflict("策略仍在使用，不能删除");
-    db.update("DELETE FROM storage_policy WHERE id=?", id);
+    nodes.locked(
+        () -> {
+          if (nodes.referenced(backend)) throw Problem.conflict("策略仍在使用，不能删除");
+          db.update("DELETE FROM storage_node_event WHERE backend=?", backend);
+          db.update("DELETE FROM storage_node_health WHERE backend=?", backend);
+          db.update("DELETE FROM storage_node WHERE backend=?", backend);
+          db.update("DELETE FROM storage_policy WHERE id=?", id);
+          return null;
+        });
   }
 
   public record Backend(@NotBlank String backend) {}
@@ -157,10 +170,8 @@ public class StorageController {
   private void validate(String backend) {
     if (!Set.of("local", "minio").contains(backend)
         && (!backend.matches("s3:[a-f0-9]{12}")
-            || db.count(
-                    "SELECT COUNT(*) FROM storage_policy WHERE id=? AND enabled=TRUE",
-                    backend.substring(3))
-                != 1)) throw Problem.invalid("存储策略不存在或未启用");
+            || db.count("SELECT COUNT(*) FROM storage_policy WHERE id=?", backend.substring(3))
+                != 1)) throw Problem.invalid("存储策略不存在");
   }
 
   @PostMapping("/test")
@@ -168,19 +179,7 @@ public class StorageController {
       throws IOException {
     settings.admin(a.getName());
     validate(in.backend());
-    String key = "objects/" + Util.id();
-    byte[] bytes = Util.token().getBytes(java.nio.charset.StandardCharsets.UTF_8);
-    long start = System.nanoTime();
-    try {
-      storage.put(in.backend(), key, new ByteArrayInputStream(bytes), bytes.length);
-      try (var input = storage.open(in.backend(), key, 0, bytes.length)) {
-        if (!Arrays.equals(bytes, input.readNBytes(bytes.length + 1)))
-          throw new IOException("Readback mismatch");
-      }
-      return Map.of("ok", true, "milliseconds", (System.nanoTime() - start) / 1000000);
-    } finally {
-      storage.delete(in.backend(), key);
-    }
+    return nodes.check(in.backend(), true);
   }
 
   public record Migration(@NotBlank String source, @NotBlank String target) {}
@@ -193,26 +192,37 @@ public class StorageController {
     validate(in.target());
     if (in.source().equals(in.target())) throw Problem.invalid("来源与目标不能相同");
     String id = Util.id();
-    db.atomic(
-        a.getName(),
-        () -> {
-          if (db.count("SELECT COUNT(*) FROM maintenance_job WHERE status IN ('QUEUED','RUNNING')")
-              > 0) throw Problem.conflict("已有维护任务正在进行");
-          long now = System.currentTimeMillis();
-          db.update(
-              "INSERT INTO"
-                  + " maintenance_job(id,kind,status,source_backend,target_backend,total,created_at,updated_at)"
-                  + " VALUES(?,'MIGRATE','QUEUED',?,?,?,?,?)",
-              id,
-              in.source(),
-              in.target(),
-              db.count(
-                  "SELECT COUNT(*) FROM file_blob WHERE backend=? AND status='READY'", in.source()),
-              now,
-              now);
-          return null;
-        });
-    worker.submit(() -> run(id, in.source(), in.target()));
+    var candidates =
+        nodes.locked(
+            () -> {
+              if (db.count(
+                      "SELECT COUNT(*) FROM maintenance_job WHERE status IN ('QUEUED','RUNNING')")
+                  > 0) throw Problem.conflict("已有维护任务正在进行");
+              long bytes =
+                  db.count(
+                      "SELECT COALESCE(SUM(size),0) FROM file_blob WHERE backend=? AND"
+                          + " status='READY'",
+                      in.source());
+              nodes.admit(in.target(), true, bytes);
+              nodes.reserve("migration:" + id, in.target(), bytes, 0);
+              long now = System.currentTimeMillis();
+              db.update(
+                  "INSERT INTO"
+                      + " maintenance_job(id,kind,status,source_backend,target_backend,total,created_at,updated_at)"
+                      + " VALUES(?,'MIGRATE','QUEUED',?,?,?,?,?)",
+                  id,
+                  in.source(),
+                  in.target(),
+                  db.count(
+                      "SELECT COUNT(*) FROM file_blob WHERE backend=? AND status='READY'",
+                      in.source()),
+                  now,
+                  now);
+              return db.list(
+                  "SELECT id FROM file_blob WHERE backend=? AND status='READY' ORDER BY id",
+                  in.source());
+            });
+    worker.submit(() -> run(id, in.source(), in.target(), candidates));
     return Map.of("id", id);
   }
 
@@ -225,42 +235,63 @@ public class StorageController {
         id);
   }
 
-  private void run(String id, String source, String target) {
+  private void run(String id, String source, String target, List<Map<String, Object>> candidates) {
     try {
       if (db.update(
               "UPDATE maintenance_job SET status='RUNNING' WHERE id=? AND status='QUEUED'", id)
           == 0) return;
-      for (; ; ) {
+      for (var candidate : candidates) {
         if (Thread.currentThread().isInterrupted()
             || !s(db.one("SELECT status FROM maintenance_job WHERE id=?", id), "status")
                 .equals("RUNNING")) return;
         var batch =
             db.list(
-                "SELECT * FROM file_blob WHERE backend=? AND status='READY' ORDER BY id LIMIT 1",
-                source);
-        if (batch.isEmpty()) break;
+                "SELECT * FROM file_blob WHERE backend=? AND status='READY' AND id=?",
+                source,
+                candidate.get("id"));
+        if (batch.isEmpty()) continue;
         var blob = batch.getFirst();
         String key = s(blob, "object_key");
+        nodes.locked(
+            () -> {
+              nodes.copied(target, key, n(blob, "size"));
+              db.update(
+                  "UPDATE storage_reservation SET bytes=GREATEST(0,bytes-?) WHERE id=?",
+                  n(blob, "size"),
+                  "migration:" + id);
+              return null;
+            });
         try (var input = storage.open(source, key, 0, n(blob, "size"))) {
           storage.put(target, key, input, n(blob, "size"));
         }
         try (var input = storage.open(target, key, 0, n(blob, "size"))) {
           if (!Util.hash(input).equals(s(blob, "sha256"))) throw new IOException("迁移内容校验失败");
         }
-        db.atomic(
-            s(blob, "user_id"),
-            () -> {
-              db.update(
-                  "UPDATE file_blob SET backend=? WHERE id=? AND backend=? AND status='READY'",
-                  target,
-                  blob.get("id"),
-                  source);
-              return null;
-            });
-        db.update(
-            "UPDATE maintenance_job SET completed=completed+1,updated_at=? WHERE id=?",
-            System.currentTimeMillis(),
-            id);
+        boolean moved =
+            db.atomic(
+                s(blob, "user_id"),
+                () ->
+                    nodes.locked(
+                        () -> {
+                          if (!"RUNNING"
+                              .equals(
+                                  s(
+                                      db.one("SELECT status FROM maintenance_job WHERE id=?", id),
+                                      "status"))) return false;
+                          nodes.copied(source, key, n(blob, "size"));
+                          return db.update(
+                                  "UPDATE file_blob SET backend=? WHERE id=? AND backend=? AND"
+                                      + " status='READY'",
+                                  target,
+                                  blob.get("id"),
+                                  source)
+                              == 1;
+                        }));
+        if (moved)
+          db.update(
+              "UPDATE maintenance_job SET completed=completed+1,updated_at=? WHERE id=?",
+              System.currentTimeMillis(),
+              id);
       }
       db.update(
           "UPDATE maintenance_job SET status='COMPLETE',updated_at=? WHERE id=? AND"
@@ -274,6 +305,12 @@ public class StorageController {
               + " status<>'CANCELLED'",
           System.currentTimeMillis(),
           id);
+    } finally {
+      nodes.locked(
+          () -> {
+            nodes.release("migration:" + id);
+            return null;
+          });
     }
   }
 }

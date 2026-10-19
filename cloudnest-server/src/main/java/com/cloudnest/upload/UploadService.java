@@ -18,6 +18,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class UploadService {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
+  @Value("${cloudnest.maintenance:false}")
+  private boolean maintenance;
+
   private final Db db;
   private final DriveService drive;
   private final StorageService storage;
@@ -97,89 +103,100 @@ public class UploadService {
     String name = Util.name(input);
     return db.atomic(
         uid,
-        () -> {
-          String parent = s(drive.folder(uid, folder), "id");
-          var pending =
-              db.list(
-                  "SELECT * FROM upload_session WHERE user_id=? AND folder_id=? AND name=? AND"
-                      + " size=? AND sha256=? AND status='UPLOADING' AND expires_at>? ORDER BY"
-                      + " created_at DESC",
-                  uid,
-                  parent,
-                  name,
-                  size,
-                  hash,
-                  System.currentTimeMillis());
-          if (!pending.isEmpty()) {
-            var prior = pending.getFirst();
-            if (!Objects.equals(target, s(prior, "target_id"))
-                || (target != null && !Objects.equals(revision, n(prior, "target_revision"))))
-              throw Problem.conflict("已有同名上传，请先继续或取消该任务");
-            return describe(prior);
-          }
-          if (db.count(
-                  "SELECT COUNT(*) FROM upload_session WHERE user_id=? AND status IN"
-                      + " ('UPLOADING','ASSEMBLING')",
-                  uid)
-              >= 20) throw Problem.conflict("最多同时保留 20 个上传会话，请先取消或完成已有上传");
-          if (target != null) {
-            var e = drive.file(uid, target);
-            if (!parent.equals(s(e, "parent_id"))
-                || !name.equals(s(e, "name"))
-                || revision == null
-                || revision != n(e, "revision")) throw Problem.conflict("覆盖目标已变化，请重新选择文件");
-            if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", target) >= 20)
-              throw Problem.conflict("历史版本已达上限，请先清理旧版本");
-          }
-          drive.available(uid, parent, "FILE", name, target);
-          var user = db.one("SELECT * FROM sys_user WHERE id=?", uid);
-          if (n(user, "storage_used") + n(user, "storage_reserved")
-              > n(user, "storage_quota") - size)
-            throw new Problem(409, "QUOTA_EXCEEDED", "存储空间不足，请清理回收站或取消上传");
-          String selectedBackend = settings.get("storage").getOrDefault("defaultBackend", backend);
-          if (selectedBackend.startsWith("s3:")
-              && db.count(
-                      "SELECT COUNT(*) FROM storage_policy WHERE id=? AND enabled=TRUE",
-                      selectedBackend.substring(3))
-                  != 1) throw Problem.conflict("默认存储策略不可用，请联系管理员");
-          String id = Util.id(), key = "objects/" + Util.id();
-          long now = System.currentTimeMillis();
-          db.update(
-              "INSERT INTO"
-                  + " upload_session(id,user_id,folder_id,name,size,sha256,part_size,part_count,status,object_key,backend,created_at,expires_at)"
-                  + " VALUES(?,?,?,?,?,?,?,?,'UPLOADING',?,?,?,?)",
-              id,
-              uid,
-              parent,
-              name,
-              size,
-              hash,
-              partSize,
-              Math.max(1, (size + partSize - 1) / partSize),
-              key,
-              selectedBackend,
-              now,
-              now + lifetime);
-          db.update(
-              "UPDATE sys_user SET storage_reserved=storage_reserved+? WHERE id=?", size, uid);
-          if (target != null)
-            db.update(
-                "UPDATE upload_session SET target_id=?,target_revision=? WHERE id=?",
-                target,
-                revision,
-                id);
-          var reusable =
-              db.list(
-                  "SELECT b.* FROM file_blob b WHERE b.user_id=? AND b.sha256=? AND b.size=? AND"
-                      + " b.status='READY' AND EXISTS(SELECT 1 FROM drive_entry e WHERE"
-                      + " e.blob_id=b.id AND e.user_id=?)",
-                  uid,
-                  hash,
-                  size,
-                  uid);
-          if (!reusable.isEmpty()) publish(session(uid, id), reusable.getFirst());
-          return describe(session(uid, id));
-        });
+        () ->
+            nodes.locked(
+                () -> {
+                  String parent = s(drive.folder(uid, folder), "id");
+                  var pending =
+                      db.list(
+                          "SELECT * FROM upload_session WHERE user_id=? AND folder_id=? AND name=?"
+                              + " AND size=? AND sha256=? AND status='UPLOADING' AND expires_at>?"
+                              + " ORDER BY created_at DESC",
+                          uid,
+                          parent,
+                          name,
+                          size,
+                          hash,
+                          System.currentTimeMillis());
+                  if (!pending.isEmpty()) {
+                    var prior = pending.getFirst();
+                    if (!Objects.equals(target, s(prior, "target_id"))
+                        || (target != null
+                            && !Objects.equals(revision, n(prior, "target_revision"))))
+                      throw Problem.conflict("已有同名上传，请先继续或取消该任务");
+                    return describe(prior);
+                  }
+                  if (db.count(
+                          "SELECT COUNT(*) FROM upload_session WHERE user_id=? AND status IN"
+                              + " ('UPLOADING','ASSEMBLING')",
+                          uid)
+                      >= 20) throw Problem.conflict("最多同时保留 20 个上传会话，请先取消或完成已有上传");
+                  if (target != null) {
+                    var e = drive.file(uid, target);
+                    if (!parent.equals(s(e, "parent_id"))
+                        || !name.equals(s(e, "name"))
+                        || revision == null
+                        || revision != n(e, "revision")) throw Problem.conflict("覆盖目标已变化，请重新选择文件");
+                    if (db.count("SELECT COUNT(*) FROM file_version WHERE entry_id=?", target)
+                        >= 20) throw Problem.conflict("历史版本已达上限，请先清理旧版本");
+                  }
+                  drive.available(uid, parent, "FILE", name, target);
+                  var user = db.one("SELECT * FROM sys_user WHERE id=?", uid);
+                  if (n(user, "storage_used") + n(user, "storage_reserved")
+                      > n(user, "storage_quota") - size)
+                    throw new Problem(409, "QUOTA_EXCEEDED", "存储空间不足，请清理回收站或取消上传");
+                  String selectedBackend =
+                      settings.get("storage").getOrDefault("defaultBackend", backend);
+                  if (selectedBackend.startsWith("s3:")
+                      && db.count(
+                              "SELECT COUNT(*) FROM storage_policy WHERE id=? AND enabled=TRUE",
+                              selectedBackend.substring(3))
+                          != 1) throw Problem.conflict("默认存储策略不可用，请联系管理员");
+                  String id = Util.id(), key = "objects/" + Util.id();
+                  nodes.admit(selectedBackend, false, size);
+                  nodes.reserve(id, selectedBackend, size, Math.multiplyExact(size, 3));
+                  long now = System.currentTimeMillis();
+                  db.update(
+                      "INSERT INTO"
+                          + " upload_session(id,user_id,folder_id,name,size,sha256,part_size,part_count,status,object_key,backend,created_at,expires_at)"
+                          + " VALUES(?,?,?,?,?,?,?,?,'UPLOADING',?,?,?,?)",
+                      id,
+                      uid,
+                      parent,
+                      name,
+                      size,
+                      hash,
+                      partSize,
+                      Math.max(1, (size + partSize - 1) / partSize),
+                      key,
+                      selectedBackend,
+                      now,
+                      now + lifetime);
+                  db.update(
+                      "UPDATE sys_user SET storage_reserved=storage_reserved+? WHERE id=?",
+                      size,
+                      uid);
+                  if (target != null)
+                    db.update(
+                        "UPDATE upload_session SET target_id=?,target_revision=? WHERE id=?",
+                        target,
+                        revision,
+                        id);
+                  var reusable =
+                      db.list(
+                          "SELECT b.* FROM file_blob b WHERE b.user_id=? AND b.sha256=? AND"
+                              + " b.size=? AND b.status='READY' AND EXISTS(SELECT 1 FROM"
+                              + " drive_entry e WHERE e.blob_id=b.id AND e.user_id=?)",
+                          uid,
+                          hash,
+                          size,
+                          uid);
+                  if (!reusable.isEmpty()) {
+                    publish(session(uid, id), reusable.getFirst());
+                    nodes.release(id);
+                  }
+                  return describe(session(uid, id));
+                }));
   }
 
   public Map<String, Object> status(String uid, String id) {
@@ -311,53 +328,68 @@ public class UploadService {
         final String detected = mime;
         db.atomic(
             uid,
-            () -> {
-              var current = session(uid, id);
-              if (!s(current, "status").equals("ASSEMBLING")) throw Problem.conflict("上传状态已改变");
-              drive.folder(uid, s(current, "folder_id"));
-              drive.available(
-                  uid,
-                  s(current, "folder_id"),
-                  "FILE",
-                  s(current, "name"),
-                  s(current, "target_id"));
-              // Recheck under the user row lock: two simultaneous uploads may have identical
-              // content.
-              var blobs =
-                  db.list(
-                      "SELECT * FROM file_blob WHERE user_id=? AND sha256=? AND size=? AND"
-                          + " status='READY'",
-                      uid,
-                      s(s, "sha256"),
-                      n(s, "size"));
-              Map<String, Object> blob;
-              if (blobs.isEmpty()) {
-                String bid = Util.id();
-                db.update(
-                    "INSERT INTO"
-                        + " file_blob(id,user_id,object_key,backend,size,sha256,mime,status,created_at)"
-                        + " VALUES(?,?,?,?,?,?,?,'READY',?)",
-                    bid,
-                    uid,
-                    s(s, "object_key"),
-                    s(s, "backend"),
-                    n(s, "size"),
-                    s(s, "sha256"),
-                    detected,
-                    System.currentTimeMillis());
-                blob = db.one("SELECT * FROM file_blob WHERE id=?", bid);
-              } else blob = blobs.getFirst();
-              publish(current, blob);
-              return null;
-            });
+            () ->
+                nodes.locked(
+                    () -> {
+                      var current = session(uid, id);
+                      if (!s(current, "status").equals("ASSEMBLING"))
+                        throw Problem.conflict("上传状态已改变");
+                      drive.folder(uid, s(current, "folder_id"));
+                      drive.available(
+                          uid,
+                          s(current, "folder_id"),
+                          "FILE",
+                          s(current, "name"),
+                          s(current, "target_id"));
+                      // Recheck under the user row lock: two simultaneous uploads may have
+                      // identical
+                      // content.
+                      var blobs =
+                          db.list(
+                              "SELECT * FROM file_blob WHERE user_id=? AND sha256=? AND size=? AND"
+                                  + " status='READY'",
+                              uid,
+                              s(s, "sha256"),
+                              n(s, "size"));
+                      Map<String, Object> blob;
+                      if (blobs.isEmpty()) {
+                        String bid = Util.id();
+                        db.update(
+                            "INSERT INTO"
+                                + " file_blob(id,user_id,object_key,backend,size,sha256,mime,status,created_at)"
+                                + " VALUES(?,?,?,?,?,?,?,'READY',?)",
+                            bid,
+                            uid,
+                            s(s, "object_key"),
+                            s(s, "backend"),
+                            n(s, "size"),
+                            s(s, "sha256"),
+                            detected,
+                            System.currentTimeMillis());
+                        blob = db.one("SELECT * FROM file_blob WHERE id=?", bid);
+                      } else blob = blobs.getFirst();
+                      publish(current, blob);
+                      return null;
+                    }));
         // Only delete this session's candidate if another already verified object was reused.
         if (db.count("SELECT COUNT(*) FROM file_blob WHERE object_key=?", s(s, "object_key")) == 0)
           try {
             storage.delete(s(s, "backend"), s(s, "object_key"));
+            nodes.locked(
+                () -> {
+                  nodes.release(id);
+                  return null;
+                });
           } catch (IOException e) {
             LoggerFactory.getLogger(getClass()).warn("Deferred duplicate object cleanup {}", id, e);
           }
         cleanParts(id);
+        if (db.count("SELECT COUNT(*) FROM file_blob WHERE object_key=?", s(s, "object_key")) > 0)
+          nodes.locked(
+              () -> {
+                nodes.release(id);
+                return null;
+              });
         return describe(session(uid, id));
       } catch (IOException | RuntimeException e) {
         db.update(
@@ -416,8 +448,16 @@ public class UploadService {
         n(s, "size"),
         n(s, "size"),
         uid);
-    db.update(
-        "UPDATE upload_session SET status='COMPLETE',result_id=? WHERE id=?", fid, s(s, "id"));
+    nodes.locked(
+        () -> {
+          db.update(
+              "UPDATE upload_session SET status='COMPLETE',result_id=? WHERE id=?",
+              fid,
+              s(s, "id"));
+          if (Objects.equals(s(s, "object_key"), s(blob, "object_key")))
+            db.update("UPDATE storage_reservation SET bytes=0 WHERE id=?", s(s, "id"));
+          return null;
+        });
     db.update(
         "INSERT INTO activity_log(id,user_id,action,target_id,created_at) VALUES(?,?,?,?,?)",
         Util.id(),
@@ -443,7 +483,16 @@ public class UploadService {
             return null;
           });
       try {
-        cleanParts(id);
+        var cancelled = session(uid, id);
+        if ("CANCELLED".equals(s(cancelled, "status"))) {
+          storage.delete(s(cancelled, "backend"), s(cancelled, "object_key"));
+          cleanParts(id);
+          nodes.locked(
+              () -> {
+                nodes.release(id);
+                return null;
+              });
+        }
       } catch (IOException e) {
         LoggerFactory.getLogger(getClass()).warn("Deferred part cleanup {}", id, e);
       }
@@ -461,6 +510,7 @@ public class UploadService {
 
   @Scheduled(fixedDelay = 60000, initialDelay = 60000)
   public void cleanup() {
+    if (maintenance) return;
     long now = System.currentTimeMillis();
     db.update("UPDATE file_share SET pinned_blob=NULL WHERE revoked=TRUE OR expires_at<=?", now);
     for (var candidate :
@@ -488,6 +538,11 @@ public class UploadService {
           cleanParts(id);
           if (db.count("SELECT COUNT(*) FROM file_blob WHERE object_key=?", s(s, "object_key"))
               == 0) storage.delete(s(s, "backend"), s(s, "object_key"));
+          nodes.locked(
+              () -> {
+                nodes.release(id);
+                return null;
+              });
           if (n(s, "expires_at") < now) {
             db.update("DELETE FROM upload_part WHERE session_id=?", id);
             db.update(

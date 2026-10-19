@@ -1,0 +1,10 @@
+[Interface]
+Address = 10.77.0.1/30
+PrivateKey = REPLACE_WITH_A_PRIVATE_KEY
+ListenPort = 51820
+
+[Peer]
+PublicKey = REPLACE_WITH_B_PUBLIC_KEY
+Endpoint = B_PUBLIC_IP:51820
+AllowedIPs = 10.77.0.2/32
+PersistentKeepalive = 25

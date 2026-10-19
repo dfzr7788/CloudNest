@@ -56,16 +56,19 @@ async function save() {
 }
 </script>
 <template>
-  <el-dialog class="cn-dialog"
+  <el-dialog
+    class="cn-dialog"
     :model-value="!!share"
     title="修改分享设置"
     width="min(480px,94vw)"
     @close="emit('close')"
     ><p v-if="statistics">
-      访问 {{ statistics.totals.views }} 次 · 下载请求
+      访问 {{ statistics.totals.views }} 次 · 授权取链
+      {{ statistics.totals.download_authorizations || 0 }} 次 · 代理/ZIP 请求
       {{ statistics.totals.downloads }} 次 · 收集文件
       {{ statistics.totals.collected }} 个
     </p>
+    <p v-if="statistics">取链和请求次数分别统计，不代表下载完成次数。</p>
     <el-form label-position="top"
       ><el-form-item label="从现在起有效小时数"
         ><el-input-number v-model="hours" :min="1" :max="720" /></el-form-item

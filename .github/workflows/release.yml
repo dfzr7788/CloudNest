@@ -39,6 +39,7 @@ jobs:
           python3 scripts/check-api-contract.py
           python3 scripts/test-updater.py
           python3 scripts/test-backup.py
+          python3 scripts/test-split-backup.py
       - name: Package Linux amd64 images
         if: github.event_name != 'pull_request'
         env:

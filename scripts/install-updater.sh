@@ -18,6 +18,7 @@ install -d -m 0700 /var/lib/cloudnest-updater/backups
 install -d -m 0755 /var/lib/cloudnest-updater/state
 install -d -m 0700 -o 10001 -g 10001 /var/lib/cloudnest-updater/requests
 install -m 0755 scripts/updater.py /opt/cloudnest-updater/updater.py
+install -m 0644 scripts/split_backup.py /opt/cloudnest-updater/split_backup.py
 # Preserve previously selected TLS/other overlays. Compose reads this value from .env.
 python3 - <<'PY'
 from pathlib import Path

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDownload } from "../api/download";
+const { downloading, download } = useDownload();
 import { onMounted, ref } from "vue";
 import CloudNestLogo from "../components/brand/CloudNestLogo.vue";
 import { api, errorText, bytes, date, type Entry } from "../api";
@@ -241,6 +243,8 @@ onMounted(load);
             ><a
               v-if="info.allowDownload"
               :href="`/api/public/shares/${token}/download`"
+              :aria-busy="downloading"
+              @click.prevent="download(`/api/public/shares/${token}/download`)"
               class="el-button el-button--primary el-button--large"
               ><el-icon><Download /></el-icon>下载文件</a
             >
@@ -305,6 +309,12 @@ onMounted(load);
                 ><a
                   v-if="info.allowDownload && row.kind === 'FILE'"
                   :href="`/api/public/shares/${token}/entries/${row.id}/download`"
+                  :aria-busy="downloading"
+                  @click.prevent="
+                    download(
+                      `/api/public/shares/${token}/entries/${row.id}/download`,
+                    )
+                  "
                   >下载</a
                 ><el-button
                   v-else-if="info.allowDownload"

@@ -311,4 +311,62 @@ class StorageContractTest {
         ((Number) new Maintenance(db, storage, null, "audit").perform().get("problems"))
             .intValue());
   }
+
+  @Test
+  void M08_adminMigrationVerificationFailureKeepsSourceAndAccountsCandidate() throws Exception {
+    String[] ids = seed();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", ids[0]);
+    var auth =
+        new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+            ids[0], null);
+    var p =
+        policies.policy(
+            auth,
+            new StorageController.Policy(
+                null,
+                "failure contract",
+                "http://127.0.0.1:" + server.getAddress().getPort(),
+                "cloudnest",
+                "fixture-access",
+                "fixture-secret-key-only-for-test",
+                "us-east-1"));
+    String backend = "s3:" + p.get("id");
+    assertEquals(true, policies.test(auth, new StorageController.Backend(backend)).get("ok"));
+    corruptRead = true;
+    var job = policies.migrate(auth, new StorageController.Migration("local", backend));
+    String status = "";
+    for (int i = 0; i < 200; i++) {
+      status =
+          Db.s(db.one("SELECT status FROM maintenance_job WHERE id=?", job.get("id")), "status");
+      if (Set.of("FAILED", "COMPLETE").contains(status)) break;
+      Thread.sleep(10);
+    }
+    assertEquals("FAILED", status);
+    assertEquals(
+        "local", Db.s(db.one("SELECT backend FROM file_blob WHERE id=?", ids[1]), "backend"));
+    assertTrue(storage.exists("local", ids[2]));
+    assertTrue(db.count("SELECT COUNT(*) FROM storage_copy WHERE backend=?", backend) > 0);
+  }
+
+  @Test
+  void M09_splitManifestMatchesDatabaseAndRejectsChangedReferences() throws Exception {
+    String[] ids = seed();
+    var export = new Maintenance(db, storage, null, "object-manifest");
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        export, "dataDirectory", data.toString());
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        export, "legacyEndpoint", "http://fixture.internal:9000");
+    assertEquals(0, ((Number) export.perform().get("problems")).intValue());
+    var verify = new Maintenance(db, storage, null, "verify-manifest");
+    org.springframework.test.util.ReflectionTestUtils.setField(
+        verify, "dataDirectory", data.toString());
+    assertEquals(0, ((Number) verify.perform().get("problems")).intValue());
+    String hash = Db.s(db.one("SELECT sha256 FROM file_blob WHERE id=?", ids[1]), "sha256");
+    try {
+      db.update("UPDATE file_blob SET sha256=? WHERE id=?", "0".repeat(64), ids[1]);
+      assertThrows(IllegalStateException.class, verify::perform);
+    } finally {
+      db.update("UPDATE file_blob SET sha256=? WHERE id=?", hash, ids[1]);
+    }
+  }
 }

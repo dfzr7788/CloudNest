@@ -9,9 +9,23 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/files")
 public class ContentController {
   private final ContentService content;
+  @org.springframework.beans.factory.annotation.Autowired private DirectDownloadService direct;
+  @org.springframework.beans.factory.annotation.Autowired private DriveService drive;
 
   public ContentController(ContentService content) {
     this.content = content;
+  }
+
+  @GetMapping("/{id}/download-authorization")
+  public java.util.Map<String, Object> authorization(
+      Authentication a, @PathVariable String id, HttpServletResponse res) {
+    var entry = drive.file(a.getName(), id);
+    return direct.authorize(
+        entry,
+        content.blob(a.getName(), id),
+        "/api/files/" + id + "/download",
+        Long.MAX_VALUE,
+        res);
   }
 
   @GetMapping("/{id}/download")

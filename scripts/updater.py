@@ -81,7 +81,13 @@ class Updater:
         self.compose('stop', 'web', 'server')
         remote_count=self.compose('exec','-T','mysql','sh','-c',
                      'MYSQL_PWD="$MYSQL_PASSWORD" mysql -ucloudnest -Dcloudnest -N -B -e "SELECT COUNT(*) FROM file_blob WHERE status=\'READY\' AND backend<>\'local\'"',log_output=False)
-        if remote_count.strip()!='0':
+        mode = os.environ.get('CLOUDNEST_BACKUP_MODE', 'split' if remote_count.strip() != '0' else 'portable')
+        if mode not in ('split', 'portable'):
+            raise RuntimeError('Invalid CLOUDNEST_BACKUP_MODE')
+        if mode == 'split':
+            from split_backup import checkpoint
+            checkpoint(self, folder)
+        elif remote_count.strip() != '0':
             self.compose('run','--rm','--no-deps','server','--server.port=0',
                          '--cloudnest.maintenance=true','--cloudnest.action=export-objects',
                          '--cloudnest.index-enabled=false',timeout=3600)
@@ -99,9 +105,10 @@ class Updater:
         volume = next((m['Name'] for m in mounts if m['Destination'] == '/app/data' and m['Type'] == 'volume'), None)
         if not volume:
             raise RuntimeError('只支持标准 Compose 本地数据卷；请改用人工部署')
-        # Disabled for remote object storage: this archive would not back up the bucket.
+        # Split snapshots exclude legacy exported B objects: B bytes never stage on A.
         self.compose('run', '--rm', '--no-deps', '--user', '0', '--entrypoint', 'tar',
                      '-v', str(folder) + ':/backup', 'server',
+                     *(['--exclude=./backup-export'] if mode == 'split' else []),
                      '-czf', '/backup/app-data.tar.gz', '-C', '/app/data', '.', timeout=1800)
         shutil.copyfile(self.repo / '.env', folder / '.env')
         for name in ['docker-compose.yml', 'deploy/compose.public.yml',
@@ -116,10 +123,13 @@ class Updater:
             raise RuntimeError('文件备份产物缺失')
         with (folder / 'SHA256SUMS').open('w') as sums:
             for item in sorted(folder.rglob('*')):
-                if item.is_file() and item.name != 'SHA256SUMS':
+                if item.is_file() and item != folder / 'SHA256SUMS':
                     with item.open('rb') as stream:
                         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
                     sums.write(f'{digest}  {item.relative_to(folder).as_posix()}\n')
+        if mode == 'split':
+            from split_backup import upload_metadata
+            upload_metadata(self, folder)
 
     def prebuilt(self, revision):
         """Only consume assets from this repository and this exact commit, before stopping service."""

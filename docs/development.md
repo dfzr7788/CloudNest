@@ -95,6 +95,7 @@ npm run test:e2e
 ```bash
 python scripts/test-updater.py
 python scripts/test-backup.py
+python scripts/test-split-backup.py
 python scripts/check-publication.py
 python scripts/check-api-contract.py
 ```

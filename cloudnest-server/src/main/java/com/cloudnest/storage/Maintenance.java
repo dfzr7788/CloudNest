@@ -15,6 +15,15 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnProperty(name = "cloudnest.maintenance", havingValue = "true")
 public class Maintenance implements ApplicationRunner {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
+  @Value("${cloudnest.restore-endpoint:}")
+  private String restoreEndpoint;
+
+  @Value("${cloudnest.minio.endpoint}")
+  private String legacyEndpoint;
+
   private final Db db;
   private final StorageService storage;
   private final ConfigurableApplicationContext context;
@@ -51,12 +60,16 @@ public class Maintenance implements ApplicationRunner {
   }
 
   public Map<String, Object> perform() {
+    if (action.equals("object-manifest")) return objectManifest();
+    if (action.equals("verify-manifest")) return verifyManifest();
+    if (action.equals("restore-split-target")) return restoreSplitTarget();
     if (Set.of("export-objects", "restore-local-objects").contains(action))
       return portableObjects();
     if (Set.of("create-admin", "create-user", "reset-password", "reset-mfa").contains(action))
       return operator();
     if (!Set.of("audit", "recount", "migrate-minio").contains(action))
       throw new IllegalArgumentException("Action must be audit, recount or migrate-minio");
+    if (action.equals("migrate-minio") && nodes != null) nodes.check("minio", true);
     List<Map<String, Object>> report = new ArrayList<>();
     int problems = 0;
     for (var user : db.list("SELECT * FROM sys_user ORDER BY id")) {
@@ -119,6 +132,13 @@ public class Maintenance implements ApplicationRunner {
                   if (valid
                       && action.equals("migrate-minio")
                       && s(blob, "backend").equals("local")) {
+                    if (nodes != null)
+                      nodes.locked(
+                          () -> {
+                            nodes.admit("minio", true, n(blob, "size"));
+                            nodes.copied("minio", s(blob, "object_key"), n(blob, "size"));
+                            return null;
+                          });
                     try (var input =
                         storage.open("local", s(blob, "object_key"), 0, n(blob, "size"))) {
                       storage.put("minio", s(blob, "object_key"), input, n(blob, "size"));
@@ -128,9 +148,20 @@ public class Maintenance implements ApplicationRunner {
                       if (!Util.hash(input).equals(hash))
                         throw new IOException("Migration checksum mismatch");
                     }
-                    db.update(
-                        "UPDATE file_blob SET backend='minio' WHERE id=? AND backend='local'",
-                        blob.get("id"));
+                    if (nodes != null)
+                      nodes.locked(
+                          () -> {
+                            nodes.copied("local", s(blob, "object_key"), n(blob, "size"));
+                            db.update(
+                                "UPDATE file_blob SET backend='minio' WHERE id=? AND"
+                                    + " backend='local'",
+                                blob.get("id"));
+                            return null;
+                          });
+                    else
+                      db.update(
+                          "UPDATE file_blob SET backend='minio' WHERE id=? AND backend='local'",
+                          blob.get("id"));
                     m.put("migrated", true);
                   }
                 } catch (IOException e) {
@@ -143,6 +174,91 @@ public class Maintenance implements ApplicationRunner {
       if (Boolean.FALSE.equals(result.get("checksumValid"))) problems++;
     }
     return Map.of("action", action, "problems", problems, "records", report);
+  }
+
+  private Map<String, Object> objectManifest() {
+    var objects =
+        db.list(
+            "SELECT id,backend,object_key,size,sha256 FROM file_blob WHERE status='READY' ORDER BY"
+                + " id");
+    var policies = db.list("SELECT id,endpoint,bucket,region FROM storage_policy ORDER BY id");
+    var backends =
+        db
+            .list(
+                "SELECT backend FROM file_blob UNION SELECT backend FROM upload_session UNION"
+                    + " SELECT backend FROM storage_copy")
+            .stream()
+            .map(row -> s(row, "backend"))
+            .toList();
+    try {
+      var file = java.nio.file.Path.of(dataDirectory).resolve("backup-manifest.json");
+      new com.fasterxml.jackson.databind.ObjectMapper()
+          .writeValue(
+              file.toFile(),
+              Map.of(
+                  "format",
+                  1,
+                  "objects",
+                  objects,
+                  "policies",
+                  policies,
+                  "legacyEndpoint",
+                  legacyEndpoint,
+                  "backends",
+                  backends));
+    } catch (IOException e) {
+      throw new IllegalStateException("Manifest export failed", e);
+    }
+    return Map.of("action", action, "problems", 0, "objects", objects.size());
+  }
+
+  private Map<String, Object> verifyManifest() {
+    try {
+      var json = new com.fasterxml.jackson.databind.ObjectMapper();
+      var manifest =
+          json.readTree(
+              java.nio.file.Path.of(dataDirectory).resolve("backup-manifest.json").toFile());
+      var actual =
+          db.list(
+              "SELECT id,backend,object_key,size,sha256 FROM file_blob WHERE status='READY' ORDER"
+                  + " BY id");
+      var expected = manifest.path("objects");
+      if (!expected.isArray() || expected.size() != actual.size())
+        throw new IOException("Manifest count mismatch");
+      for (int i = 0; i < actual.size(); i++) {
+        var row = actual.get(i);
+        var saved = expected.get(i);
+        for (String field : List.of("id", "backend", "object_key", "sha256"))
+          if (!s(row, field).equals(saved.path(field).asText()))
+            throw new IOException("Manifest reference mismatch");
+        if (n(row, "size") != saved.path("size").asLong(-1))
+          throw new IOException("Manifest size mismatch");
+      }
+      return Map.of("action", action, "problems", 0, "objects", actual.size());
+    } catch (IOException e) {
+      throw new IllegalStateException("Restored database does not match checkpoint manifest", e);
+    }
+  }
+
+  private Map<String, Object> restoreSplitTarget() {
+    var uri = com.cloudnest.user.RuntimeSettings.httpUrl(restoreEndpoint);
+    if (!uri.getPath().isEmpty())
+      throw new IllegalArgumentException("Endpoint must not contain a path");
+    return nodes.locked(
+        () -> {
+          db.update("UPDATE storage_policy SET endpoint=?", restoreEndpoint);
+          db.update(
+              "UPDATE storage_node SET"
+                  + " direct_download=FALSE,public_endpoint=NULL,management='WRITE_PAUSED'");
+          db.update(
+              "UPDATE storage_node_health SET"
+                  + " state='UNKNOWN',validated=FALSE,checked_at=0,failures=0,successes=0");
+          // Never resume old tasks against restored storage without a fresh operator decision.
+          db.update(
+              "UPDATE maintenance_job SET status='INTERRUPTED' WHERE status IN"
+                  + " ('QUEUED','RUNNING')");
+          return Map.of("action", action, "problems", 0);
+        });
   }
 
   private Map<String, Object> portableObjects() {
@@ -200,6 +316,15 @@ public class Maintenance implements ApplicationRunner {
         db.update("UPDATE file_blob SET backend='local' WHERE status<>'READY'");
         db.update(
             "UPDATE upload_session SET backend='local' WHERE status IN ('UPLOADING','ASSEMBLING')");
+        db.update("UPDATE upload_session SET backend='local'");
+        db.update(
+            "UPDATE storage_reservation SET backend='local' WHERE id IN (SELECT id FROM"
+                + " upload_session)");
+        db.update("DELETE FROM storage_copy WHERE backend<>'local'");
+        db.update(
+            "UPDATE storage_node SET enabled=FALSE,direct_download=FALSE,public_endpoint=NULL WHERE"
+                + " backend<>'local'");
+        db.update("UPDATE storage_policy SET enabled=FALSE");
         db.update("DELETE FROM system_setting WHERE name='storage'");
       }
       return Map.of("action", action, "problems", 0, "objects", migrated);

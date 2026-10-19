@@ -44,6 +44,12 @@ public class DownloadJobs {
   @Value("${cloudnest.zip.compression-level:1}")
   private int compressionLevel;
 
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
+  @Value("${cloudnest.maintenance:false}")
+  private boolean maintenance;
+
   private final Db db;
   private final DriveService drive;
   private final ContentService content;
@@ -77,17 +83,28 @@ public class DownloadJobs {
         || hours < 1
         || hours > 168
         || reserveBytes < 0
-        || workers<1 || workers>4
-        || compressionLevel<0 || compressionLevel>9) throw new IllegalArgumentException("Invalid ZIP settings");
-    executor=new ThreadPoolExecutor(workers,workers,0,TimeUnit.SECONDS,new ArrayBlockingQueue<>(20),Thread.ofPlatform().daemon().name("zip-",0).factory(),new ThreadPoolExecutor.AbortPolicy());
+        || workers < 1
+        || workers > 4
+        || compressionLevel < 0
+        || compressionLevel > 9) throw new IllegalArgumentException("Invalid ZIP settings");
+    executor =
+        new ThreadPoolExecutor(
+            workers,
+            workers,
+            0,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(20),
+            Thread.ofPlatform().daemon().name("zip-", 0).factory(),
+            new ThreadPoolExecutor.AbortPolicy());
     db.update(
         "UPDATE download_job SET status='FAILED',error='服务重启，请重新创建任务' WHERE status IN"
             + " ('QUEUED','BUILDING')");
+    db.update("DELETE FROM storage_reservation WHERE id LIKE 'zip:%'");
   }
 
   @PreDestroy
   void stop() {
-    if(executor!=null)executor.shutdownNow();
+    if (executor != null) executor.shutdownNow();
   }
 
   public record Input(@NotEmpty @Size(max = 100) List<@NotBlank String> fileIds) {}
@@ -167,6 +184,14 @@ public class DownloadJobs {
     return result;
   }
 
+  private long archiveOverhead(List<ArchiveEntry> entries) {
+    return entries.stream()
+            .mapToLong(
+                e -> 256L + 2L * e.path().getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+            .sum()
+        + 65536;
+  }
+
   private List<ArchiveEntry> manifest(Map<String, Object> job) throws IOException {
     if (job.get("archive_manifest") == null) return List.of();
     return json.readValue(s(job, "archive_manifest"), new TypeReference<List<ArchiveEntry>>() {});
@@ -239,11 +264,7 @@ public class DownloadJobs {
     for (var entry : entries)
       if (!entry.directory())
         total = Math.addExact(total, n(drive.file(a.getName(), entry.id()), "size"));
-    long pending =
-        db.count(
-            "SELECT COALESCE(SUM(total_bytes-completed_bytes),0) FROM download_job WHERE status IN"
-                + " ('QUEUED','BUILDING')");
-    long free = Math.max(0, Files.getFileStore(root).getUsableSpace() - pending);
+    long free = Math.max(0, Files.getFileStore(root).getUsableSpace() - nodes.tempReserved());
     return Map.of(
         "bytes",
         total,
@@ -254,7 +275,7 @@ public class DownloadJobs {
         "freeBytes",
         free,
         "canPack",
-        free >= total + entries.size() * 512L + reserveBytes,
+        free >= total * 2 + archiveOverhead(entries) + reserveBytes,
         "maxBytes",
         maxBytes,
         "maxFiles",
@@ -286,43 +307,60 @@ public class DownloadJobs {
     String uid = a.getName(), id = Util.id();
     db.atomic(
         uid,
-        () -> {
-          var entries = snapshot(uid, ids);
-          if (db.count(
-                  "SELECT COUNT(*) FROM download_job WHERE user_id=? AND expires_at>?",
-                  uid,
-                  System.currentTimeMillis())
-              >= 10) throw Problem.conflict("每小时最多保留 10 个打包任务");
-          if (db.count(
-                  "SELECT COUNT(*) FROM download_job WHERE user_id=? AND status IN"
-                      + " ('QUEUED','BUILDING')",
-                  uid)
-              >= 2) throw Problem.conflict("已有打包任务，请等待完成");
-          try {
-            Map<String, Long> revisions = new LinkedHashMap<>();
-            for (ArchiveEntry entry : entries)
-              if (!entry.directory()) revisions.put(entry.id(), entry.revision());
-            db.update(
-                "INSERT INTO"
-                    + " download_job(id,user_id,status,entry_ids,created_at,expires_at,entry_revisions,archive_manifest)"
-                    + " VALUES(?,?,'QUEUED',?,?,?,?,?)",
-                id,
-                uid,
-                json.writeValueAsString(ids),
-                System.currentTimeMillis(),
-                System.currentTimeMillis() + hours * 3600000L,
-                json.writeValueAsString(revisions),
-                json.writeValueAsString(entries));
-          } catch (IOException e) {
-            throw new UncheckedIOException(e);
-          }
-          db.update("UPDATE download_job SET total_bytes=? WHERE id=?", estimate.get("bytes"), id);
-          return null;
-        });
+        () ->
+            nodes.locked(
+                () -> {
+                  var entries = snapshot(uid, ids);
+                  if (db.count(
+                          "SELECT COUNT(*) FROM download_job WHERE user_id=? AND expires_at>?",
+                          uid,
+                          System.currentTimeMillis())
+                      >= 10) throw Problem.conflict("每小时最多保留 10 个打包任务");
+                  if (db.count(
+                          "SELECT COUNT(*) FROM download_job WHERE user_id=? AND status IN"
+                              + " ('QUEUED','BUILDING')",
+                          uid)
+                      >= 2) throw Problem.conflict("已有打包任务，请等待完成");
+                  long total =
+                      entries.stream()
+                          .filter(e -> !e.directory())
+                          .mapToLong(e -> n(drive.file(uid, e.id()), "size"))
+                          .sum();
+                  nodes.reserve(
+                      "zip:" + id,
+                      "local",
+                      0,
+                      Math.addExact(Math.multiplyExact(total, 2), archiveOverhead(entries)));
+                  try {
+                    Map<String, Long> revisions = new LinkedHashMap<>();
+                    for (ArchiveEntry entry : entries)
+                      if (!entry.directory()) revisions.put(entry.id(), entry.revision());
+                    db.update(
+                        "INSERT INTO"
+                            + " download_job(id,user_id,status,entry_ids,created_at,expires_at,entry_revisions,archive_manifest)"
+                            + " VALUES(?,?,'QUEUED',?,?,?,?,?)",
+                        id,
+                        uid,
+                        json.writeValueAsString(ids),
+                        System.currentTimeMillis(),
+                        System.currentTimeMillis() + hours * 3600000L,
+                        json.writeValueAsString(revisions),
+                        json.writeValueAsString(entries));
+                  } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                  }
+                  db.update("UPDATE download_job SET total_bytes=? WHERE id=?", total, id);
+                  return null;
+                }));
     try {
       executor.submit(() -> build(uid, id));
     } catch (RejectedExecutionException e) {
       db.update("UPDATE download_job SET status='FAILED',error='任务繁忙，请重试' WHERE id=?", id);
+      nodes.locked(
+          () -> {
+            nodes.release("zip:" + id);
+            return null;
+          });
     }
     return Map.of("id", id);
   }
@@ -387,6 +425,12 @@ public class DownloadJobs {
       } catch (IOException ignored) {
       }
       LoggerFactory.getLogger(getClass()).warn("ZIP failed {}", id, e);
+    } finally {
+      nodes.locked(
+          () -> {
+            nodes.release("zip:" + id);
+            return null;
+          });
     }
   }
 
@@ -440,6 +484,7 @@ public class DownloadJobs {
 
   @Scheduled(fixedDelay = 60000, initialDelay = 60000)
   void cleanup() {
+    if (maintenance) return;
     for (var j :
         db.list(
             "SELECT id FROM download_job WHERE expires_at<? AND status NOT IN"

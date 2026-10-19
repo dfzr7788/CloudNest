@@ -13,6 +13,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class UploadIngest {
   @org.springframework.beans.factory.annotation.Autowired private Db db;
+
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.node.NodeService nodes;
+
   private final UploadService uploads;
   private final Path root;
   private final Semaphore slots = new Semaphore(2);
@@ -47,9 +51,15 @@ public class UploadIngest {
       Runnable authorize)
       throws IOException {
     if (!slots.tryAcquire()) throw new Problem(503, "UPLOAD_BUSY", "上传繁忙，请稍后重试");
+    String reservation = "ingest:" + Util.id();
     Path file = null;
     String session = null;
     try {
+      nodes.locked(
+          () -> {
+            nodes.reserve(reservation, "local", 0, max);
+            return null;
+          });
       file = Files.createTempFile(root, "import-", ".part");
       long size = 0;
       byte[] block = new byte[1024 * 1024];
@@ -127,8 +137,16 @@ public class UploadIngest {
           uploads.cancel(uid, session);
         } catch (Exception ignored) {
         }
-      if (file != null) Files.deleteIfExists(file);
-      slots.release();
+      try {
+        if (file != null) Files.deleteIfExists(file);
+        nodes.locked(
+            () -> {
+              nodes.release(reservation);
+              return null;
+            });
+      } finally {
+        slots.release();
+      }
     }
   }
 }

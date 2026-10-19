@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, onUnmounted } from "vue";
+import NodeSettings from "./nodes/NodeSettings.vue";
 import { ElMessage } from "element-plus";
 import { api, errorText, bytes } from "../api";
 const props = defineProps<{ active: boolean }>();
@@ -106,6 +107,7 @@ function clean(config: Record<string, string>) {
       磁盘剩余 {{ bytes(storage.freeBytes || 0) }} /
       {{ bytes(storage.totalBytes || 0) }}
     </p>
+    <NodeSettings :active="active" />
     <h3>存储策略</h3>
     <p>
       切换默认策略只影响新上传。旧对象迁移需显式创建任务，迁移校验成功后才更新引用；来源副本保留。
@@ -130,7 +132,12 @@ function clean(config: Record<string, string>) {
       >保存默认策略与告警阈值</el-button
     ><el-button
       @click="
-        action(() => api.post('/admin/storage/test', { backend: selected }))
+        action(async () => {
+          const { data } = await api.post('/admin/storage/test', {
+            backend: selected,
+          });
+          if (!data.ok) throw new Error('读写检测失败，请检查连接与凭据');
+        })
       "
       >读写连接测试</el-button
     >

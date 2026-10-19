@@ -20,6 +20,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api")
 public class ShareController {
+  @org.springframework.beans.factory.annotation.Autowired private DirectDownloadService direct;
+
   @org.springframework.beans.factory.annotation.Autowired
   private com.cloudnest.upload.UploadIngest ingest;
 
@@ -148,7 +150,8 @@ public class ShareController {
   public Map<String, Object> stats(Authentication a, @PathVariable String id) {
     var share =
         db.one(
-            "SELECT views,downloads,collected FROM file_share WHERE id=? AND user_id=?",
+            "SELECT views,downloads,download_authorizations,collected FROM file_share WHERE id=?"
+                + " AND user_id=?",
             id,
             a.getName());
     return Map.of(
@@ -400,6 +403,63 @@ public class ShareController {
     var s = valid(token, req);
     if (!granted(s, req)) throw new Problem(403, "CODE_REQUIRED", "请输入提取码");
     return s;
+  }
+
+  @GetMapping("/public/shares/{token}/download-authorization")
+  public Map<String, Object> authorization(
+      @PathVariable String token, HttpServletRequest req, HttpServletResponse res) {
+    var share = authorized(token, req);
+    if (!b(share, "allow_download")) throw new Problem(403, "DOWNLOAD_DISABLED", "此分享未开放下载");
+    if (!"READ".equals(s(share, "share_mode"))) throw Problem.missing();
+    var entry = drive.file(s(share, "user_id"), s(share, "file_id"));
+    var blob =
+        db.one(
+            "SELECT * FROM file_blob WHERE id=? AND user_id=? AND status='READY'",
+            share.get("pinned_blob"),
+            share.get("user_id"));
+    var result =
+        direct.authorize(
+            entry, blob, "/api/public/shares/" + token + "/download", n(share, "expires_at"), res);
+    authorizedHit(share);
+    return result;
+  }
+
+  @GetMapping("/public/shares/{token}/entries/{id}/download-authorization")
+  public Map<String, Object> memberAuthorization(
+      @PathVariable String token,
+      @PathVariable String id,
+      HttpServletRequest req,
+      HttpServletResponse res) {
+    var share = authorized(token, req);
+    var entry = member(share, id);
+    if (!b(share, "allow_download")) throw new Problem(403, "DOWNLOAD_DISABLED", "此分享未开放下载");
+    drive.file(s(share, "user_id"), id);
+    var result =
+        direct.authorize(
+            entry,
+            content.blob(s(share, "user_id"), id),
+            "/api/public/shares/" + token + "/entries/" + id + "/download",
+            n(share, "expires_at"),
+            res);
+    authorizedHit(share);
+    return result;
+  }
+
+  private void authorizedHit(Map<String, Object> share) {
+    // Separate from legacy streamed request counters; an issued URL is not a completed transfer.
+    db.transaction(
+        () -> {
+          db.update(
+              "UPDATE file_share SET download_authorizations=download_authorizations+1 WHERE id=?",
+              share.get("id"));
+          db.update(
+              "INSERT INTO share_event(id,share_id,action,created_at) VALUES(?,?,?,?)",
+              Util.id(),
+              share.get("id"),
+              "DOWNLOAD_AUTHORIZED",
+              System.currentTimeMillis());
+          return null;
+        });
   }
 
   private Map<String, Object> member(Map<String, Object> share, String id) {

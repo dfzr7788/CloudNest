@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDownload } from "../api/download";
+const { downloading, download } = useDownload();
 import { computed, onMounted, onBeforeUnmount, ref, watch } from "vue";
 import PageHeading from "../components/common/PageHeading.vue";
 import DriveFilesSection from "../components/drive/DriveFilesSection.vue";
@@ -770,7 +772,7 @@ async function editTags(e: Entry) {
 }
 function command(c: FileAction, e: Entry) {
   if (c === "download" && e.kind === "FILE")
-    location.assign(`/api/files/${e.id}/download`);
+    void download(`/api/files/${e.id}/download`);
   if (c === "restore") void restore(e);
   if (c === "purge") void purge(e);
   if (c === "locate" && e.parentId) navigate(e.parentId);

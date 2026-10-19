@@ -15,7 +15,7 @@ class AiMigrationTest {
         "sa",
         "h2",
         "12",
-        "15");
+        "16");
   }
 
   @Test
@@ -23,7 +23,7 @@ class AiMigrationTest {
     String url = System.getenv("CN_AI_TEST_DATABASE_URL");
     Assumptions.assumeTrue(
         url != null, "Set CN_AI_TEST_DATABASE_URL to a local disposable MySQL test database");
-    upgrade(url, "root", "mysql", "13", "16");
+    upgrade(url, "root", "mysql", "13", "17");
   }
 
   private void upgrade(String url, String user, String vendor, String previous, String current)
@@ -58,6 +58,23 @@ class AiMigrationTest {
                   + " VALUES('upgrade-user','upgrade-user','fixture','fixture','fixture-root',1024,1)");
           statement.executeUpdate(
               "INSERT INTO"
+                  + " storage_policy(id,name,endpoint,bucket,access_key,secret_key,region,enabled)"
+                  + " VALUES('abcdef123456','old"
+                  + " disabled','http://old.internal:3900','cloudnest','fixture','fixture','garage',FALSE)");
+          statement.executeUpdate(
+              "INSERT INTO"
+                  + " file_blob(id,user_id,object_key,backend,size,sha256,mime,status,created_at)"
+                  + " VALUES('old-blob','upgrade-user','objects/00000000-0000-0000-0000-000000000000','s3:abcdef123456',1,'"
+                  + "a".repeat(64)
+                  + "','text/plain','READY',1)");
+          statement.executeUpdate(
+              "INSERT INTO"
+                  + " upload_session(id,user_id,folder_id,name,size,sha256,part_size,part_count,status,object_key,backend,created_at,expires_at)"
+                  + " VALUES('old-upload','upgrade-user','fixture-root','old',5,'"
+                  + "b".repeat(64)
+                  + "',1024,1,'UPLOADING','objects/11111111-1111-1111-1111-111111111111','unknown',1,9999999999999)");
+          statement.executeUpdate(
+              "INSERT INTO"
                   + " ai_connection(id,user_id,name,base_url,enabled,config_version,created_at,updated_at)"
                   + " VALUES('connection','upgrade-user','old"
                   + " connection','https://model.example/v1',FALSE,1,1,1)");
@@ -74,11 +91,34 @@ class AiMigrationTest {
       }
       latest.migrate();
       latest.validate();
+      assertEquals(0, latest.migrate().migrationsExecuted);
       assertEquals(current, latest.info().current().getVersion().toString());
       try (var connection = DriverManager.getConnection(url, user, "")) {
         if (vendor.equals("mysql")) connection.setCatalog(schema);
         else connection.setSchema(schema);
         try (var statement = connection.createStatement()) {
+          try (var row = statement.executeQuery("SELECT COUNT(*) FROM storage_node")) {
+            row.next();
+            assertEquals(3, row.getInt(1));
+          }
+          try (var row =
+              statement.executeQuery(
+                  "SELECT enabled FROM storage_node WHERE backend='s3:abcdef123456'")) {
+            row.next();
+            assertFalse(row.getBoolean(1));
+          }
+          try (var row =
+              statement.executeQuery("SELECT backend FROM file_blob WHERE id='old-blob'")) {
+            row.next();
+            assertEquals("s3:abcdef123456", row.getString(1));
+          }
+          try (var row =
+              statement.executeQuery(
+                  "SELECT backend,temp_bytes FROM storage_reservation WHERE id='old-upload'")) {
+            row.next();
+            assertEquals("unknown", row.getString(1));
+            assertEquals(15, row.getLong(2));
+          }
           try (var row =
               statement.executeQuery("SELECT COUNT(*) FROM sys_user WHERE id='upgrade-user'")) {
             row.next();

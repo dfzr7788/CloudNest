@@ -10,4 +10,13 @@ public interface StorageService {
   void delete(String backend, String key) throws IOException;
 
   boolean exists(String backend, String key) throws IOException;
+
+  default void probe(String backend) throws IOException {
+    throw new IOException("Probe unsupported");
+  }
+
+  default java.util.Optional<String> presign(
+      String backend, String key, String endpoint, String name, int seconds) throws IOException {
+    return java.util.Optional.empty();
+  }
 }

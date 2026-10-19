@@ -68,6 +68,7 @@ docker compose up -d --build --wait --wait-timeout 180
 | [使用说明](docs/usage.md) | 界面入口、文件操作、上传恢复、预览、分享与账号设置 |
 | [AI 使用说明](docs/ai.md) | API 配置、阅读助手、知识库、计费与数据保留 |
 | [部署手册](docs/deployment.md) | 安装、配置、升级、备份、恢复与维护 |
+| [双节点部署](docs/deployment-dual-node.md) | A/B 节点、授权直连、独立备份与隔离恢复；真实部署待验收 |
 | [进阶配置](docs/advanced-features.md) | Office、WebDAV、邮件、双重验证、存储与正文检索 |
 | [系统更新](docs/system-updates.md) | 宿主机更新服务、预构建镜像与故障处理 |
 | [开发指南](docs/development.md) | 目录结构、开发启动与验证命令 |

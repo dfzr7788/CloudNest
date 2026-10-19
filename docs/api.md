@@ -2,6 +2,14 @@
 
 本文描述接口行为与权限边界，配合 [OpenAPI](openapi.json) 和服务端控制器/校验使用；使用入口见 [使用说明](usage.md)，本地联调见 [开发指南](development.md)。
 
+## V1 存储节点与下载授权
+
+节点以 backend 唯一关联原 storage_policy，不复制凭据。管理员通过原策略 API 创建连接，通过 `/api/admin/nodes` 管理状态、能力、预算、公网地址和直连开关。完整字段、状态矩阵与接口列表见 [V1 实现契约](design/v1-contract.md)。旧存储管理、默认目标和迁移 API 共用节点准入与引用保护。
+
+普通下载先 GET 原 download 路径加 `-authorization`，适用于本人文件、单文件分享和目录/集合成员。响应 `{mode:"direct"或"proxy",url,expiresAt}`，带 `Cache-Control: no-store, private`；直连为GET专用签名，最长约60秒，分享期限可能更短。每次点击重新授权；过期后需重新取链。客户端不能提交 bucket/key。原 download、preview、ZIP、WebDAV、Office及版本传输接口保持原路径。
+
+分享统计的 `totals.download_authorizations` 表示授权取链次数，`totals.downloads` 保留原代理/ZIP请求口径；两者分别显示，不代表客户端完成下载。后台禁止记录签名URL查询串。
+
 除单独标注的 `/dav/` 外，API 路径以 `/api` 开头；下文省略前缀的路径须补上 `/api`，AI 表格另标注其子前缀。请求通常使用 camelCase，部分响应直接采用 snake_case 字段，以具体接口为准；条目 ID 为 UUID 字符串。时间为 Unix 毫秒；容量/长度为字节；分页从 1 开始。成功返回 JSON 或空响应；文件返回二进制流。错误：`{"code":"CONFLICT","message":"目标目录已存在同名文件"}`。
 
 ## 认证与 CSRF

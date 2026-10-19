@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useDownload } from "../api/download";
+const { downloading, download } = useDownload();
 import { computed, ref, watch, defineAsyncComponent } from "vue";
 import { api, errorText, type Entry, bytes } from "../api";
 import { ai } from "../api/ai";
@@ -218,7 +220,10 @@ watch(
           v-if="file && allowDownload !== false"
           :href="(base || `/api/files/${file.id}`) + '/download'"
           class="el-button preview-download"
-          download
+          :aria-busy="downloading"
+          @click.prevent="
+            download((base || `/api/files/${file.id}`) + '/download')
+          "
           >下载</a
         >
       </div></template
@@ -373,7 +378,10 @@ watch(
         v-if="file && allowDownload !== false"
         :href="(base || `/api/files/${file.id}`) + '/download'"
         class="el-button el-button--primary"
-        download
+        :aria-busy="downloading"
+        @click.prevent="
+          download((base || `/api/files/${file.id}`) + '/download')
+        "
         >下载文件</a
       ></template
     ></el-dialog

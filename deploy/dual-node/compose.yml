@@ -1,0 +1,33 @@
+name: cloudnest-b
+services:
+  garage:
+    image: ${GARAGE_IMAGE:?Set a tested Garage image tag or digest}
+    command: ["/garage", "server", "--single-node", "--default-bucket"]
+    network_mode: host
+    environment:
+      GARAGE_DEFAULT_ACCESS_KEY: ${GARAGE_DEFAULT_ACCESS_KEY:?Create an independent application key}
+      GARAGE_DEFAULT_SECRET_KEY: ${GARAGE_DEFAULT_SECRET_KEY:?Create an independent application secret}
+      GARAGE_DEFAULT_BUCKET: cloudnest
+      RUST_LOG: info
+    volumes:
+      - ./garage.toml:/etc/garage.toml:ro
+      - /var/lib/cloudnest-garage:/var/lib/garage
+    restart: unless-stopped
+    logging: &logging
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
+  caddy:
+    image: ${CADDY_IMAGE:?Set a tested Caddy image tag or digest}
+    network_mode: host
+    environment:
+      OBJECT_DOMAIN: ${OBJECT_DOMAIN:?Set the public S3 hostname}
+      APP_ORIGIN: ${APP_ORIGIN:?Set the exact A HTTPS origin}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+    logging: *logging
+volumes:
+  caddy_data:
+  caddy_config:

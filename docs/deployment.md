@@ -1,5 +1,7 @@
 # Linux 服务器部署
 
+双节点 Garage、WireGuard、授权直连和独立备份配置见 [双节点部署与恢复](deployment-dual-node.md)。本地实现与测试已提供，真实 A/B 部署与完整恢复仍需验收。
+
 本流程将云盘部署为 `http://服务器公网IP:8088`，不需要域名、证书或 Cloudflare。只发布 Web 端口，MySQL、Redis 和后端不对公网开放。以下命令在 Debian 12/13 的 root 终端执行；普通用户先运行 `sudo -i`。
 
 ## 安装 Docker

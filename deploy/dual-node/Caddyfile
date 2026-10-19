@@ -1,0 +1,41 @@
+{
+    # Runtime errors can include the request URI. Drop request/error fields globally.
+    log default {
+        format filter {
+            request delete
+            error replace REDACTED
+        }
+    }
+}
+
+{$OBJECT_DOMAIN} {
+    log {
+        format filter {
+            request>uri delete
+            request>headers>Referer delete
+        }
+    }
+    header {
+        Access-Control-Allow-Origin {$APP_ORIGIN}
+        Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+        Access-Control-Allow-Headers "Range, If-Range, If-None-Match"
+        Access-Control-Expose-Headers "Content-Disposition, Content-Length, Content-Range, Accept-Ranges, ETag"
+        Referrer-Policy no-referrer
+        Cache-Control "private, no-store"
+        X-Content-Type-Options nosniff
+    }
+    @preflight method OPTIONS
+    handle @preflight {
+        respond "" 204
+    }
+    @read method GET HEAD
+    handle @read {
+        reverse_proxy http://10.77.0.2:3900 {
+            # SigV4 must see the exact public host that was signed, including any port.
+            header_up Host {http.request.hostport}
+        }
+    }
+    handle {
+        respond "Public writes are disabled" 405
+    }
+}

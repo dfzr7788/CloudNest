@@ -2114,4 +2114,139 @@ class CloudNestIntegrationTest {
     String bad = upload(a, a.root, unique() + ".doc", text("broken document"));
     call(a, get("/api/files/" + bad + "/preview"), null, 422);
   }
+
+  @Test
+  void NODE01_downloadAuthorizationUsesActualBlobAndChecksEveryShareBoundary() throws Exception {
+    var u = register("direct");
+    String group = folder(u, u.root, "shared"),
+        outside = upload(u, u.root, "outside.txt", text("private"));
+    String file = upload(u, group, "中文 #?.txt", text("signed original " + unique()));
+    var blob =
+        db.one(
+            "SELECT b.* FROM file_blob b JOIN drive_entry e ON e.blob_id=b.id WHERE e.id=?", file);
+    call(b, get("/api/files/" + file + "/download-authorization"), null, 404);
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", u.id);
+    var policy =
+        read(
+            call(
+                u,
+                post("/api/admin/storage/policies"),
+                Map.of(
+                    "name",
+                    "direct contract",
+                    "endpoint",
+                    "http://127.0.0.1:1",
+                    "bucket",
+                    "cloudnest",
+                    "accessKey",
+                    "fixture-access",
+                    "secretKey",
+                    "fixture-secret-key",
+                    "region",
+                    "garage"),
+                200));
+    String backend = "s3:" + policy.path("id").asText();
+    db.update(
+        "UPDATE storage_node SET"
+            + " public_endpoint='https://objects.example.test',direct_download=TRUE WHERE"
+            + " backend=?",
+        backend);
+    db.update("UPDATE file_blob SET backend=? WHERE id=?", backend, blob.get("id"));
+    var result = call(u, get("/api/files/" + file + "/download-authorization"), null, 200);
+    assertEquals("no-store, private", result.getResponse().getHeader("Cache-Control"));
+    var auth = read(result);
+    assertEquals("direct", auth.path("mode").asText());
+    String url = auth.path("url").asText();
+    assertTrue(url.startsWith("https://objects.example.test/cloudnest/"));
+    assertTrue(url.contains(Db.s(blob, "object_key")));
+    assertTrue(url.contains("X-Amz-Expires=60"));
+    assertFalse(url.contains("fixture-secret-key"));
+    var share =
+        read(
+            call(
+                u,
+                post("/api/shares"),
+                Map.of("fileId", file, "hours", 1, "code", "1234", "allowDownload", true),
+                200));
+    String token = share.path("token").asText();
+    call(null, get("/api/public/shares/" + token + "/download-authorization"), null, 403);
+    call(null, post("/api/public/shares/" + token + "/verify"), Map.of("code", "wrong"), 403);
+    var verified =
+        call(null, post("/api/public/shares/" + token + "/verify"), Map.of("code", "1234"), 200);
+    Cookie grant = verified.getResponse().getCookie("CN_SHARE_" + share.path("id").asText());
+    // Move the live entry to a different blob; the shared snapshot must still sign the original.
+    var other = db.one("SELECT blob_id FROM drive_entry WHERE id=?", outside);
+    db.update("UPDATE drive_entry SET blob_id=? WHERE id=?", other.get("blob_id"), file);
+    var pinned =
+        read(
+            call(
+                null,
+                get("/api/public/shares/" + token + "/download-authorization").cookie(grant),
+                null,
+                200));
+    assertTrue(pinned.path("url").asText().contains(Db.s(blob, "object_key")));
+    db.update("UPDATE storage_node SET direct_download=FALSE WHERE backend=?", backend);
+    assertEquals(
+        "proxy",
+        read(call(
+                null,
+                get("/api/public/shares/" + token + "/download-authorization").cookie(grant),
+                null,
+                200))
+            .path("mode")
+            .asText());
+    var folderShare =
+        read(
+            call(
+                u,
+                post("/api/shares"),
+                Map.of("fileId", group, "hours", 1, "allowDownload", true),
+                200));
+    String base = "/api/public/shares/" + folderShare.path("token").asText();
+    call(null, get(base + "/entries/" + outside + "/download-authorization"), null, 404);
+    call(null, get(base + "/entries/" + file + "/download-authorization"), null, 200);
+    db.update(
+        "UPDATE file_share SET allow_download=FALSE WHERE id=?", folderShare.path("id").asText());
+    call(null, get(base + "/entries/" + file + "/download-authorization"), null, 403);
+    db.update("UPDATE file_share SET expires_at=1 WHERE id=?", share.path("id").asText());
+    call(
+        null,
+        get("/api/public/shares/" + token + "/download-authorization").cookie(grant),
+        null,
+        410);
+    call(b, get("/api/admin/nodes"), null, 403);
+    call(b, post("/api/admin/nodes/local/test"), null, 403);
+    call(u, delete("/api/admin/nodes/" + backend), null, 409);
+  }
+
+  @Test
+  void NODE02_pauseRejectsNewUploadsWhileExistingSessionDrains() throws Exception {
+    var u = register("drain");
+    byte[] bytes = text("draining " + unique());
+    var job = init(u, u.root, "drain.txt", bytes);
+    String id = job.path("id").asText();
+    db.update("UPDATE storage_node SET management='WRITE_PAUSED' WHERE backend='local'");
+    try {
+      call(
+          u,
+          post("/api/uploads/init"),
+          Map.of("folderId", u.root, "name", "rejected.txt", "size", 1, "sha256", Util.hash("x")),
+          409);
+      call(
+          u,
+          put("/api/uploads/" + id + "/parts/0")
+              .content(bytes)
+              .contentType("application/octet-stream"),
+          null,
+          200);
+      var done = read(call(u, post("/api/uploads/" + id + "/complete"), null, 200));
+      assertEquals("COMPLETE", done.path("status").asText());
+      assertEquals(
+          "local", Db.s(db.one("SELECT backend FROM upload_session WHERE id=?", id), "backend"));
+      assertEquals(0, db.count("SELECT COUNT(*) FROM storage_reservation WHERE id=?", id));
+      call(u, get("/api/files/" + done.path("fileId").asText() + "/download"), null, 200);
+    } finally {
+      db.update("UPDATE storage_node SET management='ACTIVE' WHERE backend='local'");
+    }
+  }
 }

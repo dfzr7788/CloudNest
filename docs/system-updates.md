@@ -68,3 +68,5 @@ GitHub Actions 对 main 提交运行测试与构建，发布 `build-完整提交
 首次选择预构建方式可运行 `python3 scripts/use-prebuilt.py`，成功后再 `docker compose up -d --no-build --wait`。`.env` 增加 DEPLOY_REVISION 和 compose.images.yml，之后手动操作也应使用 --no-build。需要至少 3 GiB 镜像导入空间，另外预留完整备份空间。
 
 “立即备份”与每天定时、restic 异地副本、独立实例恢复操作见 [部署手册](deployment.md#备份与恢复)。定时备份与更新共用操作锁，不并发停写；网页只显示受控状态，不提供备份秘密文件的公开下载。
+
+双节点发现远端对象时，备份默认要求 split 模式和成套 A/B 检查点；未配置会中止更新并恢复原服务。请重新安装包含 split_backup.py 的宿主机 worker，并按 [双节点说明](deployment-dual-node.md#独立备份与共同批次) 配置独立仓库，不能只更新应用镜像。

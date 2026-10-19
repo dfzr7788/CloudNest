@@ -9,6 +9,12 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ObjectStorage implements StorageService {
+  private static final okhttp3.OkHttpClient HTTP =
+      new okhttp3.OkHttpClient.Builder()
+          .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
+          .readTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+          .writeTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+          .build();
   @org.springframework.beans.factory.annotation.Autowired private com.cloudnest.common.Db policies;
 
   @org.springframework.beans.factory.annotation.Autowired
@@ -28,6 +34,7 @@ public class ObjectStorage implements StorageService {
     if (cached != null && cached.fingerprint().equals(fingerprint)) return cached;
     var builder =
         MinioClient.builder()
+            .httpClient(HTTP)
             .endpoint(com.cloudnest.common.Db.s(p, "endpoint"))
             .credentials(
                 cipher.decrypt(com.cloudnest.common.Db.s(p, "access_key")),
@@ -68,13 +75,76 @@ public class ObjectStorage implements StorageService {
     if (client == null) {
       if (access.isBlank() || secret.isBlank())
         throw new IOException("MinIO credentials are required");
-      var c = MinioClient.builder().endpoint(endpoint).credentials(access, secret).build();
-      if (!c.bucketExists(BucketExistsArgs.builder().bucket(bucket).build()))
-        c.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+      var c =
+          MinioClient.builder()
+              .httpClient(HTTP)
+              .endpoint(endpoint)
+              .credentials(access, secret)
+              .build();
       // No public policy is installed: every object is accessed through authorization.
       client = c;
     }
     return client;
+  }
+
+  @Override
+  public void probe(String backend) throws IOException {
+    if ("local".equals(backend)) {
+      if (!Files.isDirectory(root) || !Files.isWritable(root))
+        throw new IOException("Local unavailable");
+      return;
+    }
+    try {
+      var r = remote(backend);
+      if (!r.client().bucketExists(BucketExistsArgs.builder().bucket(r.bucket()).build()))
+        throw new IOException("Bucket unavailable");
+    } catch (Exception e) {
+      throw new IOException("Storage probe failed");
+    }
+  }
+
+  @Override
+  public java.util.Optional<String> presign(
+      String backend, String key, String publicEndpoint, String name, int seconds)
+      throws IOException {
+    path(key);
+    if ("local".equals(backend)) return java.util.Optional.empty();
+    try {
+      String a = access, s = secret, b = bucket, region = "us-east-1";
+      if (!"minio".equals(backend)) {
+        if (!backend.matches("s3:[a-f0-9]{12}")) throw new IOException("Unknown backend");
+        var p = policies.one("SELECT * FROM storage_policy WHERE id=?", backend.substring(3));
+        a = cipher.decrypt(com.cloudnest.common.Db.s(p, "access_key"));
+        s = cipher.decrypt(com.cloudnest.common.Db.s(p, "secret_key"));
+        b = com.cloudnest.common.Db.s(p, "bucket");
+        String configured = com.cloudnest.common.Db.s(p, "region");
+        if (configured != null && !configured.isBlank()) region = configured;
+      }
+      // Sign with the public host from the outset; never replace a host after signing.
+      var signer =
+          MinioClient.builder().endpoint(publicEndpoint).credentials(a, s).region(region).build();
+      String disposition =
+          org.springframework.http.ContentDisposition.attachment()
+              .filename(name, java.nio.charset.StandardCharsets.UTF_8)
+              .build()
+              .toString();
+      return java.util.Optional.of(
+          signer.getPresignedObjectUrl(
+              GetPresignedObjectUrlArgs.builder()
+                  .method(io.minio.http.Method.GET)
+                  .bucket(b)
+                  .object(key)
+                  .expiry(seconds)
+                  .extraQueryParams(
+                      java.util.Map.of(
+                          "response-content-disposition",
+                          disposition,
+                          "response-content-type",
+                          "application/octet-stream"))
+                  .build()));
+    } catch (Exception e) {
+      throw new IOException("Download authorization unavailable");
+    }
   }
 
   @Override
