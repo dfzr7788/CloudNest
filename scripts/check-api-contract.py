@@ -91,6 +91,17 @@ def check():
     result = spec.get("components", {}).get("schemas", {}).get("AgentToolResult", {})
     if result.get("properties", {}).get("trustedAsInstructions", {}).get("enum") != [False]:
         errors.append("Agent evidence must be documented as untrusted instructions")
+    for (method, path), op in operations.items():
+        if path.startswith("/sync/client/") and op.get("security") != [{"syncDevice": []}]:
+            errors.append(f"Sync client endpoint lacks scoped device authentication: {method} {path}")
+        if path.startswith(("/sync/", "/admin/agent/")) and method != "get":
+            if not any(p.get("name") == "X-XSRF-TOKEN" and p.get("required")
+                       for p in op.get("parameters", [])):
+                errors.append(f"Missing explicit CSRF contract: {method} {path}")
+    if "changeToken" not in spec["components"]["schemas"].get("SyncEntry", {}).get("required", []):
+        errors.append("Sync metadata must include a token that changes on rename/move")
+    if "connected" in (ROOT / "cloudnest-server/src/main/resources/application.yml").read_text(encoding="utf-8"):
+        errors.append("Development connected schema must not be in the default production profile")
     for error in errors:
         print(error)
     print(f"Checked {len(actual)} controller operations; {len(errors)} issue(s).")

@@ -33,6 +33,8 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
     properties = {
       "spring.datasource.url=jdbc:h2:mem:ai;MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1",
       "cloudnest.ai.enabled=true",
+      "cloudnest.agent.tools-enabled=true",
+      "cloudnest.agent.runtime-enabled=true",
       "cloudnest.index-enabled=false"
     })
 @AutoConfigureMockMvc
@@ -190,6 +192,114 @@ class AiIntegrationTest {
     }
     fail("Task did not terminate");
     return null;
+  }
+
+  @Test
+  void agentRunsPersistEvidenceEnforceOwnershipIdempotencyAndUsage() throws Exception {
+    var setup = setup();
+    var u = setup.user();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", u.id());
+    var content =
+        json.readTree(
+            "{\"role\":\"assistant\",\"content\":\"\",\"tool_calls\":[{\"id\":\"node1\",\"type\":\"function\",\"function\":{\"name\":\"get_node_status\",\"arguments\":\"{}\"}}]}");
+    when(gateway.tools(any(), anyList(), anyList(), anyBoolean(), any()))
+        .thenAnswer(
+            i ->
+                new ModelGateway.ToolAnswer(
+                    (boolean) i.getArgument(3)
+                        ? content
+                        : json.valueToTree(
+                            Map.of("content", "Stored metadata is not a live probe")),
+                    new ModelGateway.Answer("", 10L, 5L, 15L)));
+    var input = Map.of("modelId", setup.model(), "objective", "Diagnose nodes");
+    String key = UUID.randomUUID().toString();
+    var created = call(u, post("/api/admin/agent/runs").header("Idempotency-Key", key), input, 200);
+    String id = created.path("id").asText();
+    assertEquals(
+        id,
+        call(u, post("/api/admin/agent/runs").header("Idempotency-Key", key), input, 200)
+            .path("id")
+            .asText());
+    var result = waitFor(u, id);
+    assertEquals("SUCCEEDED", result.path("status").asText(), result.toString());
+    assertEquals("COMPLETED", result.path("result").path("outcome").asText());
+    assertEquals(3, result.path("result").path("steps").size());
+    assertEquals(
+        2, db.count("SELECT COUNT(*) FROM ai_call WHERE task_id=? AND status='SUCCEEDED'", id));
+    assertFalse(result.toString().contains("test-secret"));
+    var another = user();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", another.id());
+    call(another, get("/api/admin/agent/runs/" + id), null, 404);
+    call(
+        u,
+        post("/api/admin/agent/runs").header("Idempotency-Key", key),
+        Map.of("modelId", setup.model(), "objective", "different"),
+        409);
+    db.update("UPDATE sys_user SET administrator=FALSE WHERE id=?", u.id());
+    call(u, get("/api/admin/agent/runs/" + id), null, 403);
+    call(u, get("/api/ai/tasks/" + id), null, 403);
+  }
+
+  @Test
+  void agentUnsupportedModelDegradesWithoutPretendingToolEvidence() throws Exception {
+    var setup = setup();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", setup.user().id());
+    when(gateway.tools(any(), anyList(), anyList(), anyBoolean(), any()))
+        .thenReturn(
+            new ModelGateway.ToolAnswer(
+                json.valueToTree(Map.of("content", "General response")),
+                new ModelGateway.Answer("", null, null, null)));
+    var created =
+        call(
+            setup.user(),
+            post("/api/admin/agent/runs").header("Idempotency-Key", UUID.randomUUID().toString()),
+            Map.of("modelId", setup.model(), "objective", "Check nodes"),
+            200);
+    var run = waitFor(setup.user(), created.path("id").asText());
+    assertEquals("DEGRADED_QA", run.path("result").path("outcome").asText(), run.toString());
+    assertEquals(1, run.path("completed_calls").asInt());
+    assertEquals(1, run.path("result").path("steps").size());
+    call(
+        setup.user(),
+        post("/api/admin/agent/runs").header("Idempotency-Key", UUID.randomUUID().toString()),
+        Map.of("modelId", setup.model(), "objective", "x", "tools", List.of("delete")),
+        400);
+  }
+
+  @Test
+  void agentRestartRetainsStepsAndNeverReplaysAnUnfinishedPaidCall() throws Exception {
+    var setup = setup();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", setup.user().id());
+    when(gateway.tools(any(), anyList(), anyList(), anyBoolean(), any()))
+        .thenReturn(
+            new ModelGateway.ToolAnswer(
+                json.valueToTree(Map.of("content", "Last completed provider text")),
+                new ModelGateway.Answer("", null, null, null)));
+    var created =
+        call(
+            setup.user(),
+            post("/api/admin/agent/runs").header("Idempotency-Key", UUID.randomUUID().toString()),
+            Map.of("modelId", setup.model(), "objective", "Check stored nodes"),
+            200);
+    String id = created.path("id").asText();
+    var previous = waitFor(setup.user(), id);
+    assertEquals("SUCCEEDED", previous.path("status").asText());
+    db.update("UPDATE ai_task SET status='RUNNING' WHERE id=?", id);
+    db.update("UPDATE ai_call SET status='STARTED' WHERE task_id=?", id);
+    var recover = AiTaskService.class.getDeclaredMethod("recover");
+    recover.setAccessible(true);
+    recover.invoke(tasks);
+    var stopped = tasks.get(setup.user().id(), id);
+    assertEquals("FAILED", stopped.get("status"));
+    assertEquals("AI_INTERRUPTED", stopped.get("error_code"));
+    assertEquals("STOPPED", json.valueToTree(stopped.get("result")).path("outcome").asText());
+    assertEquals(
+        previous.path("result").path("steps"),
+        json.valueToTree(stopped.get("result")).path("steps"));
+    assertEquals(
+        1, db.count("SELECT COUNT(*) FROM ai_call WHERE task_id=? AND status='UNKNOWN'", id));
+    Thread.sleep(600);
+    verify(gateway, times(1)).tools(any(), anyList(), anyList(), anyBoolean(), any());
   }
 
   @Test

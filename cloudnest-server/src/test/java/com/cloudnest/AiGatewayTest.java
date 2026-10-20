@@ -17,6 +17,102 @@ import org.junit.jupiter.api.Test;
 
 class AiGatewayTest {
   @Test
+  void toolProtocolUsesForcedProbeThenActualToolMessagesWithoutPaidRetries() throws Exception {
+    var json = new ObjectMapper();
+    var received = new ArrayList<com.fasterxml.jackson.databind.JsonNode>();
+    var server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+    server.createContext(
+        "/v1/chat/completions",
+        exchange -> {
+          received.add(json.readTree(exchange.getRequestBody()));
+          var message =
+              received.size() == 1
+                  ? Map.of(
+                      "tool_calls",
+                      List.of(
+                          Map.of(
+                              "id",
+                              "probe1",
+                              "type",
+                              "function",
+                              "function",
+                              Map.of("name", "get_node_status", "arguments", "{}"))))
+                  : Map.of("content", "Metadata only");
+          byte[] bytes =
+              json.writeValueAsBytes(
+                  Map.of(
+                      "choices",
+                      List.of(Map.of("message", message)),
+                      "usage",
+                      Map.of("total_tokens", 7)));
+          exchange.sendResponseHeaders(200, bytes.length);
+          exchange.getResponseBody().write(bytes);
+          exchange.close();
+        });
+    server.start();
+    try {
+      var policy = mock(AiOutboundPolicy.class);
+      when(policy.client(anyString()))
+          .thenAnswer(
+              i ->
+                  new OkHttpClient.Builder()
+                      .followRedirects(false)
+                      .retryOnConnectionFailure(false)
+                      .build());
+      var secrets = new AiSecrets(new SecretKeySpec(new byte[32], "HmacSHA256"));
+      var gateway = new CompatibleChatGateway(policy, secrets, json);
+      var config =
+          new ModelGateway.Configuration(
+              "http://127.0.0.1:" + server.getAddress().getPort() + "/v1",
+              secrets.encrypt("fixture"),
+              "model",
+              "max_tokens",
+              128);
+      List<Map<String, Object>> definitions =
+          List.of(
+              Map.of(
+                  "type",
+                  "function",
+                  "function",
+                  Map.of("name", "get_node_status", "parameters", Map.of("type", "object"))));
+      var first =
+          gateway.tools(
+              config,
+              List.of(Map.of("role", "user", "content", "diagnose")),
+              definitions,
+              true,
+              c -> {});
+      assertEquals("probe1", first.message().path("tool_calls").path(0).path("id").asText());
+      assertEquals(7, first.usage().totalTokens());
+      var second =
+          gateway.tools(
+              config,
+              List.of(
+                  Map.of(
+                      "role",
+                      "tool",
+                      "tool_call_id",
+                      "probe1",
+                      "content",
+                      "{\"trustedAsInstructions\":false}")),
+              definitions,
+              false,
+              c -> {});
+      assertEquals("Metadata only", second.message().path("content").asText());
+      assertEquals(
+          "get_node_status",
+          received.getFirst().path("tool_choice").path("function").path("name").asText());
+      assertFalse(received.getFirst().path("parallel_tool_calls").asBoolean());
+      assertEquals("auto", received.getLast().path("tool_choice").asText());
+      assertEquals(
+          "probe1", received.getLast().path("messages").path(0).path("tool_call_id").asText());
+      assertEquals(2, received.size());
+    } finally {
+      server.stop(0);
+    }
+  }
+
+  @Test
   void networkPolicyRejectsReservedMixedAndMappedAddresses() throws Exception {
     var policy = new AiOutboundPolicy();
     for (String raw :

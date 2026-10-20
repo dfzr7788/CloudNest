@@ -38,6 +38,7 @@ management:
 cloudnest:
   agent:
     tools-enabled: ${AGENT_TOOLS_ENABLED:false}
+    runtime-enabled: ${AGENT_RUNTIME_ENABLED:false}
   worker:
     enabled: ${WORKER_ENABLED:true}
   ai:

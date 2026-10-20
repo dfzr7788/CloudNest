@@ -62,6 +62,7 @@ public class SecurityConfig {
       HttpSecurity http,
       JwtDecoder decoder,
       DavAuthentication dav,
+      com.cloudnest.sync.SyncDevices sync,
       Db db,
       @Value("${cloudnest.secure-cookies}") boolean secure)
       throws Exception {
@@ -128,6 +129,20 @@ public class SecurityConfig {
                     return;
                   }
                   SecurityContextHolder.getContext().setAuthentication(auth);
+                  chain.doFilter(req, res);
+                  return;
+                }
+                String authorization = req.getHeader("Authorization");
+                if (authorization != null
+                    && authorization.regionMatches(
+                        true, 0, "SyncDevice ", 0, "SyncDevice ".length())) {
+                  SecurityContextHolder.clearContext();
+                  try {
+                    SecurityContextHolder.getContext().setAuthentication(sync.authenticate(req));
+                  } catch (Problem p) {
+                    json(res, p.status, p.code, p.getMessage());
+                    return;
+                  }
                   chain.doFilter(req, res);
                   return;
                 }

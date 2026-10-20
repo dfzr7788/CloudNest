@@ -298,7 +298,13 @@ public class UploadService {
   }
 
   public Map<String, Object> complete(String uid, String id) throws IOException {
+    return complete(uid, id, () -> {});
+  }
+
+  public Map<String, Object> complete(String uid, String id, Runnable authorize)
+      throws IOException {
     synchronized (lock(id)) {
+      authorize.run();
       var s = session(uid, id);
       if (s(s, "status").equals("COMPLETE")) return describe(s);
       uploading(s);
@@ -351,6 +357,7 @@ public class UploadService {
                 nodes.locked(
                     () -> {
                       var current = session(uid, id);
+                      authorize.run();
                       if (!s(current, "status").equals("ASSEMBLING"))
                         throw Problem.conflict("上传状态已改变");
                       drive.folder(uid, s(current, "folder_id"));

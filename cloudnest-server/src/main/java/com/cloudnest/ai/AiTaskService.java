@@ -31,6 +31,7 @@ public class AiTaskService {
   private final AiKnowledgeService knowledge;
   private final AiEnhancementService enhancements;
   private final ObjectMapper json;
+  private final com.cloudnest.agent.AgentExecutor agent;
   private final ExecutorService workers = Executors.newFixedThreadPool(4);
   private final Map<String, Call> calls = new ConcurrentHashMap<>();
   private final Set<String> running = ConcurrentHashMap.newKeySet();
@@ -46,7 +47,8 @@ public class AiTaskService {
       AiConversationService conversations,
       AiKnowledgeService knowledge,
       AiEnhancementService enhancements,
-      ObjectMapper json) {
+      ObjectMapper json,
+      com.cloudnest.agent.AgentExecutor agent) {
     this.db = db;
     this.configs = configs;
     this.drive = drive;
@@ -57,12 +59,22 @@ public class AiTaskService {
     this.knowledge = knowledge;
     this.enhancements = enhancements;
     this.json = json;
+    this.agent = agent;
   }
 
   @PostConstruct
   void recover() {
     if (maintenance) return;
     knowledge.recover();
+    for (var interrupted :
+        db.list(
+            "SELECT id,result_json FROM ai_task WHERE kind='AGENT' AND status='RUNNING' AND"
+                + " result_json IS NOT NULL")) {
+      var evidence = decode(s(interrupted, "result_json"));
+      evidence.put("outcome", "STOPPED");
+      db.update(
+          "UPDATE ai_task SET result_json=? WHERE id=?", encode(evidence), interrupted.get("id"));
+    }
     for (var interrupted :
         db.list(
             "SELECT * FROM ai_task WHERE kind IN ('TEST','EMBEDDING_TEST') AND status='RUNNING'"))
@@ -104,6 +116,7 @@ public class AiTaskService {
 
   private Map<String, Object> validate(Map<String, Object> task) {
     String uid = s(task, "user_id");
+    if ("AGENT".equals(s(task, "kind"))) agent.require(uid);
     if (task.get("workspace_id") != null) knowledge.validate(uid, task, true);
     if (AiEnhancementService.KINDS.contains(s(task, "kind")))
       enhancements.validate(uid, task, true);
@@ -160,36 +173,52 @@ public class AiTaskService {
   public synchronized Map<String, Object> create(
       String uid, String kind, String fileId, String mid, String key, Map<String, Object> input) {
     configs.requireEnabled();
+    if (kind.equals("AGENT")) {
+      agent.require(uid);
+      Object objective = input.get("objective");
+      if (!(objective instanceof String q)
+          || q.isBlank()
+          || q.length() > 2000
+          || q.chars()
+              .anyMatch(c -> Character.isISOControl(c) && c != '\n' && c != '\r' && c != '\t'))
+        throw Problem.invalid("Objective must contain 1-2000 characters");
+    }
     Set<String> fields =
-        AiEnhancementService.KINDS.contains(kind)
-            ? Set.of(
-                "modelId",
-                "expectedRevision",
-                "expectedDigest",
-                "fromVersion",
-                "toVersion",
-                "fileIds",
-                "targetFolderIds",
-                "allowPartial")
-            : AiKnowledgeService.KINDS.contains(kind)
+        kind.equals("AGENT")
+            ? Set.of("modelId", "objective")
+            : AiEnhancementService.KINDS.contains(kind)
                 ? Set.of(
-                    "knowledgeBaseId",
+                    "modelId",
+                    "expectedRevision",
                     "expectedDigest",
-                    "allowPartial",
-                    "question",
-                    "sessionId",
-                    "searchTaskId",
-                    "modelId")
-                : kind.equals("QA")
+                    "fromVersion",
+                    "toVersion",
+                    "fileIds",
+                    "targetFolderIds",
+                    "allowPartial")
+                : AiKnowledgeService.KINDS.contains(kind)
                     ? Set.of(
-                        "modelId", "expectedRevision", "conversationId", "question", "allowPartial")
-                    : Set.of(
-                        "modelId",
-                        "expectedRevision",
-                        "rangeChars",
+                        "knowledgeBaseId",
+                        "expectedDigest",
                         "allowPartial",
-                        "language",
-                        "forceRefresh");
+                        "question",
+                        "sessionId",
+                        "searchTaskId",
+                        "modelId")
+                    : kind.equals("QA")
+                        ? Set.of(
+                            "modelId",
+                            "expectedRevision",
+                            "conversationId",
+                            "question",
+                            "allowPartial")
+                        : Set.of(
+                            "modelId",
+                            "expectedRevision",
+                            "rangeChars",
+                            "allowPartial",
+                            "language",
+                            "forceRefresh");
     if (input.keySet().stream().anyMatch(k -> !fields.contains(k)))
       throw Problem.invalid("不支持的 AI 请求字段");
     if (kind.equals("QA")) {
@@ -265,6 +294,7 @@ public class AiTaskService {
                       + ":prompt-v1:"
                       + encode(cacheInput));
           if (!Boolean.TRUE.equals(input.get("forceRefresh"))
+              && !kind.equals("AGENT")
               && !kind.equals("TEST")
               && !kind.equals("QA")
               && !kind.equals("EMBEDDING_TEST")
@@ -310,6 +340,10 @@ public class AiTaskService {
                       ? enhancements.prepare(uid, kind, fileId, canonical)
                       : canonical;
           long now = System.currentTimeMillis();
+          if (kind.equals("AGENT")) {
+            savedInput = new TreeMap<>(savedInput);
+            savedInput.put("deadlineAt", now + 120000);
+          }
           db.update(
               "INSERT INTO"
                   + " ai_task(id,user_id,kind,file_id,revision,model_id,connection_id,model_version,connection_version,model_name,status,stage,request_hash,idempotency_key,cache_key,request_json,created_at,updated_at,expires_at)"
@@ -407,7 +441,21 @@ public class AiTaskService {
     return db.atomic(uid, () -> view(uid, task(uid, id)));
   }
 
+  public List<Map<String, Object>> agentRuns(String uid) {
+    agent.require(uid);
+    return db
+        .list(
+            "SELECT * FROM ai_task WHERE user_id=? AND kind='AGENT' AND expires_at>? ORDER BY"
+                + " created_at DESC,id LIMIT 30",
+            uid,
+            System.currentTimeMillis())
+        .stream()
+        .map(t -> view(uid, t))
+        .toList();
+  }
+
   private Map<String, Object> view(String uid, Map<String, Object> task) {
+    if ("AGENT".equals(s(task, "kind"))) agent.require(uid);
     if (n(task, "expires_at") < System.currentTimeMillis()
         || "AI_ARTIFACT_DELETED".equals(s(task, "error_code"))) throw Problem.missing();
     if (task.get("workspace_id") != null) knowledge.validate(uid, task, false);
@@ -573,7 +621,55 @@ public class AiTaskService {
       String kind = s(task, "kind");
       Map<String, Object> result;
       long deadline = System.currentTimeMillis() + 600000;
-      if (AiEnhancementService.KINDS.contains(kind)) {
+      if (kind.equals("AGENT")) {
+        final long agentDeadline = n(input, "deadlineAt");
+        result =
+            agent.execute(
+                uid,
+                s(input, "objective"),
+                new com.cloudnest.agent.AgentExecutor.Calls() {
+                  public ModelGateway.ToolAnswer call(
+                      List<Map<String, Object>> messages,
+                      List<Map<String, Object>> definitions,
+                      boolean probe) {
+                    var captured =
+                        new java.util.concurrent.atomic.AtomicReference<ModelGateway.ToolAnswer>();
+                    invoke(
+                        uid,
+                        id,
+                        encode(definitions),
+                        encode(messages),
+                        agentDeadline,
+                        false,
+                        null,
+                        null,
+                        messages,
+                        definitions,
+                        probe,
+                        captured::set);
+                    return captured.get();
+                  }
+
+                  public void check() {
+                    validate(task(uid, id));
+                    if (System.currentTimeMillis() >= agentDeadline)
+                      throw new Problem(504, "AI_TIMEOUT", "Agent exceeded two minute deadline");
+                  }
+                },
+                state ->
+                    db.atomic(
+                        uid,
+                        () -> {
+                          validate(task(uid, id));
+                          db.update(
+                              "UPDATE ai_task SET result_json=?,updated_at=? WHERE id=? AND"
+                                  + " status='RUNNING' AND cancel_requested=FALSE",
+                              encode(state),
+                              System.currentTimeMillis(),
+                              id);
+                          return null;
+                        }));
+      } else if (AiEnhancementService.KINDS.contains(kind)) {
         result =
             enhancements.execute(
                 uid, task, (rules, text) -> invoke(uid, id, rules, text, deadline, false).text());
@@ -781,6 +877,14 @@ public class AiTaskService {
                 cancelled
                     ? "CANCELLED"
                     : p.code.equals("AI_REVISION_CHANGED") || p.status == 404 ? "STALE" : "FAILED";
+            if ("AGENT".equals(s(latest, "kind")) && latest.get("result_json") != null) {
+              var evidence = decode(s(latest, "result_json"));
+              evidence.put("outcome", "STOPPED");
+              db.update(
+                  "UPDATE ai_task SET result_json=? WHERE id=? AND status='RUNNING'",
+                  encode(evidence),
+                  id);
+            }
             db.update(
                 "UPDATE ai_task SET"
                     + " status=?,stage='FINISHED',error_code=?,error_message=?,updated_at=? WHERE"
@@ -885,6 +989,23 @@ public class AiTaskService {
       boolean test,
       List<String> vectorTexts,
       java.util.function.Consumer<List<float[]>> vectors) {
+    return invoke(
+        uid, id, instruction, text, deadline, test, vectorTexts, vectors, null, null, false, null);
+  }
+
+  private ModelGateway.Answer invoke(
+      String uid,
+      String id,
+      String instruction,
+      String text,
+      long deadline,
+      boolean test,
+      List<String> vectorTexts,
+      java.util.function.Consumer<List<float[]>> vectors,
+      List<Map<String, Object>> messages,
+      List<Map<String, Object>> definitions,
+      boolean probe,
+      java.util.function.Consumer<ModelGateway.ToolAnswer> toolResult) {
     if (System.currentTimeMillis() > deadline) throw new Problem(504, "AI_TIMEOUT", "任务超过十分钟截止时间");
     var reservation =
         db.atomic(
@@ -943,7 +1064,11 @@ public class AiTaskService {
               s(connection, "secret_cipher"),
               s(model, "model_id"),
               s(model, "output_param_mode"),
-              test ? Math.min(256, (int) n(model, "max_output")) : (int) n(model, "max_output"));
+              test
+                  ? Math.min(256, (int) n(model, "max_output"))
+                  : messages != null
+                      ? Math.min(1024, (int) n(model, "max_output"))
+                      : (int) n(model, "max_output"));
       ModelGateway.Answer answer;
       java.util.function.Consumer<Call> beforeCall =
           call -> {
@@ -976,6 +1101,10 @@ public class AiTaskService {
                 beforeCall);
         if (vectors != null) vectors.accept(embedded.vectors());
         answer = new ModelGateway.Answer("", embedded.inputTokens(), null, embedded.totalTokens());
+      } else if (messages != null) {
+        var response = gateway.tools(config, messages, definitions, probe, beforeCall);
+        toolResult.accept(response);
+        answer = response.usage();
       } else answer = gateway.chat(config, instruction, text, beforeCall);
       db.update(
           "UPDATE ai_call SET"

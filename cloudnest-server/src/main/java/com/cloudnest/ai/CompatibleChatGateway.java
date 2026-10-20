@@ -20,6 +20,40 @@ public class CompatibleChatGateway implements ModelGateway {
   }
 
   public Answer chat(Configuration config, String instruction, String text, Consumer<Call> onCall) {
+    var message =
+        request(
+            config,
+            List.of(
+                Map.of("role", "system", "content", instruction),
+                Map.of("role", "user", "content", text)),
+            null,
+            false,
+            onCall);
+    var result = message.message().path("content");
+    if (!result.isTextual() || result.asText().isBlank() || result.asText().length() > 100000)
+      throw new ResponseFailure(
+          "AI_INVALID_RESPONSE", "No valid final text; no automatic retry", message.usage());
+    var usage = message.usage();
+    return new Answer(
+        result.asText(), usage.inputTokens(), usage.outputTokens(), usage.totalTokens());
+  }
+
+  @Override
+  public ToolAnswer tools(
+      Configuration config,
+      List<Map<String, Object>> messages,
+      List<Map<String, Object>> definitions,
+      boolean probe,
+      Consumer<Call> onCall) {
+    return request(config, messages, definitions, probe, onCall);
+  }
+
+  private ToolAnswer request(
+      Configuration config,
+      List<Map<String, Object>> messages,
+      List<Map<String, Object>> definitions,
+      boolean probe,
+      Consumer<Call> onCall) {
     OkHttpClient client = null;
     try {
       client = policy.client(config.baseUrl());
@@ -31,9 +65,16 @@ public class CompatibleChatGateway implements ModelGateway {
                   config.outputParameter(),
                   config.maxOutput(),
                   "messages",
-                  List.of(
-                      Map.of("role", "system", "content", instruction),
-                      Map.of("role", "user", "content", text))));
+                  messages));
+      if (definitions != null) {
+        body.put("tools", definitions);
+        body.put("parallel_tool_calls", false);
+        body.put(
+            "tool_choice",
+            probe
+                ? Map.of("type", "function", "function", Map.of("name", "get_node_status"))
+                : "auto");
+      }
       // The official DeepSeek service defaults to thinking mode. These bounded reading
       // operations need a final answer, so explicitly select its documented non-thinking mode.
       // Never send provider-specific fields to an unrelated compatible endpoint.
@@ -73,9 +114,13 @@ public class CompatibleChatGateway implements ModelGateway {
         byte[] data = response.body().byteStream().readNBytes(2 * 1024 * 1024 + 1);
         if (data.length > 2 * 1024 * 1024)
           throw new Problem(502, "AI_RESPONSE_TOO_LARGE", "模型响应超过 2 MiB");
-        JsonNode root = json.readTree(data);
+        JsonNode root =
+            json.reader()
+                .with(
+                    DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY,
+                    DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                .readTree(data);
         var choice = root.path("choices").path(0);
-        var result = choice.path("message").path("content");
         var usage = root.path("usage");
         var measured =
             new Answer(
@@ -86,14 +131,9 @@ public class CompatibleChatGateway implements ModelGateway {
         if ("length".equals(choice.path("finish_reason").asText()))
           throw new ResponseFailure(
               "AI_OUTPUT_LIMIT", "模型达到输出上限，未生成完整回答；请提高输出上限或关闭模型思考模式；不会自动重试", measured);
-        if (!result.isTextual() || result.asText().isBlank() || result.asText().length() > 100000)
-          throw new ResponseFailure(
-              "AI_INVALID_RESPONSE", "模型未返回有效的最终文本；请检查模型兼容模式和输出上限；不会自动重试", measured);
-        return new Answer(
-            result.asText(),
-            token(usage, "prompt_tokens"),
-            token(usage, "completion_tokens"),
-            token(usage, "total_tokens"));
+        if (!choice.path("message").isObject())
+          throw new ResponseFailure("AI_INVALID_RESPONSE", "No valid message", measured);
+        return new ToolAnswer(choice.path("message"), measured);
       }
     } catch (Problem p) {
       throw p;

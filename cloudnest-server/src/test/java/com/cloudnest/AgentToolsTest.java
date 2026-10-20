@@ -47,6 +47,12 @@ class AgentToolsTest {
   @DynamicPropertySource
   static void properties(DynamicPropertyRegistry r) {
     r.add("cloudnest.data-dir", data::toString);
+    String mysql = System.getenv("CN_AGENT_TEST_DATABASE_URL");
+    if (mysql != null) {
+      r.add("spring.datasource.url", () -> mysql);
+      r.add("spring.datasource.username", () -> "root");
+      r.add("spring.datasource.password", () -> "");
+    }
   }
 
   @Autowired Db db;
@@ -103,6 +109,51 @@ class AgentToolsTest {
               assertEquals("ADMIN", tool.requiredRole());
               assertEquals(false, tool.parameters().get("additionalProperties"));
             });
+  }
+
+  @Test
+  void developmentFeaturesStayDisabledWithoutTheirSchemaProfile() throws Exception {
+    for (String path :
+        List.of(
+            "/api/admin/agent/runs/available",
+            "/api/admin/agent/approvals/available",
+            "/api/sync/available")) {
+      var response = mvc.perform(get(path).with(user(admin))).andReturn().getResponse();
+      assertEquals(200, response.getStatus(), response.getContentAsString());
+      assertFalse(json.readTree(response.getContentAsByteArray()).path("enabled").asBoolean());
+    }
+    assertEquals(
+        409,
+        mvc.perform(
+                post("/api/sync/devices")
+                    .with(user(admin))
+                    .with(csrf())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"name\":\"fixture\"}"))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    verifyNoInteractions(gateway);
+  }
+
+  @Test
+  void topologyIsAdministratorOnlyBoundedAndIndependentOfModelCalls() throws Exception {
+    assertEquals(
+        403,
+        mvc.perform(get("/api/admin/topology").with(user(ordinary)))
+            .andReturn()
+            .getResponse()
+            .getStatus());
+    var response =
+        mvc.perform(get("/api/admin/topology").with(user(admin))).andReturn().getResponse();
+    assertEquals(200, response.getStatus());
+    var value = json.readTree(response.getContentAsByteArray());
+    assertEquals("DATABASE_METADATA", value.path("source").asText());
+    assertTrue(value.path("nodes").path("items").size() <= 100);
+    assertTrue(value.path("relations").size() <= 200);
+    assertFalse(value.toString().contains("secret_cipher"));
+    assertFalse(value.toString().contains("access_key"));
+    verifyNoInteractions(gateway);
   }
 
   @Test

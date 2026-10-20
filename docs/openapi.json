@@ -11648,6 +11648,1561 @@
           }
         ]
       }
+    },
+    "/admin/agent/runs/available": {
+      "get": {
+        "summary": "Discover default-off bounded runtime capabilities",
+        "operationId": "get__admin_agent_runs_available",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/admin/agent/runs": {
+      "get": {
+        "summary": "List up to thirty own administrator Agent runs",
+        "operationId": "get__admin_agent_runs",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentRun"
+                  },
+                  "maxItems": 30
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      },
+      "post": {
+        "summary": "Start durable bounded diagnostic run; no automatic paid retry",
+        "operationId": "post__admin_agent_runs",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reuse the same key only for an identical request."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentRunRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/agent/runs/{id}": {
+      "get": {
+        "summary": "Read own authorized run and persisted steps",
+        "operationId": "get__admin_agent_runs_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/admin/agent/runs/{id}/cancel": {
+      "post": {
+        "summary": "Cancel queued or running Agent and active HTTP call",
+        "operationId": "post__admin_agent_runs_id_cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentRun"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/admin/agent/approvals/available": {
+      "get": {
+        "summary": "Discover development-only deterministic proposals",
+        "operationId": "get__admin_agent_approvals_available",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/admin/agent/approvals": {
+      "get": {
+        "summary": "List up to one hundred own proposals",
+        "operationId": "get__admin_agent_approvals",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AgentApproval"
+                  },
+                  "maxItems": 100
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      },
+      "post": {
+        "summary": "Persist a ten-minute pending human-review proposal",
+        "operationId": "post__admin_agent_approvals",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Reuse the same key only for an identical request."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentActionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/agent/approvals/simulate": {
+      "post": {
+        "summary": "Simulate own files with deterministic metadata checks",
+        "operationId": "post__admin_agent_approvals_simulate",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentActionRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/agent/approvals/{id}/approve": {
+      "post": {
+        "summary": "Human-only approve; reauthenticate owner and revalidate before queuing jobs",
+        "operationId": "post__admin_agent_approvals_id_approve",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "proposalHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "proposalHash"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/agent/approvals/{id}/reject": {
+      "post": {
+        "summary": "Human-only reject; reauthenticate owner and revalidate before queuing jobs",
+        "operationId": "post__admin_agent_approvals_id_reject",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentApproval"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "proposalHash": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "proposalHash"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/topology": {
+      "get": {
+        "summary": "Read bounded node/domain/replica relationships and capacity metadata",
+        "operationId": "get__admin_topology",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/admin/topology/events": {
+      "get": {
+        "summary": "Read up to twenty stored health events",
+        "operationId": "get__admin_topology_events",
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/available": {
+      "get": {
+        "summary": "Discover development-only sync protocol",
+        "operationId": "get__sync_available",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/devices": {
+      "get": {
+        "summary": "List own devices without token hashes",
+        "operationId": "get__sync_devices",
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SyncDevice"
+                  },
+                  "maxItems": 100
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      },
+      "post": {
+        "summary": "Issue a scoped ninety-day credential, shown once",
+        "operationId": "post__sync_devices",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "token": {
+                      "type": "string"
+                    },
+                    "expiresAt": {
+                      "type": "integer",
+                      "format": "int64"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "token",
+                    "expiresAt"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sync/devices/{id}": {
+      "delete": {
+        "summary": "Revoke an own device",
+        "operationId": "delete__sync_devices_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/bootstrap": {
+      "get": {
+        "summary": "Atomic reconciled snapshot and cursor; retains intermediate operations only as final state",
+        "operationId": "get__sync_client_bootstrap",
+        "parameters": [],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncBootstrap"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/changes": {
+      "get": {
+        "summary": "Replay up to two hundred metadata changes after cursor",
+        "operationId": "get__sync_client_changes",
+        "parameters": [
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 70
+            }
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncChanges"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/operations": {
+      "post": {
+        "summary": "Idempotent conditional sync mutation; never permanent delete",
+        "operationId": "post__sync_client_operations",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SyncOperation"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sync/client/logout": {
+      "post": {
+        "summary": "Revoke the calling device",
+        "operationId": "post__sync_client_logout",
+        "parameters": [
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/uploads/{id}": {
+      "get": {
+        "summary": "Read the calling device upload progress",
+        "operationId": "get__sync_client_uploads_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Cancel own upload",
+        "operationId": "delete__sync_client_uploads_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/uploads/{id}/parts/{number}": {
+      "put": {
+        "summary": "Upload a resumable zero-based part owned by this device",
+        "operationId": "put__sync_client_uploads_id_parts_number",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/sync/client/uploads/{id}/complete": {
+      "post": {
+        "summary": "Idempotent completion with credential recheck before publish",
+        "operationId": "post__sync_client_uploads_id_complete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-XSRF-TOKEN",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Fetch GET /auth/csrf; retain its XSRF-TOKEN cookie."
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Authorized result; Cache-Control: no-store for JSON. Queuing a storage job does not mean execution succeeded."
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
+    },
+    "/sync/client/files/{id}/download": {
+      "get": {
+        "summary": "Authenticated file download; client must verify snapshot SHA-256",
+        "operationId": "get__sync_client_files_id_download",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "syncDevice": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Whole or Range-aware authenticated file content",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or unknown request field"
+          },
+          "401": {
+            "description": "Authentication required or device revoked/expired"
+          },
+          "403": {
+            "description": "Role, ownership, scope or CSRF denied"
+          },
+          "404": {
+            "description": "Resource not visible to actor"
+          },
+          "409": {
+            "description": "Feature disabled, revision/configuration conflict, stale/expired proposal or inactive upload"
+          },
+          "410": {
+            "description": "Cursor or operation expired; reconcile from snapshot without discarding local baselines"
+          },
+          "413": {
+            "description": "Request exceeds endpoint limit"
+          },
+          "429": {
+            "description": "Rate, task, history or execution budget limit reached"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11656,6 +13211,12 @@
         "type": "apiKey",
         "in": "cookie",
         "name": "CN_AUTH"
+      },
+      "syncDevice": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "SyncDevice <token>. Limited to /sync/client/* and GET /auth/csrf. Cannot create/revoke other devices or access ordinary/admin APIs. Unsafe methods additionally require XSRF-TOKEN cookie and X-XSRF-TOKEN."
       }
     },
     "schemas": {
@@ -12273,6 +13834,687 @@
             }
           }
         ]
+      },
+      "AgentRun": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "taskId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "AGENT"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "QUEUED",
+              "RUNNING",
+              "SUCCEEDED",
+              "FAILED",
+              "CANCELLED",
+              "STALE"
+            ]
+          },
+          "stage": {
+            "type": "string"
+          },
+          "result": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "mode": {
+                "type": "string"
+              },
+              "outcome": {
+                "type": "string",
+                "enum": [
+                  "RUNNING",
+                  "COMPLETED",
+                  "DEGRADED_QA",
+                  "BUDGET_EXCEEDED",
+                  "STOPPED"
+                ]
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 8000
+              },
+              "textSource": {
+                "type": "string",
+                "enum": [
+                  "MODEL_INFERENCE"
+                ]
+              },
+              "trustedAsInstructions": {
+                "type": "boolean",
+                "enum": [
+                  false
+                ]
+              },
+              "reservedTokens": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "object"
+                },
+                "maxItems": 14
+              }
+            }
+          },
+          "completed_calls": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "error_code": {
+            "type": "string",
+            "nullable": true
+          },
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "conversation_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "workspace_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "file_id": {
+            "type": "string",
+            "nullable": true
+          },
+          "revision": {
+            "type": "integer",
+            "nullable": true
+          },
+          "model_id": {
+            "type": "string"
+          },
+          "model_name": {
+            "type": "string"
+          },
+          "cancel_requested": {
+            "type": "boolean"
+          },
+          "total_calls": {
+            "type": "integer",
+            "nullable": true
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "pollAfterMs": {
+            "type": "integer"
+          },
+          "coverage": {
+            "type": "object",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "taskId",
+          "kind",
+          "status",
+          "result"
+        ]
+      },
+      "AgentRunRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "modelId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "objective": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "modelId",
+          "objective"
+        ]
+      },
+      "AgentActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "MIGRATE",
+              "REPLICATE"
+            ]
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "fileIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "minItems": 1,
+            "maxItems": 20,
+            "uniqueItems": true
+          }
+        },
+        "required": [
+          "kind",
+          "target",
+          "fileIds"
+        ]
+      },
+      "AgentApproval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "proposal_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "PENDING",
+              "EXPIRED",
+              "SUBMITTED",
+              "REJECTED"
+            ]
+          },
+          "plan": {
+            "type": "object",
+            "description": "Deterministic metadata simulation with file revisions/checksums, node configuration, additional bytes and proposalHash. No provider credentials or object keys."
+          },
+          "jobIds": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "maxItems": 20
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "SyncEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 180
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "FILE",
+              "FOLDER"
+            ]
+          },
+          "parentId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "revision": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "size": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "sha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "changeToken": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "kind",
+          "parentId",
+          "revision",
+          "size",
+          "sha256",
+          "changeToken",
+          "updatedAt"
+        ]
+      },
+      "SyncBootstrap": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "protocol": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+              1
+            ]
+          },
+          "semantics": {
+            "type": "string",
+            "enum": [
+              "RECONCILED_FINAL_STATE"
+            ]
+          },
+          "rootId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "entries": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SyncEntry"
+            },
+            "maxItems": 10000
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 70
+          },
+          "snapshotVersion": {
+            "type": "string",
+            "maxLength": 70
+          },
+          "retentionDays": {
+            "type": "integer",
+            "format": "int64",
+            "enum": [
+              30
+            ]
+          }
+        },
+        "required": [
+          "protocol",
+          "semantics",
+          "rootId",
+          "entries",
+          "cursor",
+          "snapshotVersion",
+          "retentionDays"
+        ]
+      },
+      "SyncChanges": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "semantics": {
+            "type": "string",
+            "enum": [
+              "RECONCILED_FINAL_STATE"
+            ]
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "format": "int64"
+                },
+                "change": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "UPSERT"
+                          ]
+                        },
+                        "entry": {
+                          "$ref": "#/components/schemas/SyncEntry"
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "entry"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "operation": {
+                          "type": "string",
+                          "enum": [
+                            "DELETE"
+                          ]
+                        },
+                        "entryId": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "tombstone": {
+                          "type": "boolean",
+                          "enum": [
+                            true
+                          ]
+                        }
+                      },
+                      "required": [
+                        "operation",
+                        "entryId",
+                        "tombstone"
+                      ]
+                    }
+                  ]
+                }
+              },
+              "required": [
+                "seq",
+                "change"
+              ]
+            },
+            "maxItems": 200
+          },
+          "cursor": {
+            "type": "string",
+            "maxLength": 70
+          },
+          "hasMore": {
+            "type": "boolean"
+          },
+          "snapshotVersion": {
+            "type": "string",
+            "maxLength": 70
+          }
+        },
+        "required": [
+          "semantics",
+          "events",
+          "cursor",
+          "hasMore",
+          "snapshotVersion"
+        ]
+      },
+      "SyncDevice": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "created_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "last_seen_at": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revoked": {
+            "type": "boolean"
+          }
+        }
+      },
+      "SyncOperation": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Client creation time; valid for 30 days, at most five minutes in the future."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "MKDIR"
+                ]
+              },
+              "parentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 180
+              }
+            },
+            "required": [
+              "operationId",
+              "createdAt",
+              "kind",
+              "parentId",
+              "name"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Client creation time; valid for 30 days, at most five minutes in the future."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "EDIT"
+                ]
+              },
+              "entryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedToken": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 180
+              },
+              "parentId": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "operationId",
+              "createdAt",
+              "kind",
+              "entryId",
+              "expectedToken"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Client creation time; valid for 30 days, at most five minutes in the future."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "TRASH"
+                ]
+              },
+              "entryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedToken": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operationId",
+              "createdAt",
+              "kind",
+              "entryId",
+              "expectedToken"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Client creation time; valid for 30 days, at most five minutes in the future."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "RESTORE"
+                ]
+              },
+              "entryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedRevision": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "operationId",
+              "createdAt",
+              "kind",
+              "entryId",
+              "expectedRevision"
+            ]
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "createdAt": {
+                "type": "integer",
+                "format": "int64",
+                "description": "Client creation time; valid for 30 days, at most five minutes in the future."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "INIT_UPLOAD"
+                ]
+              },
+              "parentId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 180
+              },
+              "size": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0
+              },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "entryId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "expectedToken": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operationId",
+              "createdAt",
+              "kind",
+              "parentId",
+              "name",
+              "size",
+              "sha256"
+            ]
+          }
+        ],
+        "description": "8 KiB JSON maximum. Durable per-device idempotency for 30 days. Replacing an entry also requires expectedToken. TRASH rejects nonempty folders."
       }
     }
   }
