@@ -10,7 +10,19 @@ concurrency:
   group: build-${{ github.ref }}
   cancel-in-progress: false
 jobs:
+  windows-sync-installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test native Windows source installer in disposable directories
+        env:
+          PYTHONUTF8: '1'
+        run: python scripts/test-sync-installer.py
   build:
+    needs: windows-sync-installer
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -55,6 +67,7 @@ jobs:
           python3 scripts/test-backup.py
           python3 scripts/test-split-backup.py
           python3 scripts/test-sync-client.py
+          python3 scripts/test-sync-installer.py
           python3 scripts/package-sync-client.py --output cloudnest-windows-sync-dev.zip --revision "$GITHUB_SHA"
       - name: Test locale switching in desktop and mobile layouts
         working-directory: cloudnest-web

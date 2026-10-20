@@ -12,6 +12,18 @@ Unzip the development client archive and run `install.ps1` in PowerShell. It cop
 to `%LOCALAPPDATA%\CloudNestSync\development` and creates a current-user Start menu shortcut.
 It does not require administrator rights or install an automatic startup task.
 `install.ps1 -Run` also opens the window. Python is not bundled; this archive is not a signed EXE installer.
+Verify the release `SHA256SUMS` before extracting. When present, the installer checks every file against
+the package manifest before copying. Upgrades refuse modified installed files; preserve your changes first.
+An existing nonempty directory without an installation ownership marker is also refused.
+
+Close the client before upgrading or uninstalling. To revoke its device and remove the stored credential,
+use `logout` before uninstalling, or revoke the device from the web interface. Run
+`& "$env:LOCALAPPDATA\CloudNestSync\development\uninstall.ps1"` in PowerShell to remove unchanged installed
+files and the owned shortcut. Modified files and unknown contents are retained; there is no recursive
+directory deletion. Uninstalling leaves synced files, journals, conflict copies and Windows credentials intact.
+For disposable developer tests, `-InstallDirectory` and `-ShortcutDirectory` allow explicit temporary paths;
+pass the same `-ShortcutDirectory` when uninstalling. Existing previews without an ownership marker should
+be preserved and installed into a separate directory.
 
 Choose a local test directory, enter the HTTPS origin and one-time device token, then **Link device**.
 Linking validates metadata and stores the credential in Windows Credential Manager without transferring files.
@@ -72,6 +84,10 @@ The process lock covers one local directory. Two clients should use different de
 覆盖上传/下载、改名与目录移动、选择性传输、离线冲突、删除/恢复、游标失效、
 上传响应丢失后的重启、设备撤销、Windows 路径冲突、一万本地小文件扫描和自有测试凭证往返。
 这些测试不替代真实两台 Windows PC、真实 Garage 双节点、完整一万文件网络传输或 1GB VPS 验收。
+
+`python scripts/test-sync-installer.py` 在显式临时目录验证安装、升级、卸载、清单校验及文件保留；
+Windows CI 同样运行原生 PowerShell/快捷方式测试。卸载不撤销设备或删除 Windows 凭据，
+需要撤销时请先在客户端退出设备或在网页撤销；同步数据、冲突副本和本地日志仍保留。
 
 桌面程序为开发预览：选择有独立备份的测试目录，绑定后凭证保存在当前 Windows 用户的凭据管理器。
 冲突文件和本地回收目录不会自动删除；请人工比较、整理后再同步。代码见同目录 Python 文件。
