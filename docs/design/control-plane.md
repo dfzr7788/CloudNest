@@ -67,7 +67,7 @@ sequenceDiagram
 `overview` 继续供原管理 UI 使用。Agent 工具使用另外五类受限查询：节点状态、容量、事件、活动任务和策略。
 每个方法再次鉴权，查询字段映射为明确 DTO，返回条数受限。`AgentToolRegistry` 负责工具白名单、严格参数、
 限流与结果大小校验；手动工具 API 另限制请求体大小并拒绝重复 JSON 键。
-完整管理视图不会直接传给工具或模型；后续模型循环仍需单独实现注入边界和持久化审计。
+完整管理视图不会直接传给工具或模型；有界模型循环和持久化审计见 [Agent Runtime](../agent-runtime.md)，审批只通过独立人工接口提交现有迁移任务。
 见 [只读工具说明](../agent-tools.md)。
 
 `WORKER_ENABLED=false` 关闭此进程的 Spring 定时任务；维护模式始终不启用调度。

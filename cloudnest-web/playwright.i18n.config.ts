@@ -2,7 +2,11 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
-  testMatch: ["i18n.spec.ts", "agent-tools.spec.ts"],
+  testMatch: [
+    "i18n.spec.ts",
+    "agent-tools.spec.ts",
+    "connected-runtime.spec.ts",
+  ],
   workers: 1,
   timeout: 45000,
   use: {

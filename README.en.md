@@ -8,7 +8,7 @@ The backend runs Java 21 / Spring Boot with MySQL and Redis; the web app uses Vu
 The default deployment runs one application process.
 
 Current release: **2.0.0-rc.1**. The 2.1 Connected Workspace work has started;
-Agent Runtime and Windows bidirectional sync are not released features.
+Opt-in [bounded Agent runs and human proposals](docs/en/agent-runtime.md), resource topology, and a [Windows sync development client](clients/windows-sync/README.md) are implemented as development features, not a stable release.
 Real Garage failure/recovery tests, isolated restoration and 1 GB VPS measurements
 remain release gates. See the [delivery status](docs/connected-workspace.md).
 

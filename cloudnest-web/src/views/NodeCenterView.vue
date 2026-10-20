@@ -7,6 +7,9 @@ import { ElMessage } from "element-plus";
 import NodePolicyForm from "../components/nodes/NodePolicyForm.vue";
 import NodeSettings from "../components/nodes/NodeSettings.vue";
 import AgentDiagnostics from "../components/nodes/AgentDiagnostics.vue";
+import AgentRuntime from "../components/nodes/AgentRuntime.vue";
+import AgentApprovals from "../components/nodes/AgentApprovals.vue";
+import StorageTopology from "../components/nodes/StorageTopology.vue";
 import { useUser } from "../stores/user";
 const user = useUser();
 const tab = ref("overview"),
@@ -143,6 +146,15 @@ async function saveNode(n: any) {
         </article>
       </section>
       <el-tabs v-model="tab">
+        <el-tab-pane :label="t('topology.tab')" name="topology"
+          ><StorageTopology :active="tab === 'topology'"
+        /></el-tab-pane>
+        <el-tab-pane :label="t('approvals.tab')" name="approvals"
+          ><AgentApprovals :active="tab === 'approvals'"
+        /></el-tab-pane>
+        <el-tab-pane :label="t('agentRuntime.tab')" name="agent-runtime">
+          <AgentRuntime :active="tab === 'agent-runtime'" />
+        </el-tab-pane>
         <el-tab-pane :label="t('agentTools.tab')" name="diagnostics">
           <AgentDiagnostics :active="tab === 'diagnostics'" />
         </el-tab-pane>

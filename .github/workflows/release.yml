@@ -31,6 +31,17 @@ jobs:
         run: mvn -B -f cloudnest-server/pom.xml verify
       - name: Verify deployment artifact contract
         run: python3 scripts/check-deployment-artifact.py --require-artifact
+      - name: Verify existing and connected development schemas on disposable MySQL
+        run: |
+          docker run -d --name cloudnest-schema-test -p 127.0.0.1:13306:3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_ROOT_HOST=% mysql:8.4
+          trap 'docker rm -fv cloudnest-schema-test' EXIT
+          for attempt in $(seq 1 60); do
+            if docker exec cloudnest-schema-test mysqladmin ping -h 127.0.0.1 -uroot --silent; then break; fi
+            sleep 2
+          done
+          docker exec cloudnest-schema-test mysqladmin ping -h 127.0.0.1 -uroot --silent
+          docker exec cloudnest-schema-test mysql -uroot -e 'CREATE DATABASE connected_test CHARACTER SET utf8mb4 COLLATE utf8mb4_bin; CREATE DATABASE agent_test CHARACTER SET utf8mb4 COLLATE utf8mb4_bin'
+          CN_AI_TEST_DATABASE_URL='jdbc:mysql://127.0.0.1:13306/?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC' CN_SYNC_TEST_DATABASE_URL='jdbc:mysql://127.0.0.1:13306/connected_test?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC' CN_AGENT_TEST_DATABASE_URL='jdbc:mysql://127.0.0.1:13306/agent_test?allowPublicKeyRetrieval=true&useSSL=false&serverTimezone=UTC' mvn -B -f cloudnest-server/pom.xml -Dtest=AiMigrationTest,SyncIntegrationTest,AgentToolsTest test
       - name: Build web
         working-directory: cloudnest-web
         run: |
@@ -43,6 +54,8 @@ jobs:
           python3 scripts/test-updater.py
           python3 scripts/test-backup.py
           python3 scripts/test-split-backup.py
+          python3 scripts/test-sync-client.py
+          python3 scripts/package-sync-client.py --output cloudnest-windows-sync-dev.zip --revision "$GITHUB_SHA"
       - name: Test locale switching in desktop and mobile layouts
         working-directory: cloudnest-web
         run: |
@@ -62,11 +75,11 @@ jobs:
           REV: ${{ github.sha }}
         run: |
           docker save "cloudnest-server:sha-$REV" "cloudnest-web:sha-$REV" | gzip > cloudnest-images-linux-amd64.tar.gz
-          sha256sum cloudnest-images-linux-amd64.tar.gz > SHA256SUMS
+          sha256sum cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip > SHA256SUMS
       - name: Publish immutable revision assets
         if: github.event_name != 'pull_request'
         env:
           GH_TOKEN: ${{ github.token }}
           REV: ${{ github.sha }}
         run: |
-          gh release create "build-$REV" --target "$REV" --prerelease --latest=false --title "Build $REV" --notes 'Prebuilt Linux amd64 images. Verify SHA256SUMS before importing.' cloudnest-images-linux-amd64.tar.gz SHA256SUMS
+          gh release create "build-$REV" --target "$REV" --prerelease --latest=false --title "Build $REV" --notes 'Prebuilt Linux amd64 images and opt-in Windows sync development source installer. Verify SHA256SUMS. Development sync requires an isolated connected-dev server.' cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip SHA256SUMS

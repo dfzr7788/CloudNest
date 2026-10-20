@@ -1,4 +1,32 @@
 import { api } from "./index";
+import type { AiTask } from "./ai";
+
+export interface AgentRun extends Omit<AiTask, "result"> {
+  result: null | {
+    outcome: string;
+    text: string;
+    textSource: "MODEL_INFERENCE";
+    reservedTokens: number;
+    steps: Array<Record<string, unknown>>;
+  };
+}
+export const agentRuns = {
+  available: async () =>
+    (await api.get<{ enabled: boolean }>("/admin/agent/runs/available")).data,
+  list: async () => (await api.get<AgentRun[]>("/admin/agent/runs")).data,
+  get: async (id: string) =>
+    (await api.get<AgentRun>(`/admin/agent/runs/${id}`)).data,
+  create: async (modelId: string, objective: string, key: string) =>
+    (
+      await api.post<AgentRun>(
+        "/admin/agent/runs",
+        { modelId, objective },
+        { headers: { "Idempotency-Key": key } },
+      )
+    ).data,
+  cancel: async (id: string) =>
+    (await api.post<AgentRun>(`/admin/agent/runs/${id}/cancel`)).data,
+};
 
 export type AgentToolName =
   | "get_node_status"

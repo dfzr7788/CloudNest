@@ -2,7 +2,7 @@
 
 简体中文 · [English](README.en.md)
 
-2.0 发布修复与 2.1 分阶段实施状态见 [Connected Workspace](docs/connected-workspace.md)。
+2.0 发布修复与 2.1 分阶段实施状态见 [Connected Workspace](docs/connected-workspace.md)。新增默认关闭的 [有界 Agent 与人工审批](docs/agent-runtime.md)、[Windows 同步开发原型](docs/sync.md) 和资源拓扑；这些功能尚未完成稳定版验收。
 
 当前代码版本：`2.0.0-rc.1`。新增智能调度、文件级迁移、按需异域副本与节点中心；真实双机故障、隔离恢复和 1GB 压测仍是稳定版发布门槛。使用与升级见 [Horizon 2.0](docs/horizon.md)。
 

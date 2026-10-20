@@ -7,6 +7,7 @@ import { api, date, errorText } from "../api";
 import { Lock } from "@element-plus/icons-vue";
 import SystemUpdate from "./SystemUpdate.vue";
 import AccessSettings from "./AccessSettings.vue";
+import SyncDevices from "./SyncDevices.vue";
 import ServerSettings from "./ServerSettings.vue";
 import AiSettings from "./AiSettings.vue";
 import AiKnowledge from "./AiKnowledge.vue";
@@ -86,6 +87,7 @@ const settingsGroups = computed(() => [
     items: [
       { value: "password", label: t("settings.password") },
       { value: "access", label: t("settings.clients") },
+      { value: "sync", label: t("syncDevices.title") },
       { value: "sessions", label: t("settings.sessions") },
     ],
   },
@@ -356,6 +358,9 @@ async function change() {
       </el-tab-pane>
       <el-tab-pane name="access" :label="t('settings.clients')"
         ><AccessSettings :active="visible && activeTab === 'access'"
+      /></el-tab-pane>
+      <el-tab-pane name="sync" :label="t('syncDevices.title')"
+        ><SyncDevices :active="visible && activeTab === 'sync'"
       /></el-tab-pane>
       <el-tab-pane name="sessions" :label="t('settings.sessions')">
         <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>

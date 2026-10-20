@@ -197,7 +197,7 @@ class Tests(unittest.TestCase):
             updater=FakeUpdater(directory)
             payload=b'fixture-image-archive'
             checksum=hashlib.sha256(payload).hexdigest()
-            responses=[io.BytesIO((checksum+'  cloudnest-images-linux-amd64.tar.gz\n').encode()),io.BytesIO(payload)]
+            responses=[io.BytesIO((checksum+'  cloudnest-images-linux-amd64.tar.gz\n'+'f'*64+'  cloudnest-windows-sync-dev.zip\n').encode()),io.BytesIO(payload)]
             with patch.object(module.urllib.request,'urlopen',side_effect=responses),patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=10*1024**3)):
                 self.assertTrue(module.Updater.prebuilt(updater,'b'*40))
             self.assertTrue(any(c[:2]==('docker','load') for c in updater.calls))

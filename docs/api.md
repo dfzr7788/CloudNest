@@ -311,3 +311,49 @@ source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识
 新增的只读工具发现与手动调用接口见 [Agent 工具说明](agent-tools.md)。
 Agent runs、审批和 Sync API 仍处于 [2.1 实施计划](connected-workspace.md) 中。
 定时工作器开关和单进程边界见 [控制平面设计](design/control-plane.md)。
+## Connected Workspace 开发接口
+
+默认生产模型不变；新增同步与审批模型仅在独立 `connected-dev` 配置中加载。
+完整字段、鉴权与错误条件见 [OpenAPI](openapi.json)，行为与限制见 [Agent Runtime](agent-runtime.md)、
+[Windows 同步](sync.md)。下列 JSON 成功响应均不缓存；写请求继续要求 CSRF Cookie/请求头。
+
+| 方法 / 路径 | 契约 |
+| --- | --- |
+| `GET /api/admin/agent/runs/available` | 管理员查询运行开关、六轮/八工具、两分钟和 32768 累计预算 |
+| `POST /api/admin/agent/runs` | 管理员提交 `{modelId, objective}`，目标 1–2000 字符；必需 Idempotency-Key，最多 8 KiB JSON |
+| `GET /api/admin/agent/runs` | 最近 30 条自己的运行，保留七天 |
+| `GET /api/admin/agent/runs/{id}` | 原 AI 任务状态、结果中的持久化 steps / outcome / 推断文本与预算；失去管理员权限即拒绝 |
+| `POST /api/admin/agent/runs/{id}/cancel` | 取消任务及当前模型 HTTP；不会隐式重试，已经发送的请求可能计费 |
+| `GET /api/admin/agent/approvals/available` | 管理员查询开发审批开关 |
+| `POST /api/admin/agent/approvals/simulate` | 确定性检查 `{kind:MIGRATE|REPLICATE,target,fileIds}`，仅自己的 1–20 个文件；不预留空间或写用户文件 |
+| `POST /api/admin/agent/approvals` | 同上输入，UUID Idempotency-Key；保存十分钟提案 |
+| `GET /api/admin/agent/approvals` | 最近七天、最多 100 条自己的提案；包含确定性 plan、proposal_hash 和 jobIds |
+| `POST /api/admin/agent/approvals/{id}/approve` | **人工接口**，`{proposalHash}`；在既有锁内重授权、重算摘要、提交任务；重复批准返回原任务 ID |
+| `POST /api/admin/agent/approvals/{id}/reject` | 人工拒绝同一摘要提案；拒绝/过期后不能批准 |
+| `GET /api/admin/topology` | 独立于 AI 开关的管理员数据库视图；最多 100 节点、200 类副本关系、20 活动任务；口径和截断显式返回 |
+| `GET /api/admin/topology/events?backend=...` | 最近 20 条记录的健康事件，不调用远端探测 |
+| `GET /api/sync/available` | 普通会话查询默认关闭的开发同步开关 |
+| `POST /api/sync/devices` | 普通会话提交 `{name}`；返回一次性 token、id、expiresAt，90 天有效 |
+| `GET /api/sync/devices` | 最多 100 条自己的设备元信息，不返回 token/hash |
+| `DELETE /api/sync/devices/{id}` | 撤销自己的设备 |
+| `GET /api/sync/client/bootstrap` | **SyncDevice 凭证**，一致快照、rootId、entries、cursor、snapshotVersion、保留期 |
+| `GET /api/sync/client/changes?cursor=...` | 有序协调后的 UPSERT/DELETE tombstone，最多 200 条，cursor/hasMore；失效返回 410 |
+| `POST /api/sync/client/operations` | 最多 8 KiB JSON；operationId、createdAt、kind 和相应有限参数；30 天内按设备幂等 |
+| `GET /api/sync/client/uploads/{id}` | 本设备上传会话的分片进度 |
+| `PUT /api/sync/client/uploads/{id}/parts/{number}` | 本设备会话的原始分片字节，编号从 0 开始 |
+| `POST /api/sync/client/uploads/{id}/complete` | 复用既有 SHA-256/修订校验与幂等完成，最终发布前复核设备 |
+| `DELETE /api/sync/client/uploads/{id}` | 取消本设备会话 |
+| `GET /api/sync/client/files/{id}/download` | 受鉴权的自有文件下载，客户端必须验证快照 SHA-256 |
+| `POST /api/sync/client/logout` | 撤销调用设备 |
+
+设备请求使用 `Authorization: SyncDevice <token>`，不能访问普通/管理员 API；
+写请求还需先调用 `GET /api/auth/csrf`，保留 XSRF Cookie 并发送 `X-XSRF-TOKEN`。
+设备端没有长期 S3 密钥，也不能创建其他设备。
+
+同步操作支持 MKDIR、条件 EDIT/TRASH、RESTORE、INIT_UPLOAD；不存在永久删除操作。
+EDIT/TRASH/覆盖上传必须携带当前 expectedToken，因为文件改名/移动不一定改变内容 revision。
+RESTORE 需要 expectedRevision；INIT_UPLOAD 还需 parentId/name/size/sha256，覆盖时另需 entryId。
+目录 TRASH 只接受空目录，避免陈旧客户端删除新子内容；冲突返回 409，不静默覆盖。
+
+上述 JSON 写请求严格拒绝额外字段、重复 JSON 键及尾随 JSON。
+`DEGRADED_QA` 不是工具诊断，`STOPPED` 保留中断前证据；审批 `SUBMITTED` 只表示任务排队。

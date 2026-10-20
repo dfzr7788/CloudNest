@@ -35,6 +35,4 @@ health-check time is a separate field. Private file names, object paths, credent
 user identifiers and raw provider errors are excluded from tool data.
 See the [OpenAPI contract](../openapi.json) for response types.
 
-Model tool-calling negotiation, bounded execution, durable run/step records and
-approval-based actions remain future work. Production schema changes and stable
-release remain subject to the [existing acceptance gates](../connected-workspace.md).
+The subsequent [bounded runtime](agent-runtime.md) provides model tool negotiation and durable steps using existing AI tables. Human proposals use only the isolated development schema. Production schema changes and stable release remain subject to the [existing acceptance gates](../connected-workspace.md).
