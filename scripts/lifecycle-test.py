@@ -19,7 +19,7 @@ WORK.mkdir(parents=True)
 REPORT = ROOT / 'docs/evidence/lifecycle-results.json'
 JAVA = os.environ.get('JAVA_EXE', 'java')
 JAR = WORK / 'server.jar'
-shutil.copyfile(ROOT / 'cloudnest-server/target/cloudnest-server-1.0.0.jar', JAR)
+shutil.copyfile(ROOT / 'cloudnest-server/target/cloudnest-server.jar', JAR)
 BASE = 'http://127.0.0.1:18081'
 results = []
 

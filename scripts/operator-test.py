@@ -6,7 +6,7 @@ from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
 WORK=ROOT/'.tools'/('operator-'+str(int(time.time())))
 WORK.mkdir(parents=True)
-JAR=WORK/'server.jar';shutil.copyfile(ROOT/'cloudnest-server/target/cloudnest-server-1.0.0.jar',JAR)
+JAR=WORK/'server.jar';shutil.copyfile(ROOT/'cloudnest-server/target/cloudnest-server.jar',JAR)
 JAVA=os.environ.get('JAVA_EXE','java');BASE='http://127.0.0.1:18089'
 ARGS=[JAVA,'-jar',str(JAR),'--cloudnest.data-dir='+str(WORK/'data'),'--spring.datasource.url=jdbc:h2:file:'+str(WORK/'data/cloudnest').replace('\\','/')+';MODE=MySQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_ON_EXIT=FALSE;WRITE_DELAY=0','--cloudnest.registration-open=false']
 results=[]

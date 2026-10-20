@@ -1,7 +1,7 @@
 **
 !cloudnest-server/
 !cloudnest-server/target/
-!cloudnest-server/target/cloudnest-server-1.0.0.jar
+!cloudnest-server/target/cloudnest-server.jar
 !cloudnest-web/
 !cloudnest-web/dist/
 !cloudnest-web/dist/**

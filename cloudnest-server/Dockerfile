@@ -7,7 +7,7 @@ RUN mvn -B package -DskipTests
 FROM eclipse-temurin:21-jre
 WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/* && groupadd -g 10001 cloudnest && useradd -u 10001 -g cloudnest cloudnest && mkdir -p /app/data && chown -R cloudnest:cloudnest /app
-COPY --from=build /build/target/cloudnest-server-1.0.0.jar app.jar
+COPY --from=build /build/target/cloudnest-server.jar app.jar
 USER cloudnest
 ENV DATA_DIR=/app/data
 EXPOSE 8080
