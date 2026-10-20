@@ -1,5 +1,60 @@
 import { test, expect } from "@playwright/test";
 
+test("known server errors use the UI language while detailed validation remains intact", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("cloudnest-locale", "en-US"),
+  );
+  let count = 0;
+  await page.route(
+    (url) => url.pathname.startsWith("/api/"),
+    async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/public/auth/forgot") {
+        count++;
+        await route.fulfill({
+          status: 503,
+          json:
+            count <= 2
+              ? { code: "MAIL_DISABLED", message: "管理员尚未配置邮件找回" }
+              : {
+                  code: "INVALID_INPUT",
+                  message: "Specific field constraint remains visible",
+                },
+        });
+      } else if (path === "/api/auth/csrf") {
+        await route.fulfill({ json: { token: "fixture" } });
+      } else
+        await route.fulfill({ status: 401, json: { code: "UNAUTHORIZED" } });
+    },
+  );
+  await page.goto("/login");
+  await page
+    .getByRole("button", { name: "Forgot password", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Recovery account", exact: true })
+    .fill("fixture-account");
+  await page
+    .getByRole("button", { name: "Send reset link", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Email delivery has not been configured by the administrator.",
+  );
+  await page.getByRole("button", { name: "Close this dialog" }).click();
+  await page
+    .getByRole("combobox", { name: "Language / 语言" })
+    .selectOption("zh-CN");
+  await page.getByRole("button", { name: "忘记密码", exact: true }).click();
+  await page.getByRole("button", { name: "发送重置链接", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("管理员尚未配置邮件服务");
+  await page.getByRole("button", { name: "发送重置链接", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText(
+    "Specific field constraint remains visible",
+  );
+});
+
 test("mail requests follow the selected UI language including later changes", async ({
   page,
 }) => {

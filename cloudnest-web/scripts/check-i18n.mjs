@@ -4,10 +4,24 @@ import { fileURLToPath } from "node:url";
 import { createI18n } from "vue-i18n";
 
 const root = fileURLToPath(new URL("../src/", import.meta.url));
-const load = (locale) =>
-  JSON.parse(
+const load = (locale) => {
+  const primary = JSON.parse(
     fs.readFileSync(path.join(root, `i18n/locales/${locale}.json`), "utf8"),
   );
+  const errors = JSON.parse(
+    fs.readFileSync(
+      path.join(root, `i18n/locales/errors.${locale}.json`),
+      "utf8",
+    ),
+  );
+  for (const key of Object.keys(errors)) {
+    if (key in primary)
+      throw new Error(`Duplicate primary/error message: ${locale} ${key}`);
+    if (!/^errors\.[A-Z][A-Z0-9_]*$/.test(key))
+      throw new Error(`Invalid error message key: ${key}`);
+  }
+  return { ...primary, ...errors };
+};
 const zh = load("zh-CN"),
   en = load("en-US");
 const errors = [];

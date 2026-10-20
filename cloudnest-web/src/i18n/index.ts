@@ -2,6 +2,8 @@ import { createI18n } from "vue-i18n";
 import { watch } from "vue";
 import zhCN from "./locales/zh-CN.json";
 import enUS from "./locales/en-US.json";
+import errorsZhCN from "./locales/errors.zh-CN.json";
+import errorsEnUS from "./locales/errors.en-US.json";
 
 export type Locale = "zh-CN" | "en-US";
 const preferenceKey = "cloudnest-locale";
@@ -20,7 +22,10 @@ export const i18n = createI18n({
   locale: preferredLocale(),
   fallbackLocale: "zh-CN",
   flatJson: true,
-  messages: { "zh-CN": zhCN, "en-US": enUS },
+  messages: {
+    "zh-CN": { ...zhCN, ...errorsZhCN },
+    "en-US": { ...enUS, ...errorsEnUS },
+  },
 });
 export const t = i18n.global.t;
 export const locale = i18n.global.locale;
