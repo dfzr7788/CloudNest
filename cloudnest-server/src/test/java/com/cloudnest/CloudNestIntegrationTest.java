@@ -501,14 +501,21 @@ class CloudNestIntegrationTest {
               "http://localhost"));
       call(
           u,
-          post("/api/user/access/email"),
+          post("/api/user/access/email").header("Accept-Language", "en-US"),
           Map.of("email", username + "@example.test", "password", "correct-password"),
           200);
-      String verify = smtp.token("verifyEmail");
+      String verify = smtp.token("verifyEmail", "verify your email");
       call(null, post("/api/public/auth/verify-email"), Map.of("token", verify), 200);
       call(null, post("/api/public/auth/verify-email"), Map.of("token", verify), 404);
-      call(null, post("/api/public/auth/forgot"), Map.of("account", username), 200);
-      String reset = smtp.token("reset");
+      var acknowledgement =
+          read(
+              call(
+                  null,
+                  post("/api/public/auth/forgot").header("Accept-Language", "en-US"),
+                  Map.of("account", username),
+                  200));
+      assertTrue(acknowledgement.path("message").asText().startsWith("If the account"));
+      String reset = smtp.token("reset", "set a new password");
       call(
           null,
           post("/api/public/auth/reset"),

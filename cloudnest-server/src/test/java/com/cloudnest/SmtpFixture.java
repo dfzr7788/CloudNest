@@ -66,8 +66,14 @@ final class SmtpFixture implements AutoCloseable {
   }
 
   String token(String parameter) throws Exception {
+    return token(parameter, null);
+  }
+
+  String token(String parameter, String expectedText) throws Exception {
     String body = messages.poll(30, TimeUnit.SECONDS);
     if (body == null) throw new AssertionError("No SMTP message received");
+    if (expectedText != null && !body.contains(expectedText))
+      throw new AssertionError("SMTP message language did not match the request");
     var matcher = java.util.regex.Pattern.compile(parameter + "=([A-Za-z0-9_-]{43})").matcher(body);
     if (!matcher.find()) throw new AssertionError("Missing recovery token in SMTP message");
     return matcher.group(1);

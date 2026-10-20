@@ -15,17 +15,21 @@ public class RuntimeSettings {
   private final Db db;
   private final SecretCipher cipher;
   private final ObjectMapper json;
+  private final com.cloudnest.control.IdentityAuthorization identity;
 
-  public RuntimeSettings(Db db, SecretCipher cipher, ObjectMapper json) {
+  public RuntimeSettings(
+      Db db,
+      SecretCipher cipher,
+      ObjectMapper json,
+      com.cloudnest.control.IdentityAuthorization identity) {
     this.db = db;
     this.cipher = cipher;
     this.json = json;
+    this.identity = identity;
   }
 
   public void admin(String uid) {
-    if (db.count(
-            "SELECT COUNT(*) FROM sys_user WHERE id=? AND administrator=TRUE AND enabled=TRUE", uid)
-        != 1) throw new Problem(403, "ADMIN_REQUIRED", "需要管理员权限");
+    identity.requireAdministrator(uid);
   }
 
   public Map<String, String> get(String section) {

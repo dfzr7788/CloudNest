@@ -19,6 +19,9 @@ import org.springframework.stereotype.Service;
 @Service
 public class UploadService {
   @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
+  @org.springframework.beans.factory.annotation.Autowired
   private com.cloudnest.node.NodeService nodes;
 
   @Value("${cloudnest.maintenance:false}")
@@ -74,6 +77,7 @@ public class UploadService {
 
   @PostConstruct
   void recover() {
+    if (!lifecycle.mayRecover()) return;
     db.update("UPDATE upload_session SET status='UPLOADING' WHERE status='ASSEMBLING'");
   }
 

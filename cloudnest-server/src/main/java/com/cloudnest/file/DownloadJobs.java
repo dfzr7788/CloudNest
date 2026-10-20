@@ -23,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/downloads")
 public class DownloadJobs {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
   @Value("${cloudnest.zip.max-bytes:536870912}")
   private long maxBytes;
 
@@ -96,6 +99,7 @@ public class DownloadJobs {
             new ArrayBlockingQueue<>(20),
             Thread.ofPlatform().daemon().name("zip-", 0).factory(),
             new ThreadPoolExecutor.AbortPolicy());
+    if (!lifecycle.mayRecover()) return;
     db.update(
         "UPDATE download_job SET status='FAILED',error='服务重启，请重新创建任务' WHERE status IN"
             + " ('QUEUED','BUILDING')");

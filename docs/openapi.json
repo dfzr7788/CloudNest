@@ -5486,6 +5486,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "description": "Email and recovery acknowledgement language; supported Chinese/English language ranges with quality weights. Missing, invalid or unsupported preferences default to zh-CN. The selected language is captured before asynchronous delivery.",
+            "schema": {
+              "type": "string",
+              "example": "en-US"
+            }
           }
         ],
         "responses": {
@@ -5540,7 +5550,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Mail language follows Accept-Language. Token scope, 15-minute expiration, CSRF and account enumeration protections are unchanged."
       }
     },
     "/user/access/mfa/setup": {
@@ -5981,6 +5992,16 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "Accept-Language",
+            "in": "header",
+            "required": false,
+            "description": "Email and recovery acknowledgement language; supported Chinese/English language ranges with quality weights. Missing, invalid or unsupported preferences default to zh-CN. The selected language is captured before asynchronous delivery.",
+            "schema": {
+              "type": "string",
+              "example": "en-US"
+            }
           }
         ],
         "responses": {
@@ -6033,7 +6054,8 @@
               }
             }
           }
-        }
+        },
+        "description": " Mail language follows Accept-Language. Token scope, 15-minute expiration, CSRF and account enumeration protections are unchanged."
       }
     },
     "/public/auth/reset": {

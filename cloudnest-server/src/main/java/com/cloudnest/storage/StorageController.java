@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/admin/storage")
 public class StorageController {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
   @Value("${cloudnest.storage:local}")
   private String environmentBackend;
 
@@ -49,6 +52,7 @@ public class StorageController {
 
   @PostConstruct
   void recover() {
+    if (!lifecycle.mayRecover()) return;
     db.update(
         "UPDATE maintenance_job SET status='INTERRUPTED',error='服务重启，请重新发起；已迁移对象会自动跳过' WHERE status"
             + " IN ('QUEUED','RUNNING')");

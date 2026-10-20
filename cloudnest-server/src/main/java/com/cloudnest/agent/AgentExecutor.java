@@ -171,6 +171,9 @@ public class AgentExecutor {
                       DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
                   .readTree(args.asText());
           if (parsed == null || !parsed.isObject()) throw invalid();
+          if (name.equals("simulate_file_migration") || name.equals("propose_storage_action"))
+            approvals.validateArguments(parsed);
+          else registry.validateArguments(name, parsed);
           arguments.add(parsed);
         } catch (java.io.IOException e) {
           throw invalid();

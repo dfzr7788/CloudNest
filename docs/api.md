@@ -357,3 +357,12 @@ RESTORE 需要 expectedRevision；INIT_UPLOAD 还需 parentId/name/size/sha256�
 
 上述 JSON 写请求严格拒绝额外字段、重复 JSON 键及尾随 JSON。
 `DEGRADED_QA` 不是工具诊断，`STOPPED` 保留中断前证据；审批 `SUBMITTED` 只表示任务排队。
+
+
+### 邮件语言
+
+`POST /api/user/access/email` 与 `POST /api/public/auth/forgot` 接受可选 `Accept-Language`。
+支持中文/英文语言范围和权重，缺失、无匹配或格式错误时使用简体中文；Web 客户端随当前界面语言逐次发送。
+验证与重置邮件的主题/正文、找回请求的中性确认消息使用所选语言，异步发送前固定语言值。
+有效期仍为 15 分钟，链接/一次性令牌、CSRF、限流与防账户枚举行为保持原有契约。
+这不表示全部后端错误和其他通知已国际化。

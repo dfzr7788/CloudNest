@@ -1,5 +1,59 @@
 import { test, expect } from "@playwright/test";
 
+test("mail requests follow the selected UI language including later changes", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.addInitScript(() =>
+    localStorage.setItem("cloudnest-locale", "en-US"),
+  );
+  const languages: string[] = [];
+  await page.route(
+    (url) => url.pathname.startsWith("/api/"),
+    async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path === "/api/public/auth/forgot") {
+        const language = route.request().headers()["accept-language"];
+        languages.push(language);
+        await route.fulfill({
+          json: {
+            message:
+              language === "en-US"
+                ? "If the account is eligible, a link will arrive."
+                : "如果账号已绑定邮箱，将收到密码重置链接",
+          },
+        });
+      } else if (path === "/api/auth/csrf") {
+        await route.fulfill({ json: { token: "fixture" } });
+      } else {
+        await route.fulfill({ status: 401, json: { code: "UNAUTHORIZED" } });
+      }
+    },
+  );
+  await page.goto("/login");
+  await page
+    .getByRole("button", { name: "Forgot password", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Recovery account", exact: true })
+    .fill("fixture-account");
+  await page
+    .getByRole("button", { name: "Send reset link", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("If the account");
+  await page.getByRole("button", { name: "Close this dialog" }).click();
+  await page
+    .getByRole("combobox", { name: "Language / 语言" })
+    .selectOption("zh-CN");
+  await page.getByRole("button", { name: "忘记密码", exact: true }).click();
+  await expect(
+    page.getByRole("textbox", { name: "找回账号", exact: true }),
+  ).toHaveValue("fixture-account");
+  await page.getByRole("button", { name: "发送重置链接", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("如果账号已绑定邮箱");
+  expect(languages).toEqual(["en-US", "zh-CN"]);
+});
+
 test("ordinary user device credentials clear on tab changes and delayed responses", async ({
   page,
 }) => {

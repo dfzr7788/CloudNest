@@ -56,6 +56,9 @@ class SyncIntegrationTest {
   @Autowired SyncDevices devices;
   @Autowired com.cloudnest.agent.AgentApprovalService approvals;
   @Autowired com.cloudnest.upload.UploadService uploads;
+  @Autowired com.cloudnest.control.IdentityAuthorization identity;
+  @Autowired com.cloudnest.control.FileMetadata metadata;
+  @Autowired com.cloudnest.control.StorageTaskCoordinator coordinator;
   String uid, root, deviceId, token;
   SyncDevices.Identity who;
 
@@ -134,6 +137,52 @@ class SyncIntegrationTest {
     var complete = uploads.complete(uid, id);
     return json.valueToTree(
         Map.of("kind", "MIGRATE", "target", "minio", "fileIds", List.of(complete.get("fileId"))));
+  }
+
+  @Test
+  void independentControlBoundariesRecheckRoleOwnershipAndRevision() throws Exception {
+    var input = approvalRequest();
+    String fid = input.path("fileIds").path(0).asText();
+    var file = metadata.ownedFile(uid, fid);
+    assertEquals(fid, file.id());
+    String other = user();
+    var command =
+        new com.cloudnest.control.StorageTaskCoordinator.Command(
+            fid,
+            file.revision(),
+            "minio",
+            com.cloudnest.control.StorageTaskCoordinator.Kind.MIGRATE);
+    assertEquals(
+        "ADMIN_REQUIRED",
+        assertThrows(Problem.class, () -> coordinator.submit(other, command)).code);
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", other);
+    assertEquals(404, assertThrows(Problem.class, () -> coordinator.submit(other, command)).status);
+    assertEquals(404, assertThrows(Problem.class, () -> metadata.ownedFile(other, fid)).status);
+    var stale =
+        new com.cloudnest.control.StorageTaskCoordinator.Command(
+            fid,
+            file.revision() + 1,
+            "minio",
+            com.cloudnest.control.StorageTaskCoordinator.Kind.MIGRATE);
+    assertEquals(
+        "FILE_REVISION_CHANGED",
+        assertThrows(Problem.class, () -> coordinator.submit(uid, stale)).code);
+    assertEquals(0, db.count("SELECT COUNT(*) FROM storage_job_item WHERE user_id=?", uid));
+    db.update("UPDATE sys_user SET enabled=FALSE WHERE id=?", uid);
+    assertEquals(
+        "ACCOUNT_DISABLED", assertThrows(Problem.class, () -> metadata.ownedFile(uid, fid)).code);
+    assertEquals(
+        "ADMIN_REQUIRED", assertThrows(Problem.class, () -> coordinator.submit(uid, command)).code);
+    db.update("UPDATE sys_user SET enabled=TRUE WHERE id=?", uid);
+    identity.requireAdministrator(uid);
+    db.update("UPDATE drive_entry SET deleted=TRUE WHERE id=?", root);
+    assertEquals(404, assertThrows(Problem.class, () -> coordinator.submit(uid, command)).status);
+    db.update("UPDATE drive_entry SET deleted=FALSE WHERE id=?", root);
+    String job = coordinator.submit(uid, command);
+    assertEquals(
+        "QUEUED", db.one("SELECT status FROM storage_job_item WHERE id=?", job).get("status"));
+    assertEquals(
+        "local", db.one("SELECT backend FROM file_blob WHERE id=?", file.blobId()).get("backend"));
   }
 
   @Test

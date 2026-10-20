@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 /** One fixed destination. All admission/configuration changes share a database lock. */
 @Service
 public class NodeService {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
   private final Db db;
   private final StorageService storage;
   private final RuntimeSettings settings;
@@ -57,8 +60,13 @@ public class NodeService {
             ensure("s3:" + s(p, "id"), s(p, "name"), b(p, "enabled"));
           return null;
         });
-    db.update("DELETE FROM storage_reservation WHERE id LIKE 'ingest:%'");
+    recover();
     check("local", true);
+  }
+
+  void recover() {
+    if (!lifecycle.mayRecover()) return;
+    db.update("DELETE FROM storage_reservation WHERE id LIKE 'ingest:%'");
   }
 
   public void ensure(String backend, String name, boolean enabled) {

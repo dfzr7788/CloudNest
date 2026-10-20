@@ -3,9 +3,9 @@ package com.cloudnest.agent;
 import static com.cloudnest.common.Db.*;
 
 import com.cloudnest.common.*;
-import com.cloudnest.file.DriveService;
+import com.cloudnest.control.FileMetadata;
+import com.cloudnest.control.StorageTaskCoordinator;
 import com.cloudnest.node.*;
-import com.cloudnest.storage.MigrationService;
 import com.cloudnest.user.RuntimeSettings;
 import com.fasterxml.jackson.databind.*;
 import jakarta.annotation.PostConstruct;
@@ -18,18 +18,18 @@ import org.springframework.stereotype.Service;
 @Service
 public class AgentApprovalService {
   private final Db db;
-  private final DriveService drive;
+  private final FileMetadata drive;
   private final NodeService nodes;
-  private final MigrationService jobs;
+  private final StorageTaskCoordinator jobs;
   private final RuntimeSettings settings;
   private final ObjectMapper json;
   private final boolean enabled;
 
   public AgentApprovalService(
       Db db,
-      DriveService drive,
+      FileMetadata drive,
       NodeService nodes,
-      MigrationService jobs,
+      StorageTaskCoordinator jobs,
       RuntimeSettings settings,
       ObjectMapper json,
       @Value("${cloudnest.agent.approvals-enabled:false}") boolean enabled) {
@@ -183,6 +183,11 @@ public class AgentApprovalService {
             List.copyOf(ids)));
   }
 
+  /** Pure schema preflight; permission and live state are rechecked at execution. */
+  public void validateArguments(JsonNode input) {
+    request(input);
+  }
+
   private Map<String, Object> nodeVersion(Map<String, Object> node) {
     var value = new TreeMap<String, Object>();
     for (String key :
@@ -214,11 +219,11 @@ public class AgentApprovalService {
     var blobs = new HashSet<String>();
     long additional = 0;
     for (String id : (List<String>) request.get("fileIds")) {
-      var entry = drive.file(uid, id);
+      var entry = drive.ownedFile(uid, id);
       var blob =
           db.one(
               "SELECT * FROM file_blob WHERE id=? AND user_id=? AND status='READY'",
-              s(entry, "blob_id"),
+              entry.blobId(),
               uid);
       String source = s(blob, "backend");
       if (source.equals(target)) throw Problem.invalid("Target equals primary source");
@@ -249,13 +254,13 @@ public class AgentApprovalService {
                   "fileId",
                   id,
                   "revision",
-                  n(entry, "revision"),
+                  entry.revision(),
                   "sha256",
                   s(blob, "sha256"),
                   "bytes",
                   n(blob, "size"),
                   "metadataHash",
-                  Util.hash(s(entry, "name") + ":" + s(entry, "parent_id")),
+                  Util.hash(entry.name() + ":" + entry.parentId()),
                   "source",
                   nodeVersion(primary),
                   "desiredReplicas",
@@ -397,19 +402,17 @@ public class AgentApprovalService {
                   "File revision or node/capacity configuration changed; create a fresh proposal");
             var seen = new HashSet<String>();
             for (String fid : (List<String>) input.get("fileIds")) {
-              var entry = drive.file(uid, fid);
-              String bid = s(entry, "blob_id");
+              var entry = drive.ownedFile(uid, fid);
+              String bid = entry.blobId();
               if (seen.add(bid))
                 ids.add(
-                    jobs.enqueue(
+                    jobs.submit(
                         uid,
-                        db.one(
-                            "SELECT * FROM file_blob WHERE id=? AND user_id=? AND status='READY'",
-                            bid,
-                            uid),
-                        s(input, "target"),
-                        s(input, "kind"),
-                        null));
+                        new StorageTaskCoordinator.Command(
+                            fid,
+                            entry.revision(),
+                            s(input, "target"),
+                            StorageTaskCoordinator.Kind.valueOf(s(input, "kind")))));
             }
           }
           db.update(

@@ -59,6 +59,15 @@ sequenceDiagram
 
 ## 已落地接口
 
+新增三个进程内接口，并由数据库适配器实现：
+
+- `IdentityAuthorization` 每次从数据库重新校验启用账户/管理员；既有 `RuntimeSettings.admin` 委托给它，原错误码不变。
+- `FileMetadata.ownedFile` 仅返回 ID、父目录、名称、修订与逻辑 blob ID。使用既有 `DriveService.file` 的所有者与存活祖先校验，不接收模型声称的权限；分享授权仍由原分享服务管理。
+- `StorageTaskCoordinator.submit(actor, Command)` 只接受文件 ID、预期修订、目标和有限任务类型。它在用户/存储锁内再次验证管理员、所有权和修订，然后交给既有迁移队列；不会接受调用方构造的 blob 行或报告复制完成。
+
+审批模块已使用这些元数据/提交接口。批准事务仍先重算完整提案摘要，再提交同一事务中的队列记录；重复审批继续返回原任务 ID。接口可以独立拒绝越权调用，但没有绕过人工审批的新增 HTTP 入口。原文件、分享和存储 URL 保持兼容。上述是已接入的首批边界，尚未将全部历史模块拆分为统一接口。
+
+
 `StorageDiagnostics.overview(actorId)` 只读取数据库指标，不检测节点、不预留容量，
 也不调用迁移。`DatabaseStorageDiagnostics` 每次调用执行管理员校验；
 现有控制器继续先做管理员校验，保留原 URL、字段与返回条数限制。
@@ -70,7 +79,13 @@ sequenceDiagram
 完整管理视图不会直接传给工具或模型；有界模型循环和持久化审计见 [Agent Runtime](../agent-runtime.md)，审批只通过独立人工接口提交现有迁移任务。
 见 [只读工具说明](../agent-tools.md)。
 
-`WORKER_ENABLED=false` 关闭此进程的 Spring 定时任务；维护模式始终不启用调度。
-默认单进程保持 `true`。这不关闭启动初始化或请求触发任务，也不是只读模式。
-多个应用进程仍可能有启动恢复、上传暂存和任务状态假设，尚不支持多实例部署。
+`WORKER_ENABLED=false` 关闭此进程的 Spring 定时任务，也阻止全局任务启动恢复。
+统一的 `WorkerLifecycle` 同时检查 Worker 开关与维护模式：两者任意禁用恢复权限时，
+上传 ASSEMBLING、下载队列、文件迁移、整节点迁移、AI/知识任务与未决计费状态保持原样，
+不删除 ZIP、迁移或摄取任务的预留空间。默认单进程保持 `true`，保留原有中断恢复行为。
+
+该开关不关闭 Flyway、节点注册与本地健康初始化、目录创建、HTTP 写接口或请求触发的 ZIP/整节点迁移，
+也不是只读模式。维护命令仍可执行其显式操作。关闭唯一进程的 Worker 会使排队任务停留。
+`WorkerLifecycle` 仅是单进程角色边界，没有分布式租约，不能防止两个 Worker 同时恢复任务。
+多个应用进程仍存在上传暂存和任务状态假设，尚不支持多实例部署。
 未来需要逐项验证数据库租约、fencing token、任务重领、对象并发、会话和共享临时文件。

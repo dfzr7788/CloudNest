@@ -14,6 +14,9 @@ import org.springframework.stereotype.Service;
 /** Durable, single-worker file tasks. No file is removed during migration. */
 @Service
 public class MigrationService {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
   private final Db db;
   private final NodeService nodes;
   private final StorageService storage;
@@ -34,6 +37,7 @@ public class MigrationService {
 
   @PostConstruct
   void recover() {
+    if (!lifecycle.mayRecover()) return;
     db.update(
         "UPDATE storage_job_item SET status='INTERRUPTED',error='服务重启，请重试' WHERE status='RUNNING'");
     db.update(

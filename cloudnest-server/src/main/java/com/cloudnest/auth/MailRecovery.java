@@ -94,7 +94,10 @@ public class MailRecovery {
   public record Bind(@Email @NotBlank @Size(max = 254) String email, @NotBlank String password) {}
 
   @PostMapping("/user/access/email")
-  public void bind(Authentication a, @Valid @RequestBody Bind in) {
+  public void bind(
+      Authentication a,
+      @Valid @RequestBody Bind in,
+      @RequestHeader(value = "Accept-Language", defaultValue = "zh-CN") String language) {
     limits.check("email-bind:" + a.getName(), 3);
     if (!passwords.matches(
         in.password(),
@@ -118,7 +121,10 @@ public class MailRecovery {
               System.currentTimeMillis() + 900000);
           return null;
         });
-    send(email, "CloudNest 验证邮箱", "请在 15 分钟内打开链接验证邮箱：\n" + base() + "/login?verifyEmail=" + token);
+    var message =
+        AccountMailTemplates.language(language)
+            .verification(base() + "/login?verifyEmail=" + token);
+    send(email, message.subject(), message.body());
   }
 
   public record Token(@NotBlank @Size(max = 100) String token) {}
@@ -152,11 +158,15 @@ public class MailRecovery {
   public record Forgot(@NotBlank @Size(max = 254) String account) {}
 
   @PostMapping("/public/auth/forgot")
-  public Map<String, Object> forgot(@Valid @RequestBody Forgot in, HttpServletRequest req) {
+  public Map<String, Object> forgot(
+      @Valid @RequestBody Forgot in,
+      HttpServletRequest req,
+      @RequestHeader(value = "Accept-Language", defaultValue = "zh-CN") String language) {
     limits.check("forgot-ip:" + req.getRemoteAddr(), 3);
     String account = in.account().toLowerCase(Locale.ROOT);
     limits.check("forgot-user:" + Util.hash(account), 2);
     String origin = base();
+    var mailLanguage = AccountMailTemplates.language(language);
     if (settings.get("mail").getOrDefault("host", "").isBlank())
       throw new Problem(503, "MAIL_DISABLED", "管理员尚未配置邮件找回");
     try {
@@ -186,10 +196,8 @@ public class MailRecovery {
                         System.currentTimeMillis() + 900000);
                     return null;
                   });
-              send(
-                  s(user, "email_address"),
-                  "CloudNest 重置密码",
-                  "请在 15 分钟内打开链接设置新密码。如非本人操作请忽略。\n" + origin + "/login?reset=" + token);
+              var message = mailLanguage.reset(origin + "/login?reset=" + token);
+              send(s(user, "email_address"), message.subject(), message.body());
             } catch (Exception error) {
               org.slf4j.LoggerFactory.getLogger(getClass())
                   .warn("Account recovery delivery failed; check administrator SMTP configuration");
@@ -198,7 +206,7 @@ public class MailRecovery {
     } catch (java.util.concurrent.RejectedExecutionException busy) {
       throw new Problem(503, "MAIL_BUSY", "邮件队列繁忙，请稍后重试");
     }
-    return Map.of("message", "如果账号已绑定邮箱，将收到密码重置链接");
+    return Map.of("message", mailLanguage.acknowledgement());
   }
 
   public record Reset(

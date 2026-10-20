@@ -124,39 +124,10 @@ public class AgentToolRegistry {
     settings.admin(actorId);
     if (!enabled) throw new Problem(409, "AGENT_TOOLS_DISABLED", "只读 Agent 工具尚未启用");
     limits.check("agent-tools:" + actorId, 30);
-    Tool tool =
-        TOOLS.stream()
-            .filter(t -> t.name().equals(name))
-            .findFirst()
-            .orElseThrow(() -> new Problem(404, "AGENT_TOOL_NOT_FOUND", "工具不存在或不允许调用"));
-    if (arguments == null || !arguments.isObject() || arguments.toString().length() > 2048)
-      throw invalid();
-    boolean events = name.equals("get_node_events"), policy = name.equals("explain_storage_policy");
-    Set<String> keys = policy ? Set.of() : events ? Set.of("backend", "limit") : Set.of("limit");
-    arguments
-        .fieldNames()
-        .forEachRemaining(
-            key -> {
-              if (!keys.contains(key)) throw invalid();
-            });
-    int limit = 20;
-    if (arguments.has("limit")) {
-      var value = arguments.get("limit");
-      if (!value.isIntegralNumber()
-          || !value.canConvertToInt()
-          || value.intValue() < 1
-          || value.intValue() > 100) throw invalid();
-      limit = value.intValue();
-    }
-    String backend = null;
-    if (events) {
-      var value = arguments.get("backend");
-      if (value == null
-          || !value.isTextual()
-          || value.textValue().isBlank()
-          || value.textValue().length() > 80) throw invalid();
-      backend = value.textValue();
-    }
+    var invocation = validated(name, arguments);
+    Tool tool = invocation.tool();
+    int limit = invocation.limit();
+    String backend = invocation.backend();
     Object data =
         switch (tool.name()) {
           case "get_node_status" -> diagnostics.nodeStatus(actorId, limit);
@@ -191,6 +162,50 @@ public class AgentToolRegistry {
       throw new IllegalStateException("Invalid diagnostic result", e);
     }
     return result;
+  }
+
+  /** Pure schema preflight; no diagnostics, rate counters or proposal writes. */
+  public void validateArguments(String name, JsonNode arguments) {
+    validated(name, arguments);
+  }
+
+  private record Invocation(Tool tool, int limit, String backend) {}
+
+  private Invocation validated(String name, JsonNode arguments) {
+    Tool tool =
+        TOOLS.stream()
+            .filter(t -> t.name().equals(name))
+            .findFirst()
+            .orElseThrow(() -> new Problem(404, "AGENT_TOOL_NOT_FOUND", "工具不存在或不允许调用"));
+    if (arguments == null || !arguments.isObject() || arguments.toString().length() > 2048)
+      throw invalid();
+    boolean events = name.equals("get_node_events"), policy = name.equals("explain_storage_policy");
+    Set<String> keys = policy ? Set.of() : events ? Set.of("backend", "limit") : Set.of("limit");
+    arguments
+        .fieldNames()
+        .forEachRemaining(
+            key -> {
+              if (!keys.contains(key)) throw invalid();
+            });
+    int limit = 20;
+    if (arguments.has("limit")) {
+      var value = arguments.get("limit");
+      if (!value.isIntegralNumber()
+          || !value.canConvertToInt()
+          || value.intValue() < 1
+          || value.intValue() > 100) throw invalid();
+      limit = value.intValue();
+    }
+    String backend = null;
+    if (events) {
+      var value = arguments.get("backend");
+      if (value == null
+          || !value.isTextual()
+          || value.textValue().isBlank()
+          || value.textValue().length() > 80) throw invalid();
+      backend = value.textValue();
+    }
+    return new Invocation(tool, limit, backend);
   }
 
   private Problem invalid() {

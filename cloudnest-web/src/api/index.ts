@@ -62,6 +62,7 @@ export async function refreshCsrf() {
   await csrfRequest;
 }
 api.interceptors.request.use(async (config) => {
+  config.headers["Accept-Language"] = locale.value;
   if (!["get", "head", "options"].includes(config.method || "get")) {
     await refreshCsrf();
     config.headers["X-XSRF-TOKEN"] = csrf;

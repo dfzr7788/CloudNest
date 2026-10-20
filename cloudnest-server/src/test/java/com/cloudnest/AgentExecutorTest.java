@@ -241,6 +241,31 @@ class AgentExecutorTest {
   }
 
   @Test
+  void invalidLaterArgumentsRejectTheEntireBatchBeforeAnyToolExecution() throws Exception {
+    var invalid = json.readTree("{\"limit\":0}");
+    doThrow(new Problem(400, "AGENT_TOOL_ARGUMENTS_INVALID", "invalid limit"))
+        .when(registry)
+        .validateArguments("get_node_status", invalid);
+    var first = ((List<?>) call("first", "get_node_status", "{}").get("tool_calls")).getFirst();
+    var second =
+        ((List<?>) call("second", "get_node_status", invalid.toString()).get("tool_calls"))
+            .getFirst();
+    assertEquals(
+        "AGENT_TOOL_ARGUMENTS_INVALID",
+        assertThrows(
+                Problem.class,
+                () ->
+                    executor.execute(
+                        "admin",
+                        "diagnose",
+                        sequence(List.of(answer(Map.of("tool_calls", List.of(first, second))))),
+                        checkpoints::add))
+            .code);
+    verify(registry, never()).invoke(any(), any(), any());
+    assertEquals(1, ((List<?>) checkpoints.getLast().get("steps")).size());
+  }
+
+  @Test
   void oversizedBatchAndInvalidArgumentTypesNeverExecute() {
     var batch = new ArrayList<Object>();
     for (int i = 0; i < 9; i++)

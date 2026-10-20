@@ -45,3 +45,12 @@ AI is optional and disabled by default. Existing assistants use your configured
 external provider; review what content is sent and the request budget before
 confirming a chargeable request. Administrator Agent Runtime, approval-based
 Agent migrations and Windows bidirectional sync remain planned 2.1 work.
+
+
+## Account email language
+
+Email verification and password reset emails follow the language selected in the web interface.
+API clients can send `Accept-Language: en-US` or `zh-CN` when requesting an email.
+Missing, invalid or unsupported language preferences default to Chinese. The language is captured
+before asynchronous delivery. Links still expire after 15 minutes; the recovery response does not
+confirm whether an account exists. Other backend errors and notifications are not fully localized yet.

@@ -17,6 +17,9 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class AiTaskService {
+  @org.springframework.beans.factory.annotation.Autowired
+  private com.cloudnest.WorkerLifecycle lifecycle;
+
   @org.springframework.beans.factory.annotation.Value("${cloudnest.maintenance:false}")
   private boolean maintenance;
 
@@ -64,6 +67,7 @@ public class AiTaskService {
 
   @PostConstruct
   void recover() {
+    if (!lifecycle.mayRecover()) return;
     if (maintenance) return;
     knowledge.recover();
     for (var interrupted :

@@ -81,8 +81,15 @@ Do not run `docker compose down -v`: it removes the data volumes.
 ## Background workers
 
 `WORKER_ENABLED=true` is the default. `false` disables scheduled maintenance,
-storage jobs, AI task polling and cleanup in this process. It does not disable
-all request-triggered or startup activity and is not a read-only server mode.
+storage jobs, AI task polling and cleanup in this process. It also prevents
+startup recovery from resetting interrupted uploads, downloads, storage jobs,
+AI/knowledge tasks or billing records, and from releasing their reservations.
+Maintenance mode also suppresses this global recovery. Default single-process
+workers retain the existing interruption recovery behavior.
+
+Flyway, node registration/local health initialization and explicit HTTP or
+maintenance operations still run. Request-triggered ZIP and whole-node migration
+workers are not disabled. This is not a read-only server mode.
 Disabling workers in the only process leaves queued jobs unprocessed.
 The switch prepares a logical role boundary; running multiple application
 instances is still unsupported pending shared-state and coordination tests.
