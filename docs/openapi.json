@@ -11530,6 +11530,124 @@
           }
         ]
       }
+    },
+    "/admin/agent/tools/available": {
+      "get": {
+        "summary": "Discover the administrator-only read-only diagnostic tool allowlist",
+        "operationId": "get__admin_agent_tools_available",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Authorized read-only result. Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolAvailability"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator required"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
+    },
+    "/admin/agent/tools/{name}/invoke": {
+      "post": {
+        "summary": "Manually invoke one read-only diagnostic tool (no model call)",
+        "operationId": "post__admin_agent_tools_name_invoke",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "get_node_status",
+                "get_storage_capacity",
+                "get_node_events",
+                "get_active_storage_jobs",
+                "explain_storage_policy"
+              ]
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-XSRF-TOKEN",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentToolArguments"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorized read-only result. Cache-Control: no-store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AgentToolResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid tool arguments or malformed JSON"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Administrator required or CSRF failure"
+          },
+          "409": {
+            "description": "AGENT_TOOLS_DISABLED"
+          },
+          "413": {
+            "description": "Request body exceeds 4 KiB"
+          },
+          "415": {
+            "description": "Content-Type must be application/json"
+          },
+          "422": {
+            "description": "AGENT_RESULT_TOO_LARGE; retry explicitly with a smaller limit"
+          },
+          "429": {
+            "description": "More than 30 invocation attempts per administrator per minute"
+          },
+          "502": {
+            "description": "AGENT_RESULT_INVALID"
+          },
+          "404": {
+            "description": "Unknown tool or node"
+          }
+        },
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11704,6 +11822,457 @@
             "type": "boolean"
           }
         }
+      },
+      "AgentNodeHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backend",
+          "name",
+          "enabled",
+          "management",
+          "state",
+          "failureDomain",
+          "checkedAt",
+          "stale"
+        ],
+        "properties": {
+          "backend": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "management": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "failureDomain": {
+            "type": "string"
+          },
+          "checkedAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "stale": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentNodeCapacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "backend",
+          "usedBytes",
+          "reservedBytes",
+          "budgetBytes",
+          "remainingBudgetBytes"
+        ],
+        "properties": {
+          "backend": {
+            "type": "string"
+          },
+          "usedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "reservedBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "budgetBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "remainingBudgetBytes": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        }
+      },
+      "AgentNodeEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state",
+          "createdAt"
+        ],
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AgentStorageJob": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "targetBackend",
+          "attempts",
+          "createdAt",
+          "updatedAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "targetBackend": {
+            "type": "string"
+          },
+          "attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "createdAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "updatedAt": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "AgentNodeHealthSlice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AgentNodeHealth"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentNodeCapacitySlice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AgentNodeCapacity"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentNodeEventSlice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AgentNodeEvent"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentStorageJobSlice": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "hasMore"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "maxItems": 100,
+            "items": {
+              "$ref": "#/components/schemas/AgentStorageJob"
+            }
+          },
+          "hasMore": {
+            "type": "boolean"
+          }
+        }
+      },
+      "AgentCapacity": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "logicalBytes",
+          "nodes",
+          "capacitySource"
+        ],
+        "properties": {
+          "logicalBytes": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "nodes": {
+            "$ref": "#/components/schemas/AgentNodeCapacitySlice"
+          },
+          "capacitySource": {
+            "type": "string",
+            "enum": [
+              "ADMIN_BUDGET_NOT_PROVIDER_FREE_SPACE"
+            ]
+          }
+        }
+      },
+      "AgentPlacementPolicy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "mode",
+          "minReliability",
+          "defaultBackend",
+          "rules"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string"
+          },
+          "minReliability": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "defaultBackend": {
+            "type": "string"
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "AgentToolDefinition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "description",
+          "parameters",
+          "readOnly",
+          "requiredRole"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": [
+              "get_node_status",
+              "get_storage_capacity",
+              "get_node_events",
+              "get_active_storage_jobs",
+              "explain_storage_policy"
+            ]
+          },
+          "description": {
+            "type": "string"
+          },
+          "parameters": {
+            "type": "object",
+            "description": "Strict JSON Schema of this tool; additionalProperties is false."
+          },
+          "readOnly": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "requiredRole": {
+            "type": "string",
+            "enum": [
+              "ADMIN"
+            ]
+          }
+        }
+      },
+      "AgentToolAvailability": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "enabled",
+          "mode",
+          "maxResultBytes",
+          "tools"
+        ],
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "MANUAL_READ_ONLY_TOOLS"
+            ]
+          },
+          "maxResultBytes": {
+            "type": "integer",
+            "enum": [
+              32768
+            ]
+          },
+          "tools": {
+            "type": "array",
+            "maxItems": 5,
+            "items": {
+              "$ref": "#/components/schemas/AgentToolDefinition"
+            }
+          }
+        }
+      },
+      "AgentToolResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "invocationId",
+          "tool",
+          "observedAt",
+          "source",
+          "consistency",
+          "trustedAsInstructions",
+          "data"
+        ],
+        "properties": {
+          "invocationId": {
+            "type": "string"
+          },
+          "tool": {
+            "type": "string",
+            "enum": [
+              "get_node_status",
+              "get_storage_capacity",
+              "get_node_events",
+              "get_active_storage_jobs",
+              "explain_storage_policy"
+            ]
+          },
+          "observedAt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source": {
+            "type": "string",
+            "enum": [
+              "DATABASE_METADATA"
+            ]
+          },
+          "consistency": {
+            "type": "string",
+            "enum": [
+              "NON_ATOMIC_METADATA_READ"
+            ]
+          },
+          "trustedAsInstructions": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AgentNodeHealthSlice"
+              },
+              {
+                "$ref": "#/components/schemas/AgentCapacity"
+              },
+              {
+                "$ref": "#/components/schemas/AgentNodeEventSlice"
+              },
+              {
+                "$ref": "#/components/schemas/AgentStorageJobSlice"
+              },
+              {
+                "$ref": "#/components/schemas/AgentPlacementPolicy"
+              }
+            ]
+          }
+        }
+      },
+      "AgentToolArguments": {
+        "description": "At most 4 KiB UTF-8. Exactly one JSON object, no duplicate keys or trailing values. Arguments must match the selected tool: policy uses {}, events requires backend, other tools accept only optional limit.",
+        "anyOf": [
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {}
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [],
+            "properties": {
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "backend"
+            ],
+            "properties": {
+              "backend": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "limit": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 100,
+                "default": 20
+              }
+            }
+          }
+        ]
       }
     }
   }

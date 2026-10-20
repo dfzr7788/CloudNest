@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../i18n";
 import { computed, ref, watch } from "vue";
 import { useRouter } from "vue-router";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -44,7 +45,11 @@ async function invite() {
     const { value } = await ElMessageBox.prompt(
       "新账号配额（GiB，邀请码一次有效，48 小时过期）",
       "邀请新用户",
-      { inputValue: "5", confirmButtonText: "生成", cancelButtonText: "取消" },
+      {
+        inputValue: "5",
+        confirmButtonText: "生成",
+        cancelButtonText: t("common.cancel"),
+      },
     );
     const quota = Number(value) * 1024 ** 3;
     if (!Number.isSafeInteger(quota) || quota < 1048576)
@@ -77,57 +82,57 @@ import { bytes } from "../api";
 import { useUser } from "../stores/user";
 const settingsGroups = computed(() => [
   {
-    label: "账号与安全",
+    label: t("settings.account"),
     items: [
-      { value: "password", label: "修改密码" },
-      { value: "access", label: "验证与客户端" },
-      { value: "sessions", label: "登录会话" },
+      { value: "password", label: t("settings.password") },
+      { value: "access", label: t("settings.clients") },
+      { value: "sessions", label: t("settings.sessions") },
     ],
   },
   {
-    label: "文件与空间",
+    label: t("settings.files"),
     items: [
-      { value: "space", label: "空间明细" },
-      { value: "trash", label: "回收站设置" },
-      { value: "activity", label: "活动记录" },
+      { value: "space", label: t("settings.space") },
+      { value: "trash", label: t("settings.trash") },
+      { value: "activity", label: t("settings.activity") },
     ],
   },
   {
-    label: "AI 工作空间",
+    label: t("settings.aiWorkspace"),
     items: [
-      { value: "ai", label: "AI 设置" },
-      { value: "knowledge", label: "AI 知识库" },
-      { value: "organize", label: "智能整理" },
+      { value: "ai", label: t("settings.ai") },
+      { value: "knowledge", label: t("settings.knowledge") },
+      { value: "organize", label: t("settings.organize") },
     ],
   },
   ...(account.user?.administrator
     ? [
         {
-          label: "系统管理",
+          label: t("settings.admin"),
           items: [
-            { value: "admin", label: "系统管理" },
-            { value: "server", label: "服务与存储" },
-            { value: "updates", label: "系统更新" },
+            { value: "admin", label: t("settings.admin") },
+            { value: "server", label: t("settings.server") },
+            { value: "updates", label: t("settings.updates") },
           ],
         },
       ]
     : []),
 ]);
-const activityLabels: Record<string, string> = {
+const activityLabels = computed<Record<string, string>>(() => ({
   FOLDER_CREATED: "创建文件夹",
   ENTRY_UPDATED: "修改文件或目录",
-  TRASH: "移入回收站",
+  TRASH: t("files.trash"),
   RESTORE: "恢复文件或目录",
-  PURGE: "彻底删除",
+  PURGE: t("common.purge"),
   UPLOAD_COMPLETED: "上传完成",
-  SHARE_CREATED: "创建分享",
-  SHARE_REVOKED: "撤销分享",
+  SHARE_CREATED: t("drive.createShare"),
+  SHARE_REVOKED: t("drive.revokeShare"),
   SHARE_UPDATED: "修改分享设置",
   ACCESS_DENIED: "访问被拒或资源不可见",
   VERSION_APPENDED: "保存新版本",
   VERSION_RESTORED: "恢复历史版本",
   VERSION_DELETED: "删除历史版本",
-  PASSWORD_CHANGED: "修改密码",
+  PASSWORD_CHANGED: t("settings.password"),
   SESSION_REVOKED: "退出指定会话",
   OTHER_SESSIONS_REVOKED: "退出其他会话",
   TRASH_AUTO_PURGED: "自动清理回收站",
@@ -137,7 +142,7 @@ const activityLabels: Record<string, string> = {
   RESET_PASSWORD: "维护人员重置密码",
   SYSTEM_UPDATE_REQUESTED: "请求更新系统",
   SYSTEM_UPDATE_CHECKED: "检查系统版本",
-};
+}));
 const account = useUser(),
   activityPage = ref(1),
   adminPage = ref(1),
@@ -179,7 +184,10 @@ async function policy() {
         ? `启用后，删除超过 ${trashDays.value} 天的内容会永久清理，无法恢复。`
         : "关闭回收站自动清理。",
       "回收站保留策略",
-      { confirmButtonText: "保存", cancelButtonText: "取消" },
+      {
+        confirmButtonText: t("common.save"),
+        cancelButtonText: t("common.cancel"),
+      },
     );
     await api.put("/user/trash-policy", { days: trashDays.value });
     ElMessage.success("保留策略已保存");
@@ -195,8 +203,8 @@ async function editUser(u: (typeof adminUsers.value)[number]) {
       "调整用户配额",
       {
         inputValue: String(u.storage_quota / 1024 ** 3),
-        confirmButtonText: "保存",
-        cancelButtonText: "取消",
+        confirmButtonText: t("common.save"),
+        cancelButtonText: t("common.cancel"),
       },
     );
     const quota = Number(value) * 1024 ** 3;
@@ -213,7 +221,10 @@ async function toggleUser(u: (typeof adminUsers.value)[number]) {
     await ElMessageBox.confirm(
       `${u.enabled ? "禁用会退出该用户全部会话" : "将启用该用户"}。`,
       "修改用户状态",
-      { confirmButtonText: "确认", cancelButtonText: "取消" },
+      {
+        confirmButtonText: t("common.confirm"),
+        cancelButtonText: t("common.cancel"),
+      },
     );
     await api.patch(`/admin/users/${u.id}`, {
       quota: u.storage_quota,
@@ -261,8 +272,8 @@ async function change() {
   try {
     await ElMessageBox.confirm(
       "修改密码将退出所有设备，请重新登录。",
-      "修改密码",
-      { confirmButtonText: "确认修改", cancelButtonText: "取消" },
+      t("settings.password"),
+      { confirmButtonText: "确认修改", cancelButtonText: t("common.cancel") },
     );
     busy.value = true;
     await api.post("/user/password", {
@@ -281,23 +292,28 @@ async function change() {
 }
 </script>
 <template>
-  <el-button class="account-trigger" aria-label="账号与安全" @click="show"
+  <el-button
+    class="account-trigger"
+    :aria-label="t('settings.account')"
+    @click="show"
     ><el-icon><Lock /></el-icon
-    ><span class="account-trigger-label">账号与安全</span></el-button
+    ><span class="account-trigger-label">{{
+      t("settings.account")
+    }}</span></el-button
   >
   <el-dialog
     append-to-body
     v-model="visible"
-    title="账号与安全"
+    :title="t('settings.account')"
     width="min(1000px, 94vw)"
     class="cn-dialog account-dialog"
     top="6vh"
   >
-    <p class="account-subtitle">管理个人安全、存储空间与系统设置</p>
+    <p class="account-subtitle">{{ t("settings.intro") }}</p>
     <el-select
       v-model="activeTab"
       class="settings-mobile-nav"
-      aria-label="设置分组"
+      :aria-label="t('settings.groups')"
       ><el-option-group
         v-for="group in settingsGroups"
         :key="group.label"
@@ -309,7 +325,7 @@ async function change() {
           :value="item.value" /></el-option-group
     ></el-select>
     <el-tabs v-model="activeTab" class="account-tabs" tab-position="left">
-      <el-tab-pane name="password" label="修改密码">
+      <el-tab-pane name="password" :label="t('settings.password')">
         <el-form label-position="top" @submit.prevent="change">
           <el-form-item label="原密码"
             ><el-input
@@ -326,7 +342,7 @@ async function change() {
               autocomplete="new-password"
               maxlength="64"
           /></el-form-item>
-          <el-form-item label="再次输入新密码"
+          <el-form-item :label="t('login.confirmPasswordHint')"
             ><el-input
               v-model="confirmation"
               type="password"
@@ -338,10 +354,10 @@ async function change() {
           >
         </el-form>
       </el-tab-pane>
-      <el-tab-pane name="access" label="验证与客户端"
+      <el-tab-pane name="access" :label="t('settings.clients')"
         ><AccessSettings :active="visible && activeTab === 'access'"
       /></el-tab-pane>
-      <el-tab-pane name="sessions" label="登录会话">
+      <el-tab-pane name="sessions" :label="t('settings.sessions')">
         <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>
         <el-button @click="revoke()">退出其他会话</el-button>
         <el-table :data="sessions"
@@ -354,7 +370,7 @@ async function change() {
             ><template #default="{ row }">{{
               date(row.last_seen)
             }}</template></el-table-column
-          ><el-table-column label="操作" width="80"
+          ><el-table-column :label="t('common.actions')" width="80"
             ><template #default="{ row }"
               ><el-button v-if="!row.current" text @click="revoke(row.id)"
                 >退出</el-button
@@ -363,7 +379,7 @@ async function change() {
           ></el-table
         >
       </el-tab-pane>
-      <el-tab-pane name="space" label="空间明细"
+      <el-tab-pane name="space" :label="t('settings.space')"
         ><template v-if="space"
           ><p>有效文件：{{ bytes(space.live) }}</p>
           <p>回收站当前内容：{{ bytes(space.trash) }}</p>
@@ -372,7 +388,7 @@ async function change() {
           <p>回收站继续占用配额；同内容副本按各自大小计费。</p></template
         ></el-tab-pane
       >
-      <el-tab-pane name="trash" label="回收站设置"
+      <el-tab-pane name="trash" :label="t('settings.trash')"
         ><p>
           默认关闭自动清理。启用后按服务器时间每小时检查，永久清理不会进入另一个回收站。
         </p>
@@ -394,7 +410,7 @@ async function change() {
           ><el-button @click="policy">保存保留策略</el-button>
         </div></el-tab-pane
       >
-      <el-tab-pane name="activity" label="活动记录"
+      <el-tab-pane name="activity" :label="t('settings.activity')"
         ><p>每页 50 条安全与整理、版本和自动清理操作，保留 90 天。</p>
         <div>
           <el-button :disabled="activityPage <= 1" @click="activityPage--"
@@ -405,30 +421,30 @@ async function change() {
           >
         </div>
         <el-table :data="activity"
-          ><el-table-column label="操作"
+          ><el-table-column :label="t('common.actions')"
             ><template #default="{ row }">{{
               activityLabels[row.action] || "其他操作"
             }}</template></el-table-column
-          ><el-table-column label="时间"
+          ><el-table-column :label="t('common.time')"
             ><template #default="{ row }">{{
               date(row.created_at)
             }}</template></el-table-column
           ></el-table
         ></el-tab-pane
       >
-      <el-tab-pane name="ai" label="AI 设置">
+      <el-tab-pane name="ai" :label="t('settings.ai')">
         <AiSettings :active="visible && activeTab === 'ai'" />
       </el-tab-pane>
-      <el-tab-pane name="knowledge" label="AI 知识库"
+      <el-tab-pane name="knowledge" :label="t('settings.knowledge')"
         ><AiKnowledge :active="visible && activeTab === 'knowledge'"
       /></el-tab-pane>
-      <el-tab-pane name="organize" label="智能整理"
+      <el-tab-pane name="organize" :label="t('settings.organize')"
         ><AiOrganize :active="visible && activeTab === 'organize'"
       /></el-tab-pane>
       <el-tab-pane
         v-if="account.user?.administrator"
         name="admin"
-        label="系统管理"
+        :label="t('settings.admin')"
       >
         <div class="admin-overview">
           <div class="admin-stat">
@@ -438,13 +454,15 @@ async function change() {
           <div class="admin-stat">
             <span>待处理上传</span
             ><strong
-              >{{ adminStatus.pendingUploads || 0 }} <small>项</small></strong
+              >{{ adminStatus.pendingUploads || 0 }}
+              <small>{{ t("drive.items") }}</small></strong
             >
           </div>
           <div class="admin-stat">
             <span>待清理对象</span
             ><strong
-              >{{ adminStatus.pendingDeletes || 0 }} <small>项</small></strong
+              >{{ adminStatus.pendingDeletes || 0 }}
+              <small>{{ t("drive.items") }}</small></strong
             >
           </div>
         </div>
@@ -466,7 +484,9 @@ async function change() {
                 :model-value="inviteLink"
                 readonly
                 aria-label="邀请注册链接"
-              /><el-button @click="copyInvite">复制链接</el-button>
+              /><el-button @click="copyInvite">{{
+                t("drive.copyLink")
+              }}</el-button>
             </div>
             <p>链接仅在本次创建时显示，请复制后发送给受邀人。</p>
           </div>
@@ -484,7 +504,11 @@ async function change() {
             class="admin-user-table"
             empty-text="暂无用户"
           >
-            <el-table-column prop="username" label="账号" min-width="150" />
+            <el-table-column
+              prop="username"
+              :label="t('common.account')"
+              min-width="150"
+            />
             <el-table-column label="存储使用" min-width="180"
               ><template #default="{ row }"
                 ><strong>{{ bytes(row.storage_used) }}</strong
@@ -493,12 +517,14 @@ async function change() {
                 ></template
               ></el-table-column
             >
-            <el-table-column label="状态" width="100"
+            <el-table-column :label="t('common.status')" width="100"
               ><template #default="{ row }"
                 ><el-tag
                   :type="row.enabled ? 'success' : 'info'"
                   size="small"
-                  >{{ row.enabled ? "正常" : "已禁用" }}</el-tag
+                  >{{
+                    row.enabled ? t("nodeSettings.active") : "已禁用"
+                  }}</el-tag
                 ></template
               ></el-table-column
             >
@@ -511,7 +537,7 @@ async function change() {
                   :disabled="row.id === account.user?.id"
                   :type="row.enabled ? 'danger' : 'primary'"
                   @click="toggleUser(row)"
-                  >{{ row.enabled ? "禁用" : "启用" }}</el-button
+                  >{{ row.enabled ? "禁用" : t("common.enable") }}</el-button
                 ></template
               ></el-table-column
             >
@@ -529,13 +555,13 @@ async function change() {
       <el-tab-pane
         v-if="account.user?.administrator"
         name="server"
-        label="服务与存储"
+        :label="t('settings.server')"
         ><ServerSettings :active="visible && activeTab === 'server'"
       /></el-tab-pane>
       <el-tab-pane
         v-if="account.user?.administrator"
         name="updates"
-        label="系统更新"
+        :label="t('settings.updates')"
         ><SystemUpdate :active="visible && activeTab === 'updates'"
       /></el-tab-pane>
     </el-tabs>

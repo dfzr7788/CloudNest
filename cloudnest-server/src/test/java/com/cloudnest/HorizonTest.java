@@ -54,6 +54,7 @@ class HorizonTest {
   }
 
   @Autowired Db db;
+  @Autowired com.cloudnest.control.StorageDiagnostics diagnostics;
   @Autowired NodeService nodes;
   @Autowired PlacementService placement;
   @Autowired UploadService uploads;
@@ -319,6 +320,7 @@ class HorizonTest {
         .andExpect(r -> assertEquals(403, r.getResponse().getStatus()));
     mvc.perform(get("/api/admin/horizon").with(user(uid)))
         .andExpect(r -> assertEquals(403, r.getResponse().getStatus()));
+    assertEquals(403, assertThrows(Problem.class, () -> diagnostics.overview(uid)).status);
     jobs.cancel(uid, id);
     jobs.run(id);
     assertEquals(

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { locale, t, i18n } from "../i18n";
 export interface User {
   administrator?: boolean;
   id: string;
@@ -68,22 +69,25 @@ api.interceptors.request.use(async (config) => {
   return config;
 });
 export function errorText(e: unknown) {
+  if (axios.isAxiosError(e)) {
+    const code = e.response?.data?.code;
+    if (typeof code === "string" && i18n.global.te(`errors.${code}`))
+      return t(`errors.${code}`);
+  }
   return axios.isAxiosError(e)
     ? e.response?.data?.message ||
-        (e.code === "ERR_NETWORK"
-          ? "无法连接服务器，请检查服务是否已启动"
-          : e.message)
+        (e.code === "ERR_NETWORK" ? t("errors.network") : e.message)
     : e instanceof Error
       ? e.message
-      : "操作失败";
+      : t("errors.failed");
 }
 export function bytes(n: number) {
-  if (n === 0) return "0 B";
-  const i = Math.min(4, Math.floor(Math.log(n) / Math.log(1024)));
-  return `${(n / 1024 ** i).toFixed(i === 0 ? 0 : 1)} ${["B", "KiB", "MiB", "GiB", "TiB"][i]}`;
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  const i = Math.max(0, Math.min(4, Math.floor(Math.log(n) / Math.log(1024))));
+  return `${new Intl.NumberFormat(locale.value, { minimumFractionDigits: i === 0 ? 0 : 1, maximumFractionDigits: i === 0 ? 0 : 1 }).format(n / 1024 ** i)} ${["B", "KiB", "MiB", "GiB", "TiB"][i]}`;
 }
 export function date(n: number | null) {
-  return n ? new Date(n).toLocaleString("zh-CN", { hour12: false }) : "—";
+  return n ? new Date(n).toLocaleString(locale.value, { hour12: false }) : "—";
 }
 export const typePath = (e: Entry) =>
   e.kind === "FOLDER" ? "folders" : "files";

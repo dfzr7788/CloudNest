@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import { MoreFilled } from "@element-plus/icons-vue";
 import type { Entry } from "../../api";
 import type { FileAction } from "./actions";
@@ -10,30 +11,40 @@ const emit = defineEmits<{ action: [action: FileAction] }>();
     ><el-button
       text
       :icon="MoreFilled"
-      :aria-label="file.name + '的操作'"
+      :aria-label="file.name + t('files.actionSuffix')"
     /><template #dropdown
       ><el-dropdown-menu>
-        <el-dropdown-item v-if="file.kind === 'FILE'" command="download"
-          >下载文件</el-dropdown-item
-        >
-        <el-dropdown-item command="share">分享</el-dropdown-item>
-        <el-dropdown-item command="favorite">{{
-          file.favorite ? "取消收藏" : "收藏"
+        <el-dropdown-item v-if="file.kind === 'FILE'" command="download">{{
+          t("files.download")
         }}</el-dropdown-item>
-        <el-dropdown-item command="rename">重命名</el-dropdown-item>
-        <el-dropdown-item command="move">移动</el-dropdown-item>
-        <el-dropdown-item command="tags">编辑标签</el-dropdown-item>
-        <el-dropdown-item v-if="file.kind === 'FILE'" command="versions"
-          >版本历史</el-dropdown-item
-        >
-        <el-dropdown-item v-if="file.kind === 'FOLDER'" command="collect"
-          >收集文件</el-dropdown-item
-        >
-        <el-dropdown-item command="storage">存储与副本</el-dropdown-item>
-        <el-dropdown-item command="zip">压缩下载</el-dropdown-item>
-        <el-dropdown-item command="delete" divided class="cn-danger-action"
-          >移入回收站</el-dropdown-item
-        >
+        <el-dropdown-item command="share">{{
+          t("files.share")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="favorite">{{
+          file.favorite ? t("files.unfavorite") : t("files.favorite")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="rename">{{
+          t("files.rename")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="move">{{
+          t("files.move")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="tags">{{
+          t("files.tags")
+        }}</el-dropdown-item>
+        <el-dropdown-item v-if="file.kind === 'FILE'" command="versions">{{
+          t("files.versions")
+        }}</el-dropdown-item>
+        <el-dropdown-item v-if="file.kind === 'FOLDER'" command="collect">{{
+          t("files.collect")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="storage">{{
+          t("files.storage")
+        }}</el-dropdown-item>
+        <el-dropdown-item command="zip">{{ t("files.zip") }}</el-dropdown-item>
+        <el-dropdown-item command="delete" divided class="cn-danger-action">{{
+          t("files.trash")
+        }}</el-dropdown-item>
       </el-dropdown-menu></template
     ></el-dropdown
   >

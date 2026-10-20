@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from "../i18n";
+import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
 import { useDownload } from "../api/download";
 const { downloading, download } = useDownload();
 import { onMounted, ref } from "vue";
@@ -64,7 +66,8 @@ const children = ref<Entry[]>([]),
   zipBusy = ref(false);
 const { selected, isSelected, allSelected, toggle, togglePage } = useSelection(
   children,
-  () => [info.value?.file?.name || "分享根目录", ...stackNames.value].join("/"),
+  () =>
+    [info.value?.file?.name || t("share.root"), ...stackNames.value].join("/"),
 );
 async function folder(id?: string) {
   try {
@@ -121,7 +124,7 @@ async function zip(entries = selected.value) {
       if (status.status === "FAILED") throw new Error(status.error);
       await new Promise((r) => setTimeout(r, 1000));
     }
-    throw new Error("任务耗时较长，请稍后重试");
+    throw new Error(t("share.timeout"));
   } catch (e) {
     error.value = errorText(e);
   } finally {
@@ -162,33 +165,36 @@ onMounted(load);
   <main class="share-page">
     <header>
       <router-link to="/" class="brand"><CloudNestLogo /></router-link
-      ><span>文件分享</span>
+      ><span>{{ t("share.title") }}</span
+      ><LanguageSwitcher />
     </header>
     <section class="share-card" v-loading="busy">
       <div v-if="zipBusy" role="status">
-        正在打包 {{ zipProgress }}%
-        <el-button size="small" @click="cancelZip">取消打包</el-button>
+        {{ t("downloads.packing") }} {{ zipProgress }}%
+        <el-button size="small" @click="cancelZip">{{
+          t("downloads.cancel")
+        }}</el-button>
       </div>
       <span class="eyebrow">SHARED WITH YOU</span
       ><template v-if="error && !info"
-        ><h1>分享暂时无法访问</h1>
+        ><h1>{{ t("share.unavailable") }}</h1>
         <el-alert :title="error" type="error" :closable="false" /><el-button
           @click="load"
-          >重新加载</el-button
+          >{{ t("common.reload") }}</el-button
         ></template
       ><template v-else-if="info?.locked"
         ><div class="share-lock">
           <el-icon><Lock /></el-icon>
         </div>
-        <h1>一份专属分享，等待开启</h1>
-        <p class="muted">请输入分享者提供的提取码</p>
+        <h1>{{ t("share.welcome") }}</h1>
+        <p class="muted">{{ t("share.codeHelp") }}</p>
         <form @submit.prevent="verify">
           <el-input
             v-model="code"
-            placeholder="请输入提取码"
+            :placeholder="t('share.enterCode')"
             size="large"
             maxlength="32"
-            aria-label="提取码"
+            :aria-label="t('share.code')"
           /><el-alert
             v-if="error"
             :title="error"
@@ -199,14 +205,15 @@ onMounted(load);
             native-type="submit"
             :loading="busy"
             size="large"
-            >查看文件</el-button
+            >{{ t("share.open") }}</el-button
           >
         </form></template
       ><template v-else-if="info?.file"
         ><FileMark :kind="info.file.kind" :mime="info.file.mime" />
         <h1>{{ info.file.name }}</h1>
         <p class="muted">
-          {{ bytes(info.file.size) }} · 有效期至 {{ date(info.expiresAt) }}
+          {{ bytes(info.file.size) }} {{ t("share.expires") }}
+          {{ date(info.expiresAt) }}
         </p>
         <p
           v-if="stackNames.length"
@@ -217,12 +224,14 @@ onMounted(load);
         </p>
         <div v-if="info.mode !== 'COLLECT'" class="share-actions">
           <template v-if="info.file.kind === 'FOLDER'"
-            ><el-button v-if="stack.length" @click="back">返回上级</el-button
+            ><el-button v-if="stack.length" @click="back">{{
+              t("share.parent")
+            }}</el-button
             ><el-button
               v-if="info.allowDownload && selected.length > 0"
               :loading="zipBusy"
               @click="zip()"
-              >打包选中项目 ({{ selected.length }})</el-button
+              >{{ t("share.zipSelection") }}{{ selected.length }})</el-button
             ><el-button
               v-if="info.allowDownload"
               :loading="zipBusy"
@@ -234,19 +243,22 @@ onMounted(load);
                   })),
                 )
               "
-              >下载整个文件夹</el-button
+              >{{ t("share.downloadFolder") }}</el-button
             ></template
           >
           <template v-else>
-            <el-button :icon="View" size="large" @click="preview = info!.file!"
-              >在线预览</el-button
+            <el-button
+              :icon="View"
+              size="large"
+              @click="preview = info!.file!"
+              >{{ t("share.preview") }}</el-button
             ><a
               v-if="info.allowDownload"
               :href="`/api/public/shares/${token}/download`"
               :aria-busy="downloading"
               @click.prevent="download(`/api/public/shares/${token}/download`)"
               class="el-button el-button--primary el-button--large"
-              ><el-icon><Download /></el-icon>下载文件</a
+              ><el-icon><Download /></el-icon>{{ t("files.download") }}</a
             >
           </template>
         </div>
@@ -255,19 +267,19 @@ onMounted(load);
           class="collect-panel"
           aria-live="polite"
         >
-          <p>这是文件收集入口，你的文件将上传给分享者。每文件最多 100 MiB。</p>
+          <p>{{ t("share.collectHelp") }}</p>
           <input
             type="file"
             multiple
             :disabled="collectBusy"
-            aria-label="提交收集文件"
+            :aria-label="t('share.submitFiles')"
             @change="collectFiles"
           />
           <p>
             {{
               collectBusy
-                ? "正在上传，请保持页面打开"
-                : "已接收 " + collected + " 个文件"
+                ? t("share.uploading")
+                : t("share.receivedPrefix") + collected + t("share.filesSuffix")
             }}
           </p>
           <el-alert
@@ -278,16 +290,19 @@ onMounted(load);
           />
         </section>
         <template v-else-if="info.file.kind === 'FOLDER'"
-          ><p>动态分享：目录内容随分享者整理而变化。</p>
+          ><p>{{ t("share.dynamic") }}</p>
           <div v-if="info.allowDownload" class="share-selection">
-            <el-checkbox :model-value="allSelected()" @change="togglePage"
-              >全选当前页</el-checkbox
-            ><span>已选 {{ selected.length }} 项（跨目录保留）</span
+            <el-checkbox :model-value="allSelected()" @change="togglePage">{{
+              t("drive.selectPage")
+            }}</el-checkbox
+            ><span
+              >{{ t("drive.selected") }} {{ selected.length }}
+              {{ t("drive.crossFolder") }}</span
             ><SelectionBasket v-model="selected" /><el-button
               v-if="selected.length"
               size="small"
               @click="selected = []"
-              >取消选择</el-button
+              >{{ t("drive.deselect") }}</el-button
             >
           </div>
           <el-table :data="children"
@@ -295,16 +310,16 @@ onMounted(load);
               ><template #default="{ row }"
                 ><el-checkbox
                   :model-value="isSelected(row)"
-                  :aria-label="'选择 ' + row.name"
+                  :aria-label="t('files.selectPrefix') + row.name"
                   @change="toggle(row)" /></template></el-table-column
-            ><el-table-column label="名称"
+            ><el-table-column :label="t('files.name')"
               ><template #default="{ row }"
                 ><el-button text @click="enter(row)"
                   >{{ row.kind === "FOLDER" ? "📁 " : ""
                   }}{{ row.name }}</el-button
                 ></template
               ></el-table-column
-            ><el-table-column label="下载" width="90"
+            ><el-table-column :label="t('common.download')" width="90"
               ><template #default="{ row }"
                 ><a
                   v-if="info.allowDownload && row.kind === 'FILE'"
@@ -315,13 +330,13 @@ onMounted(load);
                       `/api/public/shares/${token}/entries/${row.id}/download`,
                     )
                   "
-                  >下载</a
+                  >{{ t("common.download") }}</a
                 ><el-button
                   v-else-if="info.allowDownload"
                   text
                   :disabled="zipBusy"
                   @click="zip([row])"
-                  >打包</el-button
+                  >{{ t("share.archive") }}</el-button
                 ></template
               ></el-table-column
             ></el-table
@@ -338,11 +353,11 @@ onMounted(load);
             :closable="false"
         /></template>
         <p v-if="!info.allowDownload && info.mode !== 'COLLECT'" class="muted">
-          分享者仅开放了预览权限
+          {{ t("share.previewOnly") }}
         </p></template
       >
     </section>
-    <footer>由 CloudNest 安全提供文件分享</footer>
+    <footer>{{ t("share.footer") }}</footer>
     <PreviewDialog
       :file="preview"
       :base="

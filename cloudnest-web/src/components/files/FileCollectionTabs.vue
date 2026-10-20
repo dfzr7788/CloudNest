@@ -1,15 +1,19 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 defineProps<{ modelValue: string; nested: boolean }>();
 const emit = defineEmits<{ "update:modelValue": [value: string] }>();
 </script>
 <template>
-  <div class="collection-tabs" role="group" aria-label="文件集合">
+  <div class="collection-tabs" role="group" :aria-label="t('files.collection')">
     <button
       v-for="item in [
-        { key: 'all', label: nested ? '当前目录' : '全部文件' },
-        { key: 'favorites', label: '我的收藏' },
-        { key: 'opened', label: '最近打开' },
-        { key: 'uploaded', label: '最近上传' },
+        {
+          key: 'all',
+          label: nested ? t('files.currentFolder') : t('files.all'),
+        },
+        { key: 'favorites', label: t('nav.favorites') },
+        { key: 'opened', label: t('files.opened') },
+        { key: 'uploaded', label: t('nav.uploaded') },
       ]"
       :key="item.key"
       :aria-pressed="modelValue === item.key"

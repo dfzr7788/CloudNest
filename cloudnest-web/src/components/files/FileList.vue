@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import { Download, Share, ArrowDown, ArrowUp } from "@element-plus/icons-vue";
 import { bytes, date, type Entry } from "../../api";
 import FileMark from "../FileMark.vue";
@@ -19,10 +20,12 @@ const emit = defineEmits<{
 }>();
 </script>
 <template>
-  <table class="cn-file-list" aria-label="文件列表">
+  <table class="cn-file-list" :aria-label="t('files.list')">
     <thead>
       <tr>
-        <th class="selection-cell"><span class="sr-only">选择</span></th>
+        <th class="selection-cell">
+          <span class="sr-only">{{ t("files.select") }}</span>
+        </th>
         <th
           :aria-sort="
             sort === 'name'
@@ -37,10 +40,11 @@ const emit = defineEmits<{
             class="column-sort"
             @click="emit('sort', 'name')"
           >
-            名称<el-icon v-if="sort === 'name'"
+            {{ t("files.name")
+            }}<el-icon v-if="sort === 'name'"
               ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
             /></el-icon></button
-          ><span v-else>名称</span>
+          ><span v-else>{{ t("files.name") }}</span>
         </th>
         <th
           class="size-cell"
@@ -57,10 +61,11 @@ const emit = defineEmits<{
             class="column-sort"
             @click="emit('sort', 'size')"
           >
-            大小<el-icon v-if="sort === 'size'"
+            {{ t("files.size")
+            }}<el-icon v-if="sort === 'size'"
               ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
             /></el-icon></button
-          ><span v-else>大小</span>
+          ><span v-else>{{ t("files.size") }}</span>
         </th>
         <th
           class="date-cell"
@@ -77,12 +82,13 @@ const emit = defineEmits<{
             class="column-sort"
             @click="emit('sort', 'updatedAt')"
           >
-            修改时间<el-icon v-if="sort === 'updatedAt'"
+            {{ t("files.modified")
+            }}<el-icon v-if="sort === 'updatedAt'"
               ><component :is="direction === 'asc' ? ArrowUp : ArrowDown"
             /></el-icon></button
-          ><span v-else>删除时间</span>
+          ><span v-else>{{ t("files.deleted") }}</span>
         </th>
-        <th class="actions-cell">操作</th>
+        <th class="actions-cell">{{ t("common.actions") }}</th>
       </tr>
     </thead>
     <tbody>
@@ -96,7 +102,7 @@ const emit = defineEmits<{
         <td class="selection-cell" @click.stop @dblclick.stop>
           <el-checkbox
             :model-value="selected.some((e) => e.id === file.id)"
-            :aria-label="'选择 ' + file.name"
+            :aria-label="t('files.selectPrefix') + file.name"
             @change="emit('toggle', file)"
           />
         </td>
@@ -117,15 +123,17 @@ const emit = defineEmits<{
               ><strong>{{ file.favorite ? "★ " : "" }}{{ file.name }}</strong
               ><small v-if="file.path">{{ file.path }}</small
               ><small class="mobile-file-meta"
-                >{{ file.kind === "FOLDER" ? "文件夹" : bytes(file.size) }} ·
-                {{ date(trash ? file.deletedAt : file.updatedAt) }}</small
+                >{{
+                  file.kind === "FOLDER" ? t("files.folder") : bytes(file.size)
+                }}
+                · {{ date(trash ? file.deletedAt : file.updatedAt) }}</small
               ></span
             ></button
           ><el-button
             v-if="file.path && !trash"
             link
             @click.stop="emit('action', 'locate', file)"
-            >打开所在目录</el-button
+            >{{ t("files.locate") }}</el-button
           >
         </td>
         <td class="size-cell">
@@ -141,12 +149,12 @@ const emit = defineEmits<{
                 text
                 type="primary"
                 @click="emit('action', 'restore', file)"
-                >恢复</el-button
+                >{{ t("common.restore") }}</el-button
               ><el-button
                 text
                 type="danger"
                 @click="emit('action', 'purge', file)"
-                >彻底删除</el-button
+                >{{ t("common.purge") }}</el-button
               ></template
             ><template v-else
               ><a
@@ -154,13 +162,13 @@ const emit = defineEmits<{
                 :href="`/api/files/${file.id}/download`"
                 @click.prevent="emit('action', 'download', file)"
                 class="row-icon"
-                :aria-label="'下载 ' + file.name"
+                :aria-label="t('files.downloadPrefix') + file.name"
                 ><el-icon><Download /></el-icon></a
               ><el-button
                 class="row-share"
                 text
                 :icon="Share"
-                :aria-label="'分享 ' + file.name"
+                :aria-label="t('files.sharePrefix') + file.name"
                 @click="emit('action', 'share', file)" /><FileActionMenu
                 :file="file"
                 @action="emit('action', $event, file)"

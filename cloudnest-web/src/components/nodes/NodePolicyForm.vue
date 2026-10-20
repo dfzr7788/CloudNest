@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import { ref, onMounted } from "vue";
 import { api, errorText } from "../../api";
 import { ElMessage } from "element-plus";
@@ -26,7 +27,7 @@ async function act(fn: () => Promise<unknown>) {
   try {
     await fn();
     await load();
-    ElMessage.success("已保存，请执行完整检测");
+    ElMessage.success(t("nodePolicy.saved"));
   } catch (e) {
     ElMessage.error(errorText(e));
   } finally {
@@ -43,40 +44,45 @@ async function save() {
 </script>
 <template>
   <section v-loading="busy">
-    <h2>S3 节点接入</h2>
+    <h2>{{ t("nodePolicy.title") }}</h2>
     <p>
-      支持 Garage 与 S3
-      兼容存储。新节点保存后先完整检测，再在调度策略中设置故障域、评级和预算。
+      {{ t("nodePolicy.help") }}
     </p>
     <el-table :data="rows"
-      ><el-table-column prop="name" label="节点" /><el-table-column
+      ><el-table-column prop="name" :label="t('nodes.node')" /><el-table-column
         prop="endpoint"
-        label="内网地址"
+        :label="t('nodePolicy.endpoint')"
         min-width="220"
-      /><el-table-column prop="bucket" label="存储桶" /><el-table-column
-        label="操作"
+      /><el-table-column
+        prop="bucket"
+        :label="t('nodePolicy.bucket')"
+      /><el-table-column :label="t('common.actions')"
         ><template #default="{ row }"
-          ><el-button text @click="edit(row)">编辑连接</el-button></template
+          ><el-button text @click="edit(row)">{{
+            t("nodePolicy.edit")
+          }}</el-button></template
         ></el-table-column
       ></el-table
     >
     <el-form label-position="top" class="connection-form">
-      <el-form-item label="节点名称"
+      <el-form-item :label="t('nodePolicy.name')"
         ><el-input v-model="policy.name" maxlength="80"
       /></el-form-item>
       <el-form-item label="S3 Endpoint"
-        ><el-input v-model="policy.endpoint" placeholder="http://私网地址:3900"
+        ><el-input
+          v-model="policy.endpoint"
+          :placeholder="t('nodePolicy.endpointHint')"
       /></el-form-item>
-      <el-form-item label="存储桶"
+      <el-form-item :label="t('nodePolicy.bucket')"
         ><el-input v-model="policy.bucket"
       /></el-form-item>
-      <el-form-item label="区域"
+      <el-form-item :label="t('nodePolicy.region')"
         ><el-input v-model="policy.region"
       /></el-form-item>
-      <el-form-item label="Access Key（编辑时留空保留）"
+      <el-form-item :label="t('nodePolicy.accessKey')"
         ><el-input v-model="policy.accessKey" autocomplete="off"
       /></el-form-item>
-      <el-form-item label="Secret Key（编辑时留空保留）"
+      <el-form-item :label="t('nodePolicy.secretKey')"
         ><el-input
           v-model="policy.secretKey"
           type="password"
@@ -84,16 +90,16 @@ async function save() {
           autocomplete="new-password"
       /></el-form-item>
       <el-button type="primary" @click="act(save)">{{
-        policy.id ? "更新连接" : "新增节点"
+        policy.id ? t("nodePolicy.update") : t("nodePolicy.add")
       }}</el-button
-      ><el-button v-if="policy.id" @click="policy = blank()"
-        >取消编辑</el-button
-      >
+      ><el-button v-if="policy.id" @click="policy = blank()">{{
+        t("nodePolicy.cancel")
+      }}</el-button>
     </el-form>
-    <h3>手动模式默认节点</h3>
+    <h3>{{ t("nodePolicy.default") }}</h3>
     <el-select v-model="defaultBackend"
-      ><el-option label="A 本地存储" value="local" /><el-option
-        label="旧 MinIO"
+      ><el-option :label="t('nodePolicy.local')" value="local" /><el-option
+        :label="t('nodePolicy.legacy')"
         value="minio" /><el-option
         v-for="n in rows"
         :key="n.id"
@@ -102,7 +108,7 @@ async function save() {
     /></el-select>
     <el-button
       @click="act(() => api.put('/admin/config/storage', { defaultBackend }))"
-      >保存默认节点</el-button
+      >{{ t("nodePolicy.saveDefault") }}</el-button
     >
   </section>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import { computed } from "vue";
 import { bytes, type User } from "../../api";
 const props = defineProps<{ user: User | null }>();
@@ -14,9 +15,10 @@ const percent = computed(() =>
 );
 </script>
 <template>
-  <section class="storage-card" aria-label="存储空间">
+  <section class="storage-card" :aria-label="t('storage.space')">
     <div>
-      <span>存储空间</span><strong>{{ percent }}%</strong>
+      <span>{{ t("storage.space") }}</span
+      ><strong>{{ percent }}%</strong>
     </div>
     <el-progress
       :percentage="percent"
@@ -26,7 +28,8 @@ const percent = computed(() =>
     />
     <p>{{ bytes(user?.used || 0) }} / {{ bytes(user?.quota || 0) }}</p>
     <small v-if="user?.reserved"
-      >上传预留 {{ bytes(user.reserved) }}（已计入进度）</small
-    ><small v-else>回收站与历史版本占用配额</small>
+      >{{ t("storage.reserved") }} {{ bytes(user.reserved)
+      }}{{ t("storage.counted") }}</small
+    ><small v-else>{{ t("storage.quotaNote") }}</small>
   </section>
 </template>

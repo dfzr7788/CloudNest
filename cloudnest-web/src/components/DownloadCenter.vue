@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from "vue";
+import { t } from "../i18n";
+import { computed, ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { api, date, errorText, bytes } from "../api";
 import { useUser } from "../stores/user";
 import { ElMessage } from "element-plus";
@@ -20,13 +21,13 @@ const props = defineProps<{ revision: number }>(),
     }[]
   >([]),
   error = ref("");
-const labels: Record<string, string> = {
-  QUEUED: "排队中",
-  BUILDING: "正在打包",
-  READY: "可下载",
-  FAILED: "打包失败",
-  CANCELLED: "已取消",
-};
+const labels = computed<Record<string, string>>(() => ({
+  QUEUED: t("nodes.queued"),
+  BUILDING: t("downloads.packing"),
+  READY: t("downloads.ready"),
+  FAILED: t("downloads.failed"),
+  CANCELLED: t("nodes.cancelled"),
+}));
 let timer: ReturnType<typeof setTimeout> | undefined,
   disposed = false,
   loading = false;
@@ -64,7 +65,7 @@ async function retry(ids: string[]) {
   try {
     await api.post("/downloads", { fileIds: ids });
     await load();
-    ElMessage.success("已重新创建打包任务");
+    ElMessage.success(t("downloads.recreated"));
   } catch (e) {
     ElMessage.error(errorText(e));
   }
@@ -84,12 +85,13 @@ onBeforeUnmount(() => {
     :class="{ 'is-empty': !jobs.length && !error }"
   >
     <div class="download-heading">
-      <strong>下载任务</strong
-      ><el-button size="small" @click="load">刷新任务</el-button>
+      <strong>{{ t("downloads.title") }}</strong
+      ><el-button size="small" @click="load">{{
+        t("downloads.refresh")
+      }}</el-button>
     </div>
     <p class="muted" v-if="jobs.length">
-      ZIP
-      任务保留一小时，可在刷新页面后继续查看；下载到本机的完成状态由浏览器管理。
+      {{ t("downloads.retention") }}
     </p>
     <el-alert
       v-if="error"
@@ -97,32 +99,35 @@ onBeforeUnmount(() => {
       type="error"
       :closable="false"
     /><el-table v-if="jobs.length" :data="jobs"
-      ><el-table-column label="创建时间" min-width="170"
+      ><el-table-column :label="t('downloads.created')" min-width="170"
         ><template #default="{ row }">{{
           date(row.createdAt)
         }}</template></el-table-column
-      ><el-table-column label="内容" min-width="155"
+      ><el-table-column :label="t('downloads.content')" min-width="155"
         ><template #default="{ row }"
           ><span v-if="row.fileCount !== undefined"
-            >{{ row.fileCount }} 个文件<span v-if="row.folderCount">
-              · {{ row.folderCount }} 个目录</span
+            >{{ row.fileCount }} {{ t("downloads.files")
+            }}<span v-if="row.folderCount">
+              · {{ row.folderCount }} {{ t("downloads.folders") }}</span
             ></span
-          ><span v-else>{{ row.fileIds.length }} 个文件</span></template
+          ><span v-else
+            >{{ row.fileIds.length }} {{ t("downloads.files") }}</span
+          ></template
         ></el-table-column
-      ><el-table-column label="状态" min-width="150"
+      ><el-table-column :label="t('common.status')" min-width="150"
         ><template #default="{ row }"
           >{{
             row.expiresAt <= Date.now()
-              ? "已过期"
+              ? t("downloads.expired")
               : labels[row.status] || row.status
           }}<small v-if="row.error"> · {{ row.error }}</small></template
         ></el-table-column
-      ><el-table-column label="操作" width="180"
+      ><el-table-column :label="t('common.actions')" width="180"
         ><template #default="{ row }"
           ><a
             v-if="row.status === 'READY' && row.expiresAt > Date.now()"
             :href="`/api/downloads/${row.id}/file`"
-            >下载 ZIP</a
+            >{{ t("downloads.zip") }}</a
           ><span v-if="row.totalBytes"
             >{{ bytes(row.completedBytes || 0) }} /
             {{ bytes(row.totalBytes) }}</span
@@ -130,13 +135,13 @@ onBeforeUnmount(() => {
             v-if="['QUEUED', 'BUILDING'].includes(row.status)"
             text
             @click="cancel(row.id)"
-            >取消打包</el-button
-          ><el-button text @click="retry(row.fileIds)"
-            >重新打包</el-button
-          ></template
+            >{{ t("downloads.cancel") }}</el-button
+          ><el-button text @click="retry(row.fileIds)">{{
+            t("downloads.retry")
+          }}</el-button></template
         ></el-table-column
       ></el-table
     >
-    <p v-else class="muted">暂无下载任务 · ZIP 任务完成后可在这里下载</p>
+    <p v-else class="muted">{{ t("downloads.empty") }}</p>
   </section>
 </template>

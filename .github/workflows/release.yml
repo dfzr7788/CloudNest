@@ -29,10 +29,13 @@ jobs:
           cache-dependency-path: cloudnest-web/package-lock.json
       - name: Test and package server
         run: mvn -B -f cloudnest-server/pom.xml verify
+      - name: Verify deployment artifact contract
+        run: python3 scripts/check-deployment-artifact.py --require-artifact
       - name: Build web
         working-directory: cloudnest-web
         run: |
           npm ci
+          npm run check:i18n
           npm run build
       - name: Test deployment workers
         run: |
@@ -40,15 +43,18 @@ jobs:
           python3 scripts/test-updater.py
           python3 scripts/test-backup.py
           python3 scripts/test-split-backup.py
+      - name: Test locale switching in desktop and mobile layouts
+        working-directory: cloudnest-web
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:i18n
       - name: Package Linux amd64 images
-        if: github.event_name != 'pull_request'
         env:
           REV: ${{ github.sha }}
         run: |
           docker build --platform linux/amd64 -f deploy/Dockerfile.server-runtime -t "cloudnest-server:sha-$REV" .
           docker build --platform linux/amd64 -f deploy/Dockerfile.web-runtime -t "cloudnest-web:sha-$REV" .
       - name: Verify Docker deployment and isolated backup restore
-        if: github.event_name != 'pull_request'
         run: python3 scripts/test-compose.py
       - name: Export verified images
         if: github.event_name != 'pull_request'

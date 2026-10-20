@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
+import { computed } from "vue";
 import {
   FolderOpened,
   Star,
@@ -18,20 +20,20 @@ const emit = defineEmits<{
   section: [value: string];
   profile: [];
 }>();
-const links = [
-  { key: "all", label: "我的文件", icon: FolderOpened },
-  { key: "favorites", label: "我的收藏", icon: Star },
-  { key: "opened", label: "最近使用", icon: Clock },
-  { key: "uploaded", label: "最近上传", icon: Upload },
-];
+const links = computed(() => [
+  { key: "all", label: t("nav.files"), icon: FolderOpened },
+  { key: "favorites", label: t("nav.favorites"), icon: Star },
+  { key: "opened", label: t("nav.recent"), icon: Clock },
+  { key: "uploaded", label: t("nav.uploaded"), icon: Upload },
+]);
 </script>
 <template>
   <aside class="sidebar">
     <router-link to="/" class="sidebar-brand" aria-label="CloudNest"
       ><CloudNestLogo
     /></router-link>
-    <div class="workspace-caption">个人工作空间</div>
-    <nav aria-label="工作空间导航">
+    <div class="workspace-caption">{{ t("nav.workspace") }}</div>
+    <nav :aria-label="t('nav.navigation')">
       <el-tooltip
         v-for="link in links"
         :key="link.key"
@@ -51,44 +53,49 @@ const links = [
         </button></el-tooltip
       >
       <div class="nav-divider" />
-      <el-tooltip content="我的分享" placement="right" :show-after="600"
+      <el-tooltip :content="t('nav.shares')" placement="right" :show-after="600"
         ><button
-          aria-label="我的分享"
+          :aria-label="t('nav.shares')"
           :aria-current="section === 'shares' ? 'page' : undefined"
           :class="{ active: section === 'shares' }"
           @click="emit('section', 'shares')"
         >
-          <el-icon><Share /></el-icon><span>我的分享</span>
+          <el-icon><Share /></el-icon><span>{{ t("nav.shares") }}</span>
         </button></el-tooltip
       >
-      <el-tooltip content="回收站" placement="right" :show-after="600"
+      <el-tooltip :content="t('nav.trash')" placement="right" :show-after="600"
         ><button
-          aria-label="回收站"
+          :aria-label="t('nav.trash')"
           :aria-current="section === 'trash' ? 'page' : undefined"
           :class="{ active: section === 'trash' }"
           @click="emit('section', 'trash')"
         >
-          <el-icon><Delete /></el-icon><span>回收站</span>
+          <el-icon><Delete /></el-icon><span>{{ t("nav.trash") }}</span>
         </button></el-tooltip
       >
       <router-link
         v-if="user?.administrator"
         to="/admin/nodes"
         class="node-center-link"
-        aria-label="节点中心"
-        ><el-icon><Connection /></el-icon><span>节点中心</span></router-link
+        :aria-label="t('nav.nodes')"
+        ><el-icon><Connection /></el-icon
+        ><span>{{ t("nav.nodes") }}</span></router-link
       >
     </nav>
     <StorageUsage :user="user" />
     <button
       class="sidebar-profile"
-      aria-label="编辑个人资料"
+      :aria-label="t('nav.profile')"
       @click="emit('profile')"
     >
       <span class="avatar">{{ user?.nickname?.[0]?.toUpperCase() || "C" }}</span
       ><span class="profile-copy"
         ><strong>{{ user?.nickname }}</strong
-        ><small>{{ user?.administrator ? "管理员" : "个人账户" }}</small></span
+        ><small>{{
+          user?.administrator
+            ? t("nav.administrator")
+            : t("nav.personalAccount")
+        }}</small></span
       ><el-icon><MoreFilled /></el-icon>
     </button>
   </aside>

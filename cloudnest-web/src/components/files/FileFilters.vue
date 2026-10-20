@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 const type = defineModel<string>("type", { required: true });
 const size = defineModel<number>("size", { required: true });
 const days = defineModel<number>("days", { required: true });
@@ -18,43 +19,49 @@ function reset() {
       ><el-button
         :type="type !== 'all' || size || days ? 'primary' : undefined"
         :plain="type !== 'all' || !!size || !!days"
-        >筛选{{ type !== "all" || size || days ? " · 已生效" : "" }}</el-button
+        >{{ t("files.filter")
+        }}{{
+          type !== "all" || size || days ? t("files.filterApplied") : ""
+        }}</el-button
       ></template
     >
     <div class="filter-fields">
       <label
-        >文件类型<el-select
+        >{{ t("files.type")
+        }}<el-select
           :teleported="false"
           v-model="type"
-          aria-label="文件类型"
-          ><el-option label="全部类型" value="all" /><el-option
-            label="图片"
+          :aria-label="t('files.type')"
+          ><el-option :label="t('files.allTypes')" value="all" /><el-option
+            :label="t('files.images')"
             value="image" /><el-option
-            label="文档"
+            :label="t('files.documents')"
             value="document" /><el-option
-            label="文件夹"
+            :label="t('files.folder')"
             value="folder" /></el-select></label
       ><label
-        >文件大小<el-select
+        >{{ t("files.fileSize")
+        }}<el-select
           :teleported="false"
           v-model="size"
-          aria-label="文件大小"
-          ><el-option label="全部大小" :value="0" /><el-option
-            label="至少 10 MiB"
+          :aria-label="t('files.fileSize')"
+          ><el-option :label="t('files.allSizes')" :value="0" /><el-option
+            :label="t('files.atLeastTen')"
             :value="10" /><el-option
-            label="至少 100 MiB"
+            :label="t('files.atLeastHundred')"
             :value="100" /></el-select></label
       ><label
-        >修改时间<el-select
+        >{{ t("files.modified")
+        }}<el-select
           :teleported="false"
           v-model="days"
-          aria-label="修改时间筛选"
-          ><el-option label="全部时间" :value="0" /><el-option
-            label="近 7 天修改"
+          :aria-label="t('files.modifiedFilter')"
+          ><el-option :label="t('files.allTimes')" :value="0" /><el-option
+            :label="t('files.lastWeek')"
             :value="7" /><el-option
-            label="近 30 天修改"
+            :label="t('files.lastMonth')"
             :value="30" /></el-select></label
-      ><el-button @click="reset">重置全部筛选</el-button>
+      ><el-button @click="reset">{{ t("files.resetFilters") }}</el-button>
     </div></el-popover
   >
 </template>

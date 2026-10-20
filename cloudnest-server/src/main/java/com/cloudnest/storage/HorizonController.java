@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api")
 public class HorizonController {
+  private final com.cloudnest.control.StorageDiagnostics diagnostics;
   private final Db db;
   private final NodeService nodes;
   private final RuntimeSettings settings;
@@ -26,7 +27,9 @@ public class HorizonController {
       NodeService nodes,
       RuntimeSettings settings,
       DriveService drive,
-      MigrationService jobs) {
+      MigrationService jobs,
+      com.cloudnest.control.StorageDiagnostics diagnostics) {
+    this.diagnostics = diagnostics;
     this.db = db;
     this.nodes = nodes;
     this.settings = settings;
@@ -37,56 +40,7 @@ public class HorizonController {
   @GetMapping("/admin/horizon")
   public Map<String, Object> overview(Authentication a) {
     settings.admin(a.getName());
-    var alerts =
-        new ArrayList<>(
-            db.list(
-                "SELECT n.backend,n.name,h.state,n.budget_bytes FROM storage_node n JOIN"
-                    + " storage_node_health h ON h.backend=n.backend WHERE n.enabled=TRUE AND"
-                    + " (h.state<>'ONLINE' OR h.checked_at<?)",
-                System.currentTimeMillis() - 120000));
-    int warning = Integer.parseInt(settings.get("storage").getOrDefault("warningPercent", "80"));
-    for (var row :
-        db.list(
-            "SELECT backend,name,budget_bytes FROM storage_node WHERE enabled=TRUE AND"
-                + " budget_bytes>0")) {
-      String backend = s(row, "backend");
-      if ((nodes.used(backend) + nodes.reserved(backend)) * 100.0 / n(row, "budget_bytes")
-          >= warning)
-        alerts.add(
-            Map.of(
-                "backend",
-                backend,
-                "name",
-                s(row, "name"),
-                "state",
-                "CAPACITY_WARNING",
-                "budget_bytes",
-                n(row, "budget_bytes")));
-    }
-    return Map.of(
-        "placement",
-        db.one("SELECT * FROM storage_placement_policy WHERE id=1"),
-        "decisions",
-        db.list("SELECT * FROM storage_placement_log ORDER BY created_at DESC LIMIT 100"),
-        "jobs",
-        db.list(
-            "SELECT j.*,(SELECT MIN(e.name) FROM drive_entry e WHERE e.blob_id=j.blob_id) AS"
-                + " file_name,b.size,b.backend AS source_backend FROM storage_job_item j LEFT JOIN"
-                + " file_blob b ON b.id=j.blob_id ORDER BY j.created_at DESC LIMIT 100"),
-        "alerts",
-        alerts,
-        "protection",
-        db.list(
-            "SELECT b.id,b.backend,b.size,b.desired_replicas,r.backend AS"
-                + " replica_backend,r.state,r.verified_at,n.failure_domain,h.state AS health FROM"
-                + " file_blob b LEFT JOIN blob_replica r ON r.blob_id=b.id LEFT JOIN storage_node n"
-                + " ON n.backend=r.backend LEFT JOIN storage_node_health h ON h.backend=r.backend"
-                + " WHERE b.desired_replicas=2 AND b.status='READY' ORDER BY b.created_at DESC"
-                + " LIMIT 200"),
-        "logicalBytes",
-        db.count("SELECT COALESCE(SUM(storage_used),0) FROM sys_user"),
-        "events",
-        db.list("SELECT * FROM storage_node_event ORDER BY created_at DESC LIMIT 100"));
+    return diagnostics.overview(a.getName());
   }
 
   public record Policy(@NotBlank String mode, @Min(0) @Max(100) int minReliability) {}

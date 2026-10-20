@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../i18n";
 import { computed, reactive, ref, watch, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, errorText } from "../api";
@@ -145,9 +146,9 @@ async function saveModel() {
 }
 async function consent(c: AiConnection) {
   await ElMessageBox.confirm(
-    `调用时将把你主动选择的文件文本、文件内位置或固定测试提示发送到 ${c.base_url}，费用由该 API 账号承担。CloudNest 服务器可以解密你的密钥，运维者具有技术访问能力；这不是端到端加密。上传文件不会自动调用模型。目的地改变后需要重新同意。`,
-    "确认数据发送与费用",
-    { confirmButtonText: "同意此目的地", cancelButtonText: "取消" },
+    t("ai.consentHelp", { destination: c.base_url }),
+    t("ai.consentTitle"),
+    { confirmButtonText: t("ai.agree"), cancelButtonText: t("common.cancel") },
   );
   await api.post("/ai/consents", {
     connectionId: c.id,
@@ -157,8 +158,8 @@ async function consent(c: AiConnection) {
 async function remove(c: AiConnection, credentialOnly: boolean) {
   await run(async () => {
     await ElMessageBox.confirm(
-      "将停止关联任务并清除可用凭据。旧备份可能仍有密文；如需彻底撤销访问，请在供应商处撤销 Key。",
-      credentialOnly ? "撤销密钥" : "删除连接",
+      t("ai.revokeHelp"),
+      credentialOnly ? t("ai.revokeKey") : t("ai.deleteConnection"),
       { type: "warning" },
     );
     await api.delete(
@@ -191,9 +192,9 @@ async function test(m: AiModel) {
   await run(async () => {
     await ElMessageBox.confirm(
       m.purpose === "EMBEDDING"
-        ? "只发送 1–2 条固定英文短句，不发送文件。检查返回向量数量、索引、配置维度与有限数值，测试后不保存向量，不代表语义检索质量。可能收费，超时或停止仍可能计费。"
-        : "只发送固定的极短提示，不发送文件；可能产生少量费用。超时或停止仍可能计费。",
-      m.purpose === "EMBEDDING" ? "测试向量模型" : "测试聊天模型",
+        ? t("ai.embeddingTestHelp")
+        : t("ai.chatTestHelp"),
+      m.purpose === "EMBEDDING" ? t("ai.testEmbedding") : t("ai.testChat"),
     );
     if (!pendingTest || pendingTest.model !== m.id)
       pendingTest = { model: m.id, key: crypto.randomUUID() };
@@ -239,82 +240,88 @@ onBeforeUnmount(() => {
   <section v-loading="busy" class="ai-settings">
     <el-alert
       v-if="!enabled"
-      title="站点 AI 尚未开启。管理员可设置 AI_ENABLED=true 后重启服务；已有凭据仍可撤销。"
+      :title="t('ai.disabledHelp')"
       type="info"
       :closable="false"
     />
     <p>
-      使用自己的 Chat Completions / Embeddings 兼容
-      API。文件仅在你点击生成后发送，回答仅供辅助阅读。支持 HTTPS 公网 443
-      端口；服务器的 localhost 指服务器自身，无法直接访问你电脑上的本地模型。
+      {{ t("ai.providerHelp") }}
     </p>
     <el-button
       type="primary"
       :disabled="!enabled || connections.length >= 5"
       @click="edit(null)"
-      >添加 API 连接</el-button
+      >{{ t("ai.addConnection") }}</el-button
     >
     <article v-for="c in connections" :key="c.id" class="connection-card">
-      <strong>{{ c.name }}</strong> · {{ c.enabled ? "启用" : "停用" }} · 密钥{{
-        c.keyConfigured ? "已设置" : "未设置"
-      }}
+      <strong>{{ c.name }}</strong> ·
+      {{ c.enabled ? t("common.enable") : t("common.disable") }}
+      {{ t("ai.keyPrefix")
+      }}{{ c.keyConfigured ? t("ai.configured") : t("ai.notConfigured") }}
       <p class="destination">{{ c.base_url }}</p>
       <p>
-        聊天连接最近测试：{{ c.last_test_status }} · 数据发送同意：{{
-          c.consented ? "已确认" : "待确认"
-        }}
+        {{ t("ai.connectionTestPrefix") }}{{ c.last_test_status }}
+        {{ t("ai.consentPrefix")
+        }}{{ c.consented ? t("ai.confirmed") : t("ai.pending") }}
       </p>
-      <el-button :disabled="!enabled" @click="edit(c)">编辑</el-button>
-      <el-button :disabled="!enabled" @click="run(() => consent(c))"
-        >查看并确认数据发送</el-button
-      >
-      <el-button @click="remove(c, true)">撤销密钥</el-button>
-      <el-button type="danger" plain @click="remove(c, false)">删除</el-button>
+      <el-button :disabled="!enabled" @click="edit(c)">{{
+        t("common.edit")
+      }}</el-button>
+      <el-button :disabled="!enabled" @click="run(() => consent(c))">{{
+        t("ai.reviewConsent")
+      }}</el-button>
+      <el-button @click="remove(c, true)">{{ t("ai.revokeKey") }}</el-button>
+      <el-button type="danger" plain @click="remove(c, false)">{{
+        t("common.delete")
+      }}</el-button>
     </article>
-    <h3>聊天模型</h3>
+    <h3>{{ t("ai.chatModels") }}</h3>
     <el-button
       :disabled="!enabled || !connections.length"
       @click="editModel(null)"
-      >添加模型</el-button
+      >{{ t("ai.addModel") }}</el-button
     >
     <article v-for="m in chatModels" :key="m.id" class="connection-card">
       <strong>{{ m.name }}</strong> · {{ m.model_id }} ·
-      {{ m.enabled ? "启用" : "停用" }}
+      {{ m.enabled ? t("common.enable") : t("common.disable") }}
       <p>
-        连接：{{ connections.find((c) => c.id === m.connection_id)?.name }} ·
-        上下文 {{ m.context_limit }} · 输出上限 {{ m.max_output }}
+        {{ t("ai.connectionPrefix")
+        }}{{ connections.find((c) => c.id === m.connection_id)?.name }}
+        {{ t("ai.contextPrefix") }} {{ m.context_limit }}
+        {{ t("ai.outputPrefix") }} {{ m.max_output }}
       </p>
-      <p>独立测试：{{ m.last_test_status || "UNTESTED" }}</p>
-      <el-button :disabled="!enabled" @click="editModel(m)">编辑</el-button>
+      <p>{{ t("ai.modelTestPrefix") }}{{ m.last_test_status || "UNTESTED" }}</p>
+      <el-button :disabled="!enabled" @click="editModel(m)">{{
+        t("common.edit")
+      }}</el-button>
       <el-button
         :disabled="
           !enabled || !m.enabled || (!!testTask && !aiFinished(testTask))
         "
         @click="test(m)"
-        >测试聊天模型（可能收费）</el-button
+        >{{ t("ai.testChatCost") }}</el-button
       >
       <el-button
         @click="
           run(async () => {
             await ElMessageBox.confirm(
-              '删除此模型并停止关联任务？',
-              '删除模型',
+              t('ai.deleteModelConfirm'),
+              t('ai.deleteModel'),
             );
             await api.delete('/ai/models/' + m.id);
           })
         "
-        >删除</el-button
+        >{{ t("common.delete") }}</el-button
       >
     </article>
-    <h3>向量模型</h3>
+    <h3>{{ t("ai.embeddingModels") }}</h3>
     <p>
-      聊天模型不能代替向量模型。此处用于配置与独立测试，索引与语义搜索请打开“AI
-      知识库”；仅配置聊天模型仍可使用摘要和单文档问答。
+      {{ t("ai.embeddingHelp") }}
     </p>
     <el-button
       :disabled="!enabled || !connections.length"
       @click="editModel(null, 'EMBEDDING')"
-      >添加向量模型</el-button
+      >{{ t("ai.addEmbedding") }}</el-button
     >
     <article
       v-for="m in embeddingModels"
@@ -322,46 +329,47 @@ onBeforeUnmount(() => {
       class="connection-card embedding-card"
     >
       <strong>{{ m.name }}</strong> · {{ m.model_id }} ·
-      {{ m.enabled ? "启用" : "停用" }}
+      {{ m.enabled ? t("common.enable") : t("common.disable") }}
       <p>
-        连接：{{ connections.find((c) => c.id === m.connection_id)?.name }} ·
-        预期维度 {{ m.embedding_dimensions }} · 每批最多
-        {{ m.max_batch_size }} 条 · 输入预算 {{ m.context_limit }}
+        {{ t("ai.connectionPrefix")
+        }}{{ connections.find((c) => c.id === m.connection_id)?.name }}
+        {{ t("ai.dimensionsPrefix") }} {{ m.embedding_dimensions }}
+        {{ t("ai.batchPrefix") }} {{ m.max_batch_size }}
+        {{ t("ai.budgetPrefix") }} {{ m.context_limit }}
       </p>
       <p>
-        独立测试：{{
-          m.last_test_status || "UNTESTED"
-        }}；聊天测试不代表向量能力可用。
+        {{ t("ai.modelTestPrefix") }}{{ m.last_test_status || "UNTESTED"
+        }}{{ t("ai.chatNotEmbedding") }}
       </p>
-      <el-button :disabled="!enabled" @click="editModel(m, 'EMBEDDING')"
-        >编辑</el-button
-      >
+      <el-button :disabled="!enabled" @click="editModel(m, 'EMBEDDING')">{{
+        t("common.edit")
+      }}</el-button>
       <el-button
         :disabled="
           !enabled || !m.enabled || (!!testTask && !aiFinished(testTask))
         "
         @click="test(m)"
-        >测试向量模型（可能收费）</el-button
+        >{{ t("ai.testEmbeddingCost") }}</el-button
       >
       <el-button
         @click="
           run(async () => {
             await ElMessageBox.confirm(
-              '删除此向量模型并停止关联任务？',
-              '删除向量模型',
+              t('ai.deleteEmbeddingConfirm'),
+              t('ai.deleteEmbedding'),
             );
             await api.delete('/ai/models/' + m.id);
           })
         "
-        >删除</el-button
+        >{{ t("common.delete") }}</el-button
       >
     </article>
-    <p>默认聊天模型</p>
+    <p>{{ t("ai.defaultChat") }}</p>
     <el-select
       v-model="defaultModel"
-      aria-label="默认聊天模型"
+      :aria-label="t('ai.defaultChat')"
       clearable
-      placeholder="请选择"
+      :placeholder="t('common.selectPlaceholder')"
       style="width: 100%; max-width: 360px"
       @change="
         run(() =>
@@ -379,16 +387,16 @@ onBeforeUnmount(() => {
       />
     </el-select>
     <p v-if="testTask" role="status">
-      测试：{{ aiStage(testTask) }} {{ testTask.result?.text }}
+      {{ t("ai.testPrefix") }}{{ aiStage(testTask) }}
+      {{ testTask.result?.text }}
       {{ testTask.error_message }}
       <span
         v-if="
           testTask.kind === 'EMBEDDING_TEST' && testTask.status === 'SUCCEEDED'
         "
-        >{{ testTask.result?.vectorCount }} 个向量 ·
-        {{ testTask.result?.dimensions }} 维；{{
-          testTask.result?.notice
-        }}</span
+        >{{ testTask.result?.vectorCount }} {{ t("ai.vectorPrefix") }}
+        {{ testTask.result?.dimensions }} {{ t("ai.dimensionSuffix")
+        }}{{ testTask.result?.notice }}</span
       >
     </p>
     <el-button
@@ -399,56 +407,62 @@ onBeforeUnmount(() => {
           schedulePoll();
         })
       "
-      >停止测试</el-button
+      >{{ t("ai.stopTest") }}</el-button
     >
-    <h3>使用记录</h3>
+    <h3>{{ t("ai.usage") }}</h3>
     <AiUsage :active="active && !busy" />
-    <el-dialog class="cn-dialog"
+    <el-dialog
+      class="cn-dialog"
       v-model="connectionEditor"
       append-to-body
-      title="API 连接"
+      :title="t('ai.connection')"
       width="min(520px,94vw)"
       @closed="form.apiKey = ''"
     >
       <el-form label-position="top" @submit.prevent="saveConnection">
-        <el-form-item label="显示名称"
+        <el-form-item :label="t('drive.displayName')"
           ><el-input v-model="form.name" maxlength="60"
         /></el-form-item>
-        <el-form-item
-          label="API 根地址（含版本路径，如 https://provider.example/v1）"
+        <el-form-item :label="t('ai.baseUrl')"
           ><el-input
             v-model="form.baseUrl"
             maxlength="2048"
             placeholder="https://provider.example/v1"
         /></el-form-item>
-        <el-form-item
-          :label="
-            current ? 'API Key（留空保留；更换地址必须重新输入）' : 'API Key'
-          "
+        <el-form-item :label="current ? t('ai.apiKey') : 'API Key'"
           ><el-input
             v-model="form.apiKey"
             type="password"
             autocomplete="new-password"
             maxlength="4096"
         /></el-form-item>
-        <el-checkbox v-model="form.enabled">启用连接</el-checkbox>
+        <el-checkbox v-model="form.enabled">{{
+          t("ai.enableConnection")
+        }}</el-checkbox>
         <p>
-          保存不会请求供应商；密钥以带版本的加密格式保存在服务器，浏览器不持久保存。撤销供应商密钥可阻止旧备份继续使用。
+          {{ t("ai.saveConnectionHelp") }}
         </p>
-        <el-button @click="connectionEditor = false">取消</el-button
-        ><el-button type="primary" :loading="busy" native-type="submit"
-          >保存连接</el-button
-        >
+        <el-button @click="connectionEditor = false">{{
+          t("common.cancel")
+        }}</el-button
+        ><el-button type="primary" :loading="busy" native-type="submit">{{
+          t("ai.saveConnection")
+        }}</el-button>
       </el-form>
     </el-dialog>
-    <el-dialog class="cn-dialog"
+    <el-dialog
+      class="cn-dialog"
       v-model="modelEditor"
       append-to-body
-      :title="modelForm.purpose === 'EMBEDDING' ? '向量模型' : '聊天模型'"
+      :title="
+        modelForm.purpose === 'EMBEDDING'
+          ? t('ai.embeddingModels')
+          : t('ai.chatModels')
+      "
       width="min(520px,94vw)"
     >
       <el-form label-position="top" @submit.prevent="saveModel">
-        <el-form-item label="所属连接"
+        <el-form-item :label="t('ai.parentConnection')"
           ><el-select
             v-model="modelForm.connectionId"
             :disabled="!!currentModel"
@@ -458,64 +472,68 @@ onBeforeUnmount(() => {
               :value="c.id"
               :label="c.name" /></el-select
         ></el-form-item>
-        <el-form-item label="显示名称"
+        <el-form-item :label="t('drive.displayName')"
           ><el-input v-model="modelForm.name" maxlength="60"
         /></el-form-item>
-        <el-form-item label="供应商模型 ID（手动输入）"
+        <el-form-item :label="t('ai.providerModelId')"
           ><el-input v-model="modelForm.modelId" maxlength="200"
         /></el-form-item>
         <el-form-item
           :label="
             modelForm.purpose === 'EMBEDDING'
-              ? '每批输入预算（token，以 UTF-8 字节保守估算）'
-              : '上下文窗口（token，请按供应商规格填写）'
+              ? t('ai.inputBudget')
+              : t('ai.contextWindow')
           "
           ><el-input-number
             v-model="modelForm.contextLimit"
             :min="modelForm.purpose === 'EMBEDDING' ? 512 : 1024"
             :max="modelForm.purpose === 'EMBEDDING' ? 32768 : 2000000"
         /></el-form-item>
-        <el-form-item v-if="modelForm.purpose === 'CHAT'" label="最大输出 token"
+        <el-form-item
+          v-if="modelForm.purpose === 'CHAT'"
+          :label="t('ai.maxOutput')"
           ><el-input-number v-model="modelForm.maxOutput" :min="64" :max="2048"
         /></el-form-item>
         <el-form-item
           v-if="modelForm.purpose === 'CHAT'"
-          label="输出上限兼容参数"
+          :label="t('ai.outputParameter')"
           ><el-select v-model="modelForm.outputParamMode"
             ><el-option value="max_tokens" label="max_tokens" /><el-option
               value="max_completion_tokens"
               label="max_completion_tokens" /></el-select
         ></el-form-item>
         <template v-if="modelForm.purpose === 'EMBEDDING'">
-          <el-form-item label="预期向量维度（请按供应商规格填写）"
+          <el-form-item :label="t('ai.expectedDimensions')"
             ><el-input-number
               v-model="modelForm.embeddingDimensions"
               :min="1"
               :max="4096"
           /></el-form-item>
-          <el-form-item label="每批最多输入条数"
+          <el-form-item :label="t('ai.maxBatch')"
             ><el-input-number
               v-model="modelForm.maxBatchSize"
               :min="1"
               :max="32"
           /></el-form-item>
-          <el-checkbox v-model="modelForm.requestDimensions"
-            >按此维度请求降维（需供应商明确支持）</el-checkbox
-          >
+          <el-checkbox v-model="modelForm.requestDimensions">{{
+            t("ai.requestDimensions")
+          }}</el-checkbox>
           <p>
-            默认仅校验返回维度，不发送
-            dimensions；不自动猜测维度、补零、截断或切换模型。模型用途创建后不可更改。
+            {{ t("ai.dimensionHelp") }}
           </p>
         </template>
-        <el-checkbox v-model="modelForm.enabled">启用模型</el-checkbox>
+        <el-checkbox v-model="modelForm.enabled">{{
+          t("ai.enableModel")
+        }}</el-checkbox>
         <p v-if="modelForm.purpose === 'CHAT'">
-          不发送
-          temperature，不自动切换参数或模型。上下文使用保守估算，仍可能被供应商拒绝。
+          {{ t("ai.parameterHelp") }}
         </p>
-        <el-button @click="modelEditor = false">取消</el-button
-        ><el-button type="primary" :loading="busy" native-type="submit"
-          >保存模型</el-button
-        >
+        <el-button @click="modelEditor = false">{{
+          t("common.cancel")
+        }}</el-button
+        ><el-button type="primary" :loading="busy" native-type="submit">{{
+          t("ai.saveModel")
+        }}</el-button>
       </el-form>
     </el-dialog>
   </section>

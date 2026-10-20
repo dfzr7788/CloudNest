@@ -303,3 +303,11 @@ source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识
 调度或容量不满足返回 `409 NO_PLACEMENT/NODE_CAPACITY/NODE_UNAVAILABLE/NODE_WRITE_PAUSED`；暂存不足返回 507。`fileIds` 与目录展开去重的是逻辑内容对象，同内容引用会共享迁移结果；不会访问其他用户对象。完整语义、升级与发布门槛见 [Horizon 2.0](horizon.md)。
 
 `DELETE /storage/files/{id}/protection`：本人停止该内容对象的自动副本保护，取消排队或执行中的副本任务，保留已有数据。成功空响应；不删除物理副本。
+
+## 控制平面兼容说明
+
+`GET /api/admin/horizon` 的 URL、管理员授权和响应保持兼容，内部通过
+`StorageDiagnostics` 只读服务读取指标；该服务每次独立验证调用者。
+新增的只读工具发现与手动调用接口见 [Agent 工具说明](agent-tools.md)。
+Agent runs、审批和 Sync API 仍处于 [2.1 实施计划](connected-workspace.md) 中。
+定时工作器开关和单进程边界见 [控制平面设计](design/control-plane.md)。

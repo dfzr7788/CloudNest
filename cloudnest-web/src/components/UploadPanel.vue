@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t as tr } from "../i18n";
 import { computed, ref } from "vue";
 import { useUploads, type UploadTask } from "../stores/uploads";
 import FileMark from "./FileMark.vue";
@@ -10,6 +11,22 @@ import {
   VideoPause,
   VideoPlay,
 } from "@element-plus/icons-vue";
+const uploadStateKeys: Record<string, string> = {
+  等待选择原文件: "transfers.state.choose",
+  校验文件: "transfers.state.hashing",
+  已跳过: "transfers.state.skipped",
+  秒传完成: "transfers.state.instant",
+  上传中: "transfers.state.uploading",
+  合并校验中: "transfers.state.merging",
+  已完成: "transfers.state.complete",
+  已取消: "transfers.state.cancelled",
+  已暂停: "transfers.state.paused",
+  上传失败: "transfers.state.failed",
+  排队中: "transfers.state.queued",
+};
+function uploadStateLabel(state: string) {
+  return uploadStateKeys[state] ? tr(uploadStateKeys[state]) : state;
+}
 const store = useUploads(),
   expanded = ref(true),
   input = ref<HTMLInputElement>(),
@@ -44,22 +61,28 @@ async function cancel(t: UploadTask) {
       aria-controls="cn-upload-list"
       @click="expanded = !expanded"
     >
-      <el-icon><UploadFilled /></el-icon><strong>传输列表</strong
+      <el-icon><UploadFilled /></el-icon
+      ><strong>{{ tr("transfers.title") }}</strong
       ><span>{{
         active
-          ? active + " 正在传输 / " + store.tasks.length
-          : store.tasks.length + " 个任务"
+          ? tr("transfers.countActive", { active, total: store.tasks.length })
+          : tr("transfers.count", { count: store.tasks.length })
       }}</span
-      ><span>{{ expanded ? "收起" : "展开" }}</span>
+      ><span>{{
+        expanded ? tr("transfers.collapse") : tr("transfers.expand")
+      }}</span>
     </button>
     <div v-if="expanded" id="cn-upload-list" class="upload-list">
       <div class="upload-tools">
-        <el-button size="small" @click="store.pauseAll">全部暂停</el-button
-        ><el-button size="small" @click="store.resumeAll"
-          >继续 / 重试全部</el-button
-        ><el-button size="small" @click="store.clearCompleted"
-          >清除已结束</el-button
-        >
+        <el-button size="small" @click="store.pauseAll">{{
+          tr("transfers.pauseAll")
+        }}</el-button
+        ><el-button size="small" @click="store.resumeAll">{{
+          tr("transfers.resumeAll")
+        }}</el-button
+        ><el-button size="small" @click="store.clearCompleted">{{
+          tr("transfers.clear")
+        }}</el-button>
       </div>
       <div v-for="t in store.tasks" :key="t.key" class="upload-task">
         <div class="task-top">
@@ -69,7 +92,11 @@ async function cancel(t: UploadTask) {
           ><span>{{ bytes(t.size) }}</span>
         </div>
         <el-progress
-          :aria-label="t.state === '校验文件' ? '本地文件校验进度' : '上传进度'"
+          :aria-label="
+            t.state === '校验文件'
+              ? tr('transfers.hashProgress')
+              : tr('transfers.uploadProgress')
+          "
           :percentage="Math.round(t.progress)"
           :status="
             t.state.includes('完成')
@@ -82,13 +109,16 @@ async function cancel(t: UploadTask) {
         />
         <div class="task-bottom">
           <span role="status"
-            >{{ t.state
-            }}{{ t.state === "校验文件" ? "（本地计算）" : "" }}</span
+            >{{ uploadStateLabel(t.state)
+            }}{{ t.state === "校验文件" ? tr("transfers.local") : "" }}</span
           >
-          <small v-if="t.state === '上传中' && t.speed"
-            >{{ bytes(t.sent || 0) }} · {{ bytes(t.speed) }}/s · 约
-            {{ Math.ceil(t.remaining || 0) }} 秒</small
-          >
+          <small v-if="t.state === '上传中' && t.speed">{{
+            tr("transfers.speed", {
+              sent: bytes(t.sent || 0),
+              speed: bytes(t.speed),
+              seconds: Math.ceil(t.remaining || 0),
+            })
+          }}</small>
           <div>
             <el-button
               v-if="t.active"
@@ -96,7 +126,7 @@ async function cancel(t: UploadTask) {
               size="small"
               :icon="VideoPause"
               @click="store.pause(t)"
-              >暂停</el-button
+              >{{ tr("transfers.pause") }}</el-button
             ><el-button
               v-else-if="
                 ['已暂停', '上传失败', '等待选择原文件'].includes(t.state)
@@ -105,7 +135,9 @@ async function cancel(t: UploadTask) {
               size="small"
               :icon="VideoPlay"
               @click="t.file ? store.run(t) : choose(t)"
-              >{{ t.file ? "继续 / 重试" : "选择原文件" }}</el-button
+              >{{
+                t.file ? tr("transfers.resume") : tr("transfers.chooseOriginal")
+              }}</el-button
             ><el-button
               v-if="
                 !t.state.includes('完成') &&
@@ -115,7 +147,7 @@ async function cancel(t: UploadTask) {
               size="small"
               :icon="Close"
               @click="cancel(t)"
-              >取消</el-button
+              >{{ tr("common.cancel") }}</el-button
             >
           </div>
         </div>

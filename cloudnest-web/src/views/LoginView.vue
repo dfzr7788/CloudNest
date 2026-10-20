@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { t } from "../i18n";
 import { ref, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import CloudNestLogo from "../components/brand/CloudNestLogo.vue";
+import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
 import { api, errorText } from "../api";
 import { useUser } from "../stores/user";
 import { Lock } from "@element-plus/icons-vue";
@@ -24,11 +26,11 @@ const invitation = ref(String(useRoute().query.invitation || ""));
 if (invitation.value) registering.value = true;
 async function submit() {
   if (!/^[A-Za-z0-9_]{3,40}$/.test(username.value)) {
-    error.value = "账号需要 3～40 个字母、数字或下划线";
+    error.value = t("login.accountRule");
     return;
   }
   if (password.value.length < 8 || password.value.length > 64) {
-    error.value = "密码长度需要 8～64 个字符";
+    error.value = t("login.passwordRule");
     return;
   }
   busy.value = true;
@@ -54,7 +56,7 @@ onMounted(async () => {
   if (token) {
     try {
       await api.post("/public/auth/verify-email", { token });
-      ElMessage.success("邮箱验证成功，可以登录了");
+      ElMessage.success(t("login.emailVerified"));
       await router.replace("/login");
     } catch (e) {
       error.value = errorText(e);
@@ -75,7 +77,7 @@ async function recover() {
 }
 async function reset() {
   if (resetPassword.value !== resetConfirmation.value) {
-    recoveryMessage.value = "两次密码不同";
+    recoveryMessage.value = t("login.passwordMismatch");
     return;
   }
   busy.value = true;
@@ -86,7 +88,7 @@ async function reset() {
     });
     resetToken.value = "";
     await router.replace("/login");
-    ElMessage.success("密码已重置，请重新登录；双重验证保持启用");
+    ElMessage.success(t("login.passwordReset"));
   } catch (e) {
     recoveryMessage.value = errorText(e);
   } finally {
@@ -99,9 +101,9 @@ async function reset() {
     <section class="login-story">
       <CloudNestLogo light />
       <div class="login-story-copy">
-        <span class="eyebrow">你的私人云端工作空间</span>
-        <h1>重要的文件，<br />安心放在这里。</h1>
-        <p>从日常记录到长期项目。<br />有序收纳，随时取用。</p>
+        <span class="eyebrow">{{ t("login.workspace") }}</span>
+        <h1>{{ t("login.headlineOne") }}<br />{{ t("login.headlineTwo") }}</h1>
+        <p>{{ t("login.storyOne") }}<br />{{ t("login.storyTwo") }}</p>
       </div>
       <div class="auth-geometry" aria-hidden="true">
         <div class="geometry-folder">
@@ -148,10 +150,10 @@ async function reset() {
               font-size="12"
               font-family="Inter, Segoe UI, Microsoft YaHei, sans-serif"
             >
-              <text x="166" y="71">工作与项目</text>
-              <text x="166" y="112">灵感与收藏</text>
-              <text x="166" y="153">阅读笔记.md</text>
-              <text x="166" y="194">下一段旅程.pdf</text>
+              <text x="166" y="71">{{ t("login.sampleProjects") }}</text>
+              <text x="166" y="112">{{ t("login.sampleIdeas") }}</text>
+              <text x="166" y="153">{{ t("login.sampleNotes") }}</text>
+              <text x="166" y="194">{{ t("login.sampleTrip") }}</text>
             </g>
             <path
               d="M343 68h42M355 109h30M343 150h42M355 191h30"
@@ -169,55 +171,53 @@ async function reset() {
           </svg>
         </div>
       </div>
-      <small>CloudNest · 文件由你掌握</small>
+      <small>{{ t("login.ownership") }}</small>
     </section>
     <section class="login-form">
       <div class="login-card">
+        <LanguageSwitcher />
         <CloudNestLogo class="login-mobile-logo" />
         <span class="eyebrow">CLOUDNEST</span>
-        <h2>{{ registering ? "创建你的云盘" : "欢迎回来" }}</h2>
+        <h2>{{ registering ? t("login.createDrive") : t("login.welcome") }}</h2>
         <p class="muted">
-          {{
-            registering
-              ? "从这里开始，整理你的数字生活。"
-              : "登录，回到属于你的私人空间。"
-          }}
+          {{ registering ? t("login.registerIntro") : t("login.signInIntro") }}
         </p>
         <form @submit.prevent="submit">
           <template v-if="registering"
-            ><label for="invitation">邀请码（开放注册时可留空）</label
+            ><label for="invitation">{{ t("login.invitation") }}</label
             ><el-input
               id="invitation"
               v-model="invitation"
               autocomplete="off"
               maxlength="100"
           /></template>
-          <label for="username">账号</label
+          <label for="username">{{ t("common.account") }}</label
           ><el-input
             id="username"
             v-model="username"
-            placeholder="字母、数字或下划线"
+            :placeholder="t('login.usernameHint')"
             autocomplete="username"
             size="large"
             maxlength="40"
-          /><label for="password">密码</label
+          /><label for="password">{{ t("common.password") }}</label
           ><el-input
             id="password"
             v-model="password"
             type="password"
             show-password
-            placeholder="至少 8 个字符"
+            :placeholder="t('login.passwordHint')"
             :autocomplete="registering ? 'new-password' : 'current-password'"
             size="large"
             maxlength="64"
           /><label v-if="!registering" for="login-otp"
-            >双重验证 <span class="muted">（未启用可留空）</span></label
+            >{{ t("login.twoFactor") }}
+            <span class="muted">{{ t("login.optionalOtp") }}</span></label
           ><el-input
             id="login-otp"
             v-if="!registering"
             v-model="otp"
-            placeholder="双重验证代码 / 恢复码（未启用可留空）"
-            aria-label="登录双重验证代码"
+            :placeholder="t('login.otpHint')"
+            :aria-label="t('login.otpLabel')"
             autocomplete="one-time-code"
           /><el-alert
             v-if="error"
@@ -231,18 +231,20 @@ async function reset() {
             size="large"
             :loading="busy"
             class="full"
-            >{{ registering ? "注册并进入云盘" : "登录云盘" }}</el-button
+            >{{
+              registering ? t("login.register") : t("login.signIn")
+            }}</el-button
           >
         </form>
         <p class="switch-auth">
-          {{ registering ? "已有账号？" : "还没有账号？" }}
+          {{ registering ? t("login.existingAccount") : t("login.noAccount") }}
           <button
             @click="
               registering = !registering;
               error = '';
             "
           >
-            {{ registering ? "立即登录" : "创建账号" }}
+            {{ registering ? t("login.signInNow") : t("login.createAccount") }}
           </button>
         </p>
         <el-button
@@ -252,35 +254,35 @@ async function reset() {
             forgot = true;
             recoveryMessage = '';
           "
-          >忘记密码</el-button
+          >{{ t("login.forgot") }}</el-button
         >
         <div class="login-note">
-          <el-icon><Lock /></el-icon> 文件独立存储，访问始终经过授权
+          <el-icon><Lock /></el-icon> {{ t("login.securityNote") }}
         </div>
       </div>
     </section>
     <el-dialog
       class="cn-dialog"
       v-model="forgot"
-      title="找回密码"
+      :title="t('login.recoveryTitle')"
       width="min(480px,94vw)"
-      ><p>使用账号或已验证的邮箱接收重置链接。</p>
+      ><p>{{ t("login.recoveryHelp") }}</p>
       <el-input
         v-model="recoveryAccount"
-        placeholder="账号或邮箱"
-        aria-label="找回账号"
+        :placeholder="t('login.accountOrEmail')"
+        :aria-label="t('login.recoveryAccount')"
       />
       <p role="status" aria-live="polite">{{ recoveryMessage }}</p>
       <template #footer
-        ><el-button :loading="busy" @click="recover"
-          >发送重置链接</el-button
-        ></template
+        ><el-button :loading="busy" @click="recover">{{
+          t("login.sendReset")
+        }}</el-button></template
       ></el-dialog
     >
     <el-dialog
       class="cn-dialog"
       :model-value="!!resetToken"
-      title="设置新密码"
+      :title="t('login.newPasswordTitle')"
       width="min(480px,94vw)"
       :close-on-click-modal="false"
       @close="resetToken = ''"
@@ -289,19 +291,19 @@ async function reset() {
         v-model="resetPassword"
         type="password"
         show-password
-        placeholder="新密码，8～64 字符"
-        aria-label="重置新密码"
+        :placeholder="t('login.newPasswordHint')"
+        :aria-label="t('login.resetPasswordLabel')"
       /><el-input
         v-model="resetConfirmation"
         type="password"
-        placeholder="再次输入新密码"
-        aria-label="确认重置密码"
+        :placeholder="t('login.confirmPasswordHint')"
+        :aria-label="t('login.confirmPasswordLabel')"
       />
       <p role="status" aria-live="polite">{{ recoveryMessage }}</p>
       <template #footer
-        ><el-button :loading="busy" @click="reset"
-          >保存新密码</el-button
-        ></template
+        ><el-button :loading="busy" @click="reset">{{
+          t("login.savePassword")
+        }}</el-button></template
       >
     </el-dialog>
   </main>

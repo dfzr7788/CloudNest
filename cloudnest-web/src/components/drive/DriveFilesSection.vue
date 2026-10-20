@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import type { Entry } from "../../api";
 import FileGrid from "../files/FileGrid.vue";
 import FileList from "../files/FileList.vue";
@@ -32,7 +33,7 @@ const emit = defineEmits<{
       v-if="busy && !items.length"
       class="file-skeleton"
       role="status"
-      aria-label="正在加载文件"
+      :aria-label="t('files.loading')"
     >
       <div v-if="grid && !trash" class="skeleton-grid" aria-hidden="true">
         <el-skeleton v-for="n in 8" :key="n" animated
@@ -53,13 +54,17 @@ const emit = defineEmits<{
     </div>
     <EmptyState
       v-else-if="failure"
-      title="文件暂时无法加载"
+      :title="t('files.loadFailed')"
       variant="error"
       :description="failure"
-      ><el-button @click="emit('retry')">重新加载</el-button></EmptyState
+      ><el-button @click="emit('retry')">{{
+        t("common.reload")
+      }}</el-button></EmptyState
     >
     <template v-else
-      ><p v-if="busy" class="refresh-status" role="status">正在刷新…</p>
+      ><p v-if="busy" class="refresh-status" role="status">
+        {{ t("files.refreshing") }}
+      </p>
       <FileGrid
         v-if="grid && !trash && items.length"
         :items="items"

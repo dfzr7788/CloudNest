@@ -36,6 +36,10 @@ management:
     redis:
       enabled: ${REDIS_ENABLED:false}
 cloudnest:
+  agent:
+    tools-enabled: ${AGENT_TOOLS_ENABLED:false}
+  worker:
+    enabled: ${WORKER_ENABLED:true}
   ai:
     enabled: ${AI_ENABLED:false}
   registration-open: ${REGISTRATION_OPEN:true}

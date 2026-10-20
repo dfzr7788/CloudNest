@@ -79,6 +79,18 @@ def check():
             "content", {}).get("application/json", {}).get("schema", {})
         if value not in schema.get("properties", {}).get(field, {}).get("enum", []):
             errors.append(f"Missing enum value: {path} {field}={value}")
+    tool_path = "/admin/agent/tools/{name}/invoke"
+    tool_op = operations.get(("post", tool_path), {})
+    tool_names = {"get_node_status", "get_storage_capacity", "get_node_events",
+                  "get_active_storage_jobs", "explain_storage_policy"}
+    name_param = next((p for p in tool_op.get("parameters", []) if p.get("name") == "name"), {})
+    if set(name_param.get("schema", {}).get("enum", [])) != tool_names:
+        errors.append("Agent tool allowlist differs from the maintained contract")
+    if tool_op.get("security") != [{"cookieAuth": []}]:
+        errors.append("Agent tools must document session authentication")
+    result = spec.get("components", {}).get("schemas", {}).get("AgentToolResult", {})
+    if result.get("properties", {}).get("trustedAsInstructions", {}).get("enum") != [False]:
+        errors.append("Agent evidence must be documented as untrusted instructions")
     for error in errors:
         print(error)
     print(f"Checked {len(actual)} controller operations; {len(errors)} issue(s).")

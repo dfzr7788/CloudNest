@@ -1,5 +1,9 @@
 # CloudNest Horizon 2.0
 
+简体中文 · [English](README.en.md)
+
+2.0 发布修复与 2.1 分阶段实施状态见 [Connected Workspace](docs/connected-workspace.md)。
+
 当前代码版本：`2.0.0-rc.1`。新增智能调度、文件级迁移、按需异域副本与节点中心；真实双机故障、隔离恢复和 1GB 压测仍是稳定版发布门槛。使用与升级见 [Horizon 2.0](docs/horizon.md)。
 
 可自行部署的多用户私人云盘。以文件管理为核心，提供分片续传、跨目录选择、在线预览、公开分享、历史版本与回收站；可选接入用户自己的 AI API，辅助阅读和检索资料。
@@ -70,6 +74,7 @@ docker compose up -d --build --wait --wait-timeout 180
 | --- | --- |
 | [使用说明](docs/usage.md) | 界面入口、文件操作、上传恢复、预览、分享与账号设置 |
 | [AI 使用说明](docs/ai.md) | API 配置、阅读助手、知识库、计费与数据保留 |
+| [只读诊断工具](docs/agent-tools.md) | 管理员手动诊断、工具边界、开关与限制；不调用模型 |
 | [部署手册](docs/deployment.md) | 安装、配置、升级、备份、恢复与维护 |
 | [双节点部署](docs/deployment-dual-node.md) | A/B 节点、授权直连、独立备份与隔离恢复；真实部署待验收 |
 | [进阶配置](docs/advanced-features.md) | Office、WebDAV、邮件、双重验证、存储与正文检索 |

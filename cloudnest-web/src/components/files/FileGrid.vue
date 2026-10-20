@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../../i18n";
 import { bytes, type Entry } from "../../api";
 import Thumbnail from "../Thumbnail.vue";
 import FileActionMenu from "./FileActionMenu.vue";
@@ -23,7 +24,7 @@ const emit = defineEmits<{
       <div class="tile-selection" @click.stop @dblclick.stop>
         <el-checkbox
           :model-value="selected.some((e) => e.id === file.id)"
-          :aria-label="'选择 ' + file.name"
+          :aria-label="t('files.selectPrefix') + file.name"
           @change="emit('toggle', file)"
         />
       </div>
@@ -44,7 +45,7 @@ const emit = defineEmits<{
         <span class="tile-thumbnail"><Thumbnail :file="file" /></span
         ><strong>{{ file.favorite ? "★ " : "" }}{{ file.name }}</strong
         ><small>{{
-          file.kind === "FOLDER" ? "文件夹" : bytes(file.size)
+          file.kind === "FOLDER" ? t("files.folder") : bytes(file.size)
         }}</small>
       </button>
     </article>

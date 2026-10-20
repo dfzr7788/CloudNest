@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "check:i18n": "node scripts/check-i18n.mjs",
+    "test:i18n": "playwright test --config playwright.i18n.config.ts",
     "dev": "vite --host 127.0.0.1",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",
@@ -21,6 +23,7 @@
     "pdfjs-dist": "6.4.299",
     "pinia": "3.0.4",
     "vue": "3.5.44",
+    "vue-i18n": "11.4.16",
     "vue-router": "4.6.4"
   },
   "devDependencies": {
