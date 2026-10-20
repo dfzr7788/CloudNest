@@ -32,6 +32,7 @@ public class PlacementService {
       if (mode.equals("MANUAL") && !backend.equals(nodes.defaultBackend())) continue;
       var node = nodes.node(backend);
       try {
+        nodes.authorizeTarget(uid, backend);
         nodes.admit(backend, false, bytes);
         if (mode.equals("HIGH_AVAILABILITY")) nodes.admit(backend, true, bytes);
         if (n(node, "reliability") < minimum) throw Problem.conflict("可靠性低于策略要求");

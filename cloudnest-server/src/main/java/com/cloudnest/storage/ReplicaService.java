@@ -69,7 +69,8 @@ public class ReplicaService {
             id);
     // Preserve legacy streaming for objects that have never requested protection.
     if (n(blob, "desired_replicas") == 1
-        && candidates.stream().noneMatch(r -> !primary.equals(s(r, "backend"))))
+        && candidates.stream().noneMatch(r -> !primary.equals(s(r, "backend")))
+        && db.count("SELECT COUNT(*) FROM blob_replica WHERE blob_id=? AND backend=? AND state='CORRUPT'",id,primary)==0)
       return storage.open(primary, key, offset, length);
     if (candidates.stream().noneMatch(r -> primary.equals(s(r, "backend")))
         && db.count(

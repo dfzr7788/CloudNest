@@ -7,7 +7,8 @@ import "element-plus/theme-chalk/dark/css-vars.css";
 import "./style.css";
 import App from "./App.vue";
 import { router } from "./router";
-document.documentElement.classList.add("dark");
+import { applyTheme, theme } from "./theme";
+applyTheme(theme.value);
 createApp(App)
   .use(createPinia())
   .use(router)

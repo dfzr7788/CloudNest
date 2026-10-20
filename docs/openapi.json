@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "CloudNest API",
-    "version": "2.0.0-rc.1",
+    "version": "2.3.0-dev.1",
     "description": "单实例私人云盘。完整请求与成功结果见 docs/api.md；导入后先执行 GET /auth/csrf，再填写当前 X-XSRF-TOKEN 并启用 Cookie jar。"
   },
   "servers": [
@@ -13225,6 +13225,4348 @@
           }
         }
       }
+    },
+    "/resilience/nodes/{backend}/capabilities": {
+      "put": {
+        "summary": "ResilienceController · /resilience/nodes/{backend}/capabilities",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__resilience_nodes__backend__capabilities",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "backend",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "publicUpload": {
+                    "type": "boolean"
+                  },
+                  "supportsRange": {
+                    "type": "boolean"
+                  },
+                  "performanceClass": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "publicUpload",
+                  "supportsRange",
+                  "performanceClass"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/snapshots": {
+      "get": {
+        "summary": "ResilienceController · /resilience/snapshots",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_snapshots",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "post": {
+        "summary": "ResilienceController · /resilience/snapshots",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__resilience_snapshots",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}/entries": {
+      "get": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}/entries",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_snapshots__id__entries",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}/diff": {
+      "get": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}/diff",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_snapshots__id__diff",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "against",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}": {
+      "delete": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__resilience_snapshots__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}/preview": {
+      "post": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}/preview",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__resilience_snapshots__id__preview",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetFolder": {
+                    "type": "string"
+                  },
+                  "selectedEntry": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "requestKey"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}/restore": {
+      "post": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}/restore",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__resilience_snapshots__id__restore",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetFolder": {
+                    "type": "string"
+                  },
+                  "selectedEntry": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "requestKey"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/snapshots/{id}/entries/{entry}/download": {
+      "get": {
+        "summary": "ResilienceController · /resilience/snapshots/{id}/entries/{entry}/download",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_snapshots__id__entries__entry__download",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "entry",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          },
+          "206": {
+            "description": "Requested byte range"
+          }
+        }
+      }
+    },
+    "/resilience/policies": {
+      "get": {
+        "summary": "ResilienceController · /resilience/policies",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_policies",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "put": {
+        "summary": "ResilienceController · /resilience/policies",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__resilience_policies",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "intervalHours": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "keepCount": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "protection": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "folderId",
+                  "enabled",
+                  "intervalHours",
+                  "keepCount",
+                  "protection"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/tasks": {
+      "get": {
+        "summary": "ResilienceController · /resilience/tasks",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_tasks",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/tasks/{id}/{action}": {
+      "post": {
+        "summary": "ResilienceController · /resilience/tasks/{id}/{action}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__resilience_tasks__id___action",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/integrity": {
+      "post": {
+        "summary": "ResilienceController · /resilience/integrity",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__resilience_integrity",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "backend": {
+                    "type": "string"
+                  },
+                  "ownerId": {
+                    "type": "string"
+                  },
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "requestKey"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/integrity/{id}": {
+      "get": {
+        "summary": "ResilienceController · /resilience/integrity/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_integrity__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/resilience/integrity-policy": {
+      "get": {
+        "summary": "ResilienceController · /resilience/integrity-policy",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_integrity_policy",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "put": {
+        "summary": "ResilienceController · /resilience/integrity-policy",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__resilience_integrity_policy",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "intervalHours": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "bytesPerSecond": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "intervalHours",
+                  "bytesPerSecond"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/resilience/tiering": {
+      "get": {
+        "summary": "ResilienceController · /resilience/tiering",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__resilience_tiering",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams": {
+      "get": {
+        "summary": "TeamController · /teams",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "post": {
+        "summary": "TeamController · /teams",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "quota": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "name",
+                  "quota"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/accept": {
+      "post": {
+        "summary": "TeamController · /teams/accept",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams_accept",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "token"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/members": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/members",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__members",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/invitations": {
+      "post": {
+        "summary": "TeamController · /teams/{team}/invitations",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__invitations",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "contributor": {
+                    "type": "boolean"
+                  },
+                  "hours": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "role",
+                  "contributor",
+                  "hours"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "TeamController · /teams/{team}/invitations",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__invitations",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/invitations/{id}": {
+      "delete": {
+        "summary": "TeamController · /teams/{team}/invitations/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__invitations__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/members/{user}": {
+      "put": {
+        "summary": "TeamController · /teams/{team}/members/{user}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__teams__team__members__user",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "role": {
+                    "type": "string"
+                  },
+                  "contributor": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "role",
+                  "contributor"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "TeamController · /teams/{team}/members/{user}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__members__user",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "user",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/quota": {
+      "put": {
+        "summary": "TeamController · /teams/{team}/quota",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__teams__team__quota",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "bytes": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "bytes"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/audit": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/audit",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__audit",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/entries/{id}/acl": {
+      "put": {
+        "summary": "TeamController · /teams/{team}/entries/{id}/acl",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__teams__team__entries__id__acl",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string"
+                  },
+                  "permission": {
+                    "type": "string",
+                    "enum": [
+                      "READ",
+                      "WRITE",
+                      "DENY",
+                      "INHERIT"
+                    ]
+                  }
+                },
+                "required": [
+                  "userId",
+                  "permission"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "TeamController · /teams/{team}/entries/{id}/acl",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__entries__id__acl",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/files": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/files",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__files",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/folders": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/folders",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__folders",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "parentId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "post": {
+        "summary": "TeamController · /teams/{team}/folders",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__folders",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "parentId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/entries/{id}": {
+      "patch": {
+        "summary": "TeamController · /teams/{team}/entries/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "patch__teams__team__entries__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "parentId": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "TeamController · /teams/{team}/entries/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__entries__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/trash": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/trash",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__trash",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/trash/{id}/restore": {
+      "post": {
+        "summary": "TeamController · /teams/{team}/trash/{id}/restore",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__trash__id__restore",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/trash/{id}": {
+      "delete": {
+        "summary": "TeamController · /teams/{team}/trash/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__trash__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/files/{id}/download": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/files/{id}/download",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__files__id__download",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md",
+            "content": {
+              "application/octet-stream": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          },
+          "206": {
+            "description": "Requested byte range"
+          }
+        }
+      }
+    },
+    "/teams/{team}/uploads/init": {
+      "post": {
+        "summary": "TeamController · /teams/{team}/uploads/init",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__uploads_init",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "size": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "sha256": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{64}$"
+                  },
+                  "targetId": {
+                    "type": "string"
+                  },
+                  "expectedRevision": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "name",
+                  "size",
+                  "sha256"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/uploads/{id}": {
+      "get": {
+        "summary": "TeamController · /teams/{team}/uploads/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__uploads__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "delete": {
+        "summary": "TeamController · /teams/{team}/uploads/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__uploads__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/uploads/{id}/parts/{number}": {
+      "put": {
+        "summary": "TeamController · /teams/{team}/uploads/{id}/parts/{number}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__teams__team__uploads__id__parts__number",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "number",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/uploads/{id}/complete": {
+      "post": {
+        "summary": "TeamController · /teams/{team}/uploads/{id}/complete",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__uploads__id__complete",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots": {
+      "get": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__resilience_snapshots",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "folderId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "post": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__resilience_snapshots",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots/{id}/entries": {
+      "get": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots/{id}/entries",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__resilience_snapshots__id__entries",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots/{id}/diff": {
+      "get": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots/{id}/diff",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__resilience_snapshots__id__diff",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "against",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots/{id}": {
+      "delete": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__resilience_snapshots__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots/{id}/preview": {
+      "post": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots/{id}/preview",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__resilience_snapshots__id__preview",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetFolder": {
+                    "type": "string"
+                  },
+                  "selectedEntry": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "requestKey"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/snapshots/{id}/restore": {
+      "post": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/snapshots/{id}/restore",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__resilience_snapshots__id__restore",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "targetFolder": {
+                    "type": "string"
+                  },
+                  "selectedEntry": {
+                    "type": "string"
+                  },
+                  "requestKey": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "requestKey"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/policies": {
+      "get": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/policies",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__resilience_policies",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "put": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/policies",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "put__teams__team__resilience_policies",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "folderId": {
+                    "type": "string"
+                  },
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "intervalHours": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "keepCount": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "protection": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "folderId",
+                  "enabled",
+                  "intervalHours",
+                  "keepCount",
+                  "protection"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/tasks": {
+      "get": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/tasks",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__resilience_tasks",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/resilience/tasks/{id}/{action}": {
+      "post": {
+        "summary": "TeamSnapshots · /teams/{team}/resilience/tasks/{id}/{action}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__resilience_tasks__id___action",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "action",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/storage/targets": {
+      "get": {
+        "summary": "TeamStorage · /teams/{team}/storage/targets",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__storage_targets",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/storage/jobs": {
+      "get": {
+        "summary": "TeamStorage · /teams/{team}/storage/jobs",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__storage_jobs",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      },
+      "post": {
+        "summary": "TeamStorage · /teams/{team}/storage/jobs",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__storage_jobs",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "target": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "MIGRATE",
+                      "REPLICATE"
+                    ]
+                  },
+                  "fileIds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "maxItems": 200
+                  }
+                },
+                "required": [
+                  "target",
+                  "kind",
+                  "fileIds"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/storage/jobs/{id}/retry": {
+      "post": {
+        "summary": "TeamStorage · /teams/{team}/storage/jobs/{id}/retry",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__storage_jobs__id__retry",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/storage/jobs/{id}": {
+      "delete": {
+        "summary": "TeamStorage · /teams/{team}/storage/jobs/{id}",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "delete__teams__team__storage_jobs__id",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/contributions": {
+      "post": {
+        "summary": "ContributionController · /teams/{team}/contributions",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__contributions",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "endpoint": {
+                    "type": "string"
+                  },
+                  "nodeToken": {
+                    "type": "string"
+                  },
+                  "capacityBytes": {
+                    "type": "integer",
+                    "format": "int64"
+                  }
+                },
+                "required": [
+                  "name",
+                  "endpoint",
+                  "nodeToken",
+                  "capacityBytes"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "ContributionController · /teams/{team}/contributions",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__teams__team__contributions",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/teams/{team}/contributions/{id}/review": {
+      "post": {
+        "summary": "ContributionController · /teams/{team}/contributions/{id}/review",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__contributions__id__review",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/admin/contributions": {
+      "get": {
+        "summary": "ContributionController · /admin/contributions",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "get__admin_contributions",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/admin/contributions/{id}/approve": {
+      "post": {
+        "summary": "ContributionController · /admin/contributions/{id}/approve",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__admin_contributions__id__approve",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "failureDomain": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "reliability": {
+                    "type": "integer",
+                    "format": "int64"
+                  },
+                  "performanceClass": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "failureDomain",
+                  "reliability",
+                  "performanceClass"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/teams/{team}/contributions/{id}/stop": {
+      "post": {
+        "summary": "ContributionController · /teams/{team}/contributions/{id}/stop",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__teams__team__contributions__id__stop",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "team",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/public/nodes/{id}/heartbeat": {
+      "post": {
+        "summary": "ContributionController · /public/nodes/{id}/heartbeat",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__public_nodes__id__heartbeat",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "nodeHeartbeat": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/uploads/{id}/plan": {
+      "post": {
+        "summary": "TransferController · /uploads/{id}/plan",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__uploads__id__plan",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
+    },
+    "/uploads/{id}/direct-commit": {
+      "post": {
+        "summary": "TransferController · /uploads/{id}/direct-commit",
+        "description": "Horizon Next development API. See docs/horizon-next.md and docs/horizon-next-api.md for authorization, limits, side effects and exact results.",
+        "operationId": "post__uploads__id__direct_commit",
+        "tags": [
+          "Horizon Next"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "security": [
+          {
+            "cookieAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success; result contract in horizon-next-api.md"
+          },
+          "400": {
+            "description": "Invalid input"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Insufficient role, ACL, or CSRF"
+          },
+          "404": {
+            "description": "Resource missing or inaccessible"
+          },
+          "409": {
+            "description": "Quota, state, or idempotency conflict"
+          },
+          "422": {
+            "description": "Content checksum rejected"
+          },
+          "503": {
+            "description": "Object/replica unavailable or bounded worker busy"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -13239,6 +17581,12 @@
         "in": "header",
         "name": "Authorization",
         "description": "SyncDevice <token>. Limited to /sync/client/* and GET /auth/csrf. Cannot create/revoke other devices or access ordinary/admin APIs. Unsafe methods additionally require XSRF-TOKEN cookie and X-XSRF-TOKEN."
+      },
+      "nodeHeartbeat": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Node-Token",
+        "description": "Node-specific heartbeat token, stored only as hash. No Cookie or CSRF. Cannot access file/database/admin APIs."
       }
     },
     "schemas": {
@@ -13265,6 +17613,13 @@
             "type": "integer",
             "format": "int64",
             "description": "毫秒时间戳，最长约60秒，分享期限可能更短"
+          },
+          "fallbackUrl": {
+            "type": "string",
+            "description": "Same-origin authorized proxy fallback for direct mode"
+          },
+          "supportsRange": {
+            "type": "boolean"
           }
         }
       },

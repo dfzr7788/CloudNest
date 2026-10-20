@@ -24,4 +24,9 @@ public interface StorageService {
       String backend, String key, String endpoint, String name, int seconds) throws IOException {
     return java.util.Optional.empty();
   }
+
+  record UploadForm(String url, java.util.Map<String,String> fields) {}
+  default java.util.Optional<UploadForm> presignUpload(String backend,String key,String endpoint,long size,int seconds) throws IOException {
+    return java.util.Optional.empty();
+  }
 }

@@ -3,7 +3,13 @@ import { ref, watch } from "vue";
 import { api, errorText, type Entry } from "../api";
 import { ElMessage } from "element-plus";
 import { Folder, ArrowRight } from "@element-plus/icons-vue";
-const props = defineProps<{ open: boolean; rootId: string }>(),
+const props = defineProps<{
+    open: boolean;
+    rootId: string;
+    title?: string;
+    chooseLabel?: string;
+    teamId?: string;
+  }>(),
   emit = defineEmits<{ close: []; choose: [string] }>();
 const current = ref(""),
   folders = ref<Entry[]>([]),
@@ -13,12 +19,20 @@ async function load(id: string) {
   busy.value = true;
   try {
     current.value = id;
-    const [list, path] = await Promise.all([
-      api.get<Entry[]>("/folders", { params: { parentId: id } }),
-      api.get(`/folders/${id}/breadcrumbs`),
-    ]);
-    folders.value = list.data;
-    crumbs.value = path.data;
+    if (props.teamId) {
+      const { data } = await api.get(`/teams/${props.teamId}/folders`, {
+        params: { parentId: id },
+      });
+      folders.value = data.items;
+      crumbs.value = data.breadcrumbs;
+    } else {
+      const [list, path] = await Promise.all([
+        api.get<Entry[]>("/folders", { params: { parentId: id } }),
+        api.get(`/folders/${id}/breadcrumbs`),
+      ]);
+      folders.value = list.data;
+      crumbs.value = path.data;
+    }
   } catch (e) {
     ElMessage.error(errorText(e));
   } finally {
@@ -33,9 +47,10 @@ watch(
 );
 </script>
 <template>
-  <el-dialog class="cn-dialog"
+  <el-dialog
+    class="cn-dialog"
     :model-value="open"
-    title="移动到文件夹"
+    :title="title || '移动到文件夹'"
     width="500px"
     @close="emit('close')"
     ><el-breadcrumb separator="/"
@@ -59,7 +74,7 @@ watch(
         type="primary"
         :disabled="busy || !current"
         @click="emit('choose', current)"
-        >移动到这里</el-button
+        >{{ chooseLabel || "移动到这里" }}</el-button
       ></template
     ></el-dialog
   >

@@ -1,31 +1,36 @@
 .share-list {
   border: 1px solid var(--cn-border);
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
   background: var(--cn-surface);
+  box-shadow: var(--cn-specular);
 }
 .workspace-surface .share-list {
-  border: 0;
-  border-top: 1px solid var(--cn-border);
-  border-radius: 0;
+  border: 1px solid var(--cn-border);
+  border-radius: 10px;
 }
 .share-item-symbol {
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  color: var(--cn-brand);
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  color: var(--cn-accent);
   background: var(--cn-selected);
-  font-size: 22px;
+  border: 1px solid var(--cn-selected-border);
+  font-size: 19px;
 }
 .share-list-item {
   display: flex;
   align-items: center;
   gap: var(--cn-space-3);
-  padding: var(--cn-space-3);
-  border-bottom: 1px solid var(--cn-border);
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--cn-border-subtle);
+  transition: background var(--cn-duration) var(--cn-ease);
+}
+.share-list-item:hover {
+  background: var(--cn-hover);
 }
 .share-list-item:last-child {
   border: 0;
@@ -35,16 +40,16 @@
   flex: 1;
 }
 .share-item-main h3 {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .share-item-main p,
 .share-item-meta p {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--cn-muted);
 }
 .share-item-meta {
@@ -54,9 +59,10 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 500;
   color: var(--cn-muted);
-  margin-bottom: 6px;
+  margin-bottom: 4px;
 }
 .share-status i {
   width: 6px;
@@ -69,6 +75,7 @@
 }
 .share-status.is-active i {
   background: var(--cn-success);
+  box-shadow: 0 0 8px var(--cn-success);
 }
 .share-item-actions {
   display: flex;
@@ -78,26 +85,39 @@
 .share-page {
   min-height: 100dvh;
   padding: 24px 6%;
-  background: var(--cn-canvas);
+  background:
+    radial-gradient(
+      ellipse 80% 50% at 50% -15%,
+      var(--cn-brand-glow),
+      transparent
+    ),
+    var(--cn-app-bg);
 }
 .share-page > header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 24px;
+  gap: 12px;
+  padding-bottom: 20px;
   border-bottom: 1px solid var(--cn-border);
 }
 .share-page > header > span {
   color: var(--cn-muted);
   font-size: 13px;
 }
+.share-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 .share-card {
   max-width: 960px;
   margin: 48px auto;
   min-height: 360px;
-  border: 1px solid var(--cn-border);
-  border-radius: 8px;
+  border: 1px solid var(--cn-border-strong);
+  border-radius: 12px;
   background: var(--cn-surface);
+  box-shadow: var(--cn-shadow);
   padding: 40px;
   text-align: center;
 }
@@ -109,11 +129,12 @@
   font-size: 40px;
 }
 .share-card h1 {
-  font-size: 24px;
-  line-height: 1.5;
+  font-size: 22px;
+  line-height: 1.4;
   font-weight: 600;
+  letter-spacing: -0.02em;
   overflow-wrap: anywhere;
-  margin: 20px 0 12px;
+  margin: 18px 0 10px;
 }
 .share-card form {
   display: flex;
@@ -123,9 +144,16 @@
   margin: 24px auto;
 }
 .share-lock {
-  font-size: 40px;
-  color: var(--cn-brand);
-  margin-top: 24px;
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: var(--cn-selected);
+  border: 1px solid var(--cn-selected-border);
+  font-size: 26px;
+  color: var(--cn-accent);
+  margin-top: 20px;
 }
 .share-actions {
   display: flex;
@@ -161,16 +189,16 @@
   overflow-wrap: anywhere;
 }
 .collect-panel {
-  border: 1px dashed #a9b3f8;
-  background: var(--cn-hover);
-  border-radius: 8px;
+  border: 1.5px dashed var(--cn-brand);
+  background: var(--cn-subtle);
+  border-radius: 10px;
   padding: var(--cn-space-3);
   margin-top: 24px;
   line-height: 1.8;
 }
 .collect-panel input {
   max-width: 100%;
-  margin: 24px 0;
+  margin: 20px 0;
 }
 @media (max-width: 767px) {
   .share-list-item {
@@ -199,14 +227,14 @@
     padding: 20px 16px;
   }
   .share-page > header {
-    padding-bottom: 20px;
+    padding-bottom: 16px;
   }
   .share-card {
     padding: 24px 16px;
     margin-block: 24px;
   }
   .share-card h1 {
-    font-size: 20px;
+    font-size: 19px;
   }
   .collect-panel {
     padding: var(--cn-space-2);

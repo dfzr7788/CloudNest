@@ -5,9 +5,10 @@
   width: 360px;
   max-width: calc(100vw - 32px);
   z-index: var(--cn-z-transfer);
-  background: var(--cn-surface);
-  border: 1px solid var(--cn-border);
-  border-radius: 8px;
+  background: var(--cn-surface-elevated);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--cn-border-strong);
+  border-radius: 10px;
   box-shadow: var(--cn-shadow);
   overflow: hidden;
 }
@@ -16,19 +17,20 @@
   align-items: center;
   gap: var(--cn-space-1);
   width: 100%;
-  min-height: 52px;
-  padding: 12px 16px;
+  min-height: 48px;
+  padding: 10px 16px;
   border: 0;
-  background: var(--cn-surface);
+  background: var(--cn-surface-elevated);
   color: var(--cn-heading);
   text-align: left;
 }
 .upload-panel-head > .el-icon {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--cn-brand);
 }
 .upload-panel-head strong {
-  font-size: 14px;
+  font-size: 13.5px;
+  font-weight: 600;
 }
 .upload-panel-head > span {
   font-size: 12px;
@@ -37,6 +39,7 @@
 .upload-panel-head > span:last-child {
   margin-left: auto;
   color: var(--cn-accent);
+  font-weight: 500;
 }
 .upload-list {
   max-height: min(420px, 55dvh);
@@ -53,7 +56,7 @@
   margin: 0;
 }
 .upload-task {
-  padding: var(--cn-space-2);
+  padding: 14px 16px;
   border-top: 1px solid var(--cn-border);
 }
 .task-top,
@@ -64,11 +67,12 @@
   gap: var(--cn-space-1);
 }
 .task-top {
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 .task-top strong {
-  font-size: 14px;
+  font-size: 13.5px;
   font-weight: 500;
+  color: var(--cn-heading);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -76,13 +80,14 @@
   flex: 1;
 }
 .task-top > .file-mark {
-  width: 30px;
-  height: 34px;
-  font-size: 20px;
+  width: 28px;
+  height: 30px;
+  font-size: 18px;
 }
 .task-top > span {
   flex-shrink: 0;
   font-size: 12px;
+  font-variant-numeric: tabular-nums;
   color: var(--cn-muted);
 }
 .task-bottom {
@@ -101,15 +106,16 @@
 .task-error {
   margin-top: 8px;
   color: var(--cn-danger);
-  font-size: 13px;
+  font-size: 12.5px;
   overflow-wrap: anywhere;
 }
 .download-center {
   margin-top: 24px;
   padding: 20px;
   border: 1px solid var(--cn-border);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--cn-surface);
+  box-shadow: var(--cn-specular);
 }
 .download-heading {
   display: flex;
@@ -123,6 +129,7 @@
 }
 .download-center a {
   color: var(--cn-accent);
+  font-weight: 500;
   text-decoration: underline;
 }
 .drive-main:has(.upload-panel) {
@@ -159,6 +166,7 @@
   border: 0;
   border-top: 1px solid var(--cn-border);
   border-radius: 0;
+  box-shadow: none;
   padding: 16px 0;
 }
 .download-center.is-empty .download-heading {

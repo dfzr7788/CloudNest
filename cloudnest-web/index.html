@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <meta name="theme-color" content="#202124" />
+    <meta name="theme-color" content="#0b0c0e" />
     <meta
       name="description"
       content="CloudNest 私人云盘，安全存放、管理和分享你的文件"
@@ -11,8 +11,12 @@
     <title>CloudNest · 私人云盘</title>
     <style>
       html {
-        background: #202124;
+        background: var(--cn-app-bg, #0b0c0e);
         color-scheme: dark;
+      }
+      html.light {
+        background: var(--cn-app-bg, #f3f4f7);
+        color-scheme: light;
       }
     </style>
   </head>

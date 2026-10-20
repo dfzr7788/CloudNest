@@ -1,43 +1,139 @@
-:root {
+:root,
+html.dark {
   color-scheme: dark;
-  --cn-canvas: #202124;
-  --cn-surface: #252629;
-  --cn-sidebar: #1d1e21;
-  --cn-subtle: #292a2e;
-  --cn-hover: #2e3035;
-  --cn-brand: #6266c8;
-  --cn-brand-hover: #666acb;
-  --cn-brand-pressed: #565ab4;
-  --cn-accent: #afb2ff;
-  --cn-selected: #32343a;
-  --cn-heading: #eeeef0;
-  --cn-text: #d3d4d9;
-  --cn-muted: #999ba5;
-  --cn-border: #ffffff0e;
-  --cn-border-strong: #ffffff22;
-  --cn-focus: #a6a9f5;
-  --cn-danger: #ed828a;
-  --cn-success: #83bfa4;
-  --cn-warning: #d9b779;
-  --cn-file-blue: #8da7ca;
-  --cn-file-green: #83bfa4;
-  --cn-file-purple: #b49ace;
-  --cn-file-orange: #d99e86;
+  --cn-app-bg: #0b0c0e;
+  --cn-sidebar: #0e1015;
+  --cn-canvas: #121318;
+  --cn-surface: #171920;
+  --cn-surface-elevated: #1c1f28;
+  --cn-subtle: #1a1c23;
+  --cn-hover: #21242e;
+  --cn-brand: #5e6ad2;
+  --cn-brand-hover: #6c78e0;
+  --cn-brand-pressed: #4f5ac0;
+  --cn-brand-glow: rgba(94, 106, 210, 0.18);
+  --cn-brand-ring: rgba(94, 106, 210, 0.28);
+  --cn-accent: #9ca5ff;
+  --cn-selected: #202437;
+  --cn-selected-border: rgba(114, 126, 232, 0.45);
+  --cn-heading: #f4f5f8;
+  --cn-text: #d7d9e0;
+  --cn-muted: #8a8f98;
+  --cn-placeholder: #62666d;
+  --cn-border: rgba(255, 255, 255, 0.075);
+  --cn-border-subtle: rgba(255, 255, 255, 0.045);
+  --cn-border-strong: rgba(255, 255, 255, 0.135);
+  --cn-focus: #7c86ef;
+  --cn-danger: #f0757f;
+  --cn-success: #5bb98c;
+  --cn-warning: #e2b05e;
+  --cn-file-blue: #7aa2f7;
+  --cn-file-green: #5bb98c;
+  --cn-file-purple: #b494e8;
+  --cn-file-orange: #e59872;
+  --cn-topbar-bg: rgba(18, 19, 24, 0.82);
+  --cn-dropzone-bg: rgba(18, 19, 24, 0.92);
+  --cn-preview-stage: #0d0e12;
+  --cn-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.055);
+  --cn-btn-primary-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  --cn-btn-secondary-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.045);
+  --cn-shadow:
+    0 20px 48px rgba(0, 0, 0, 0.56), 0 4px 12px rgba(0, 0, 0, 0.28),
+    0 0 0 1px rgba(255, 255, 255, 0.07);
+  --cn-shadow-hover:
+    0 6px 16px rgba(0, 0, 0, 0.28), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  --cn-shadow-xs:
+    0 1px 2px rgba(0, 0, 0, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --cn-panel-shadow: 0 2px 16px rgba(0, 0, 0, 0.32);
+  --cn-folder-back: #54698a;
+  --cn-folder-front: #738db5;
+  --cn-folder-highlight: #9ab3d8;
+  --cn-folder-line: #bdd0eb;
+  --cn-illust-shadow: #0a0b0e;
+  --cn-illust-circle: #191b23;
+  --cn-illust-back: #262936;
+  --cn-illust-sheet: #20232e;
+  --cn-illust-front: #1c1f29;
+  --cn-illust-stroke: #464b5e;
+  --cn-illust-icon: #9299be;
   --cn-space-1: 8px;
   --cn-space-2: 16px;
   --cn-space-3: 24px;
   --cn-space-4: 32px;
-  --cn-font-body: 14px;
+  --cn-font-body: 13.5px;
   --cn-font-title: 20px;
   --cn-radius-control: 6px;
   --cn-radius-card: 8px;
   --cn-radius-dialog: 12px;
-  --cn-shadow: 0 16px 48px #00000050, 0 0 0 1px #ffffff06;
-  --cn-shadow-hover: 0 2px 8px #00000018;
-  --cn-duration: 160ms;
+  --cn-duration: 150ms;
   --cn-ease: cubic-bezier(0.2, 0.65, 0.3, 1);
   --cn-z-toolbar: 10;
   --cn-z-batch: 30;
   --cn-z-transfer: 40;
   --cn-z-nav: 50;
+}
+
+html.light,
+:root[data-theme="light"] {
+  color-scheme: light;
+  --cn-app-bg: #f3f4f7;
+  --cn-sidebar: #f3f4f7;
+  --cn-canvas: #ffffff;
+  --cn-surface: #ffffff;
+  --cn-surface-elevated: #ffffff;
+  --cn-subtle: #f4f5f8;
+  --cn-hover: #ecedf2;
+  --cn-brand: #5e6ad2;
+  --cn-brand-hover: #505cc4;
+  --cn-brand-pressed: #434eb3;
+  --cn-brand-glow: rgba(94, 106, 210, 0.12);
+  --cn-brand-ring: rgba(94, 106, 210, 0.22);
+  --cn-accent: #4c57bd;
+  --cn-selected: #eef0ff;
+  --cn-selected-border: rgba(94, 106, 210, 0.42);
+  --cn-heading: #111318;
+  --cn-text: #282c35;
+  --cn-muted: #68707d;
+  --cn-placeholder: #8e95a2;
+  --cn-border: rgba(15, 23, 42, 0.08);
+  --cn-border-subtle: rgba(15, 23, 42, 0.05);
+  --cn-border-strong: rgba(15, 23, 42, 0.14);
+  --cn-focus: #5e6ad2;
+  --cn-danger: #d93848;
+  --cn-success: #1f8f5f;
+  --cn-warning: #c07d18;
+  --cn-file-blue: #3b6fd8;
+  --cn-file-green: #1f8f5f;
+  --cn-file-purple: #7c4dff;
+  --cn-file-orange: #d4652f;
+  --cn-topbar-bg: rgba(255, 255, 255, 0.86);
+  --cn-dropzone-bg: rgba(255, 255, 255, 0.94);
+  --cn-preview-stage: #f1f2f6;
+  --cn-specular: inset 0 1px 0 0 rgba(255, 255, 255, 0.85);
+  --cn-btn-primary-shadow:
+    0 1px 2px rgba(24, 30, 68, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+  --cn-btn-secondary-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --cn-shadow:
+    0 20px 44px rgba(15, 23, 42, 0.11), 0 4px 12px rgba(15, 23, 42, 0.05),
+    0 0 0 1px rgba(15, 23, 42, 0.07);
+  --cn-shadow-hover:
+    0 6px 16px rgba(15, 23, 42, 0.07), 0 1px 2px rgba(15, 23, 42, 0.04);
+  --cn-shadow-xs:
+    0 1px 2px rgba(15, 23, 42, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  --cn-panel-shadow:
+    0 2px 10px rgba(15, 23, 42, 0.045), 0 0 0 1px rgba(15, 23, 42, 0.07);
+  --cn-folder-back: #6580ab;
+  --cn-folder-front: #829dc8;
+  --cn-folder-highlight: #b4c8e8;
+  --cn-folder-line: #dce7f7;
+  --cn-illust-shadow: #e3e6ee;
+  --cn-illust-circle: #eef0f6;
+  --cn-illust-back: #d8ddeb;
+  --cn-illust-sheet: #ffffff;
+  --cn-illust-front: #eef1f8;
+  --cn-illust-stroke: #a6b0c7;
+  --cn-illust-icon: #5e6ad2;
 }

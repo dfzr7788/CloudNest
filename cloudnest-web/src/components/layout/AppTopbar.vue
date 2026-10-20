@@ -3,6 +3,7 @@ import { t } from "../../i18n";
 import { Menu } from "@element-plus/icons-vue";
 import CloudNestLogo from "../brand/CloudNestLogo.vue";
 import LanguageSwitcher from "../common/LanguageSwitcher.vue";
+import ThemeSwitcher from "../common/ThemeSwitcher.vue";
 defineProps<{ title: string }>();
 const emit = defineEmits<{ menu: [] }>();
 </script>
@@ -19,6 +20,8 @@ const emit = defineEmits<{ menu: [] }>();
       }}</strong>
     </div>
     <div class="topbar-search"><slot name="search" /></div>
-    <div class="topbar-right"><LanguageSwitcher /><slot /></div>
+    <div class="topbar-right">
+      <ThemeSwitcher /><LanguageSwitcher /><slot />
+    </div>
   </header>
 </template>

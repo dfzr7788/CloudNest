@@ -9,7 +9,7 @@ function Get-SourceDigest([string]$Path) {
   try { return [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($Path))).Replace('-','').ToLowerInvariant() }
   finally { $sha.Dispose() }
 }
-$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1')
+$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1','mount.ps1')
 function Assert-PlainPath([string]$Path) {
   $current = [IO.Path]::GetFullPath($Path)
   while ($current) {

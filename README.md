@@ -1,10 +1,10 @@
-# CloudNest Horizon 2.0
+# CloudNest Horizon Next
 
 简体中文 · [English](README.en.md)
 
 2.0 发布修复与 2.1 分阶段实施状态见 [Connected Workspace](docs/connected-workspace.md)。新增默认关闭的 [有界 Agent 与人工审批](docs/agent-runtime.md)、[Windows 同步开发原型](docs/sync.md) 和资源拓扑；这些功能尚未完成稳定版验收。
 
-当前代码版本：`2.0.0-rc.1`。新增智能调度、文件级迁移、按需异域副本与节点中心；真实双机故障、隔离恢复和 1GB 压测仍是稳定版发布门槛。使用与升级见 [Horizon 2.0](docs/horizon.md)。
+当前开发版本：`2.3.0-dev.1`。2.2 数据保护与 2.3 团队协作的实现、使用方法及验收边界见 [Horizon Next](docs/horizon-next.md) 和 [新增 API](docs/horizon-next-api.md)。包括目录快照、恢复任务、完整性巡检、传输回退、团队权限和存储贡献节点；Windows 盘符目前为 WebDAV MVP，原生 WinFsp 与加密保险箱未实现。Garage 公网直传、Windows 映射盘及跨物理机器故障仍需验收，不应直接作为生产稳定版部署。既有存储能力见 [Horizon 2.0](docs/horizon.md)。
 
 可自行部署的多用户私人云盘。以文件管理为核心，提供分片续传、跨目录选择、在线预览、公开分享、历史版本与回收站；可选接入用户自己的 AI API，辅助阅读和检索资料。
 

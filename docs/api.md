@@ -2,6 +2,8 @@
 
 本文描述接口行为与权限边界，配合 [OpenAPI](openapi.json) 和服务端控制器/校验使用；使用入口见 [使用说明](usage.md)，本地联调见 [开发指南](development.md)。
 
+2.2/2.3 的快照、恢复、巡检、团队、贡献节点与直传协议见 [Horizon Next API](horizon-next-api.md)。运行限制与验收边界见 [Horizon Next](horizon-next.md)。
+
 ## V1 存储节点与下载授权
 
 节点以 backend 唯一关联原 storage_policy，不复制凭据。管理员通过原策略 API 创建连接，通过 `/api/admin/nodes` 管理状态、能力、预算、公网地址和直连开关。完整字段、状态矩阵与接口列表见 [V1 实现契约](design/v1-contract.md)。旧存储管理、默认目标和迁移 API 共用节点准入与引用保护。

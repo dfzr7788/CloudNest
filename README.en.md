@@ -1,4 +1,4 @@
-# CloudNest Horizon 2.0
+# CloudNest Horizon Next
 
 [简体中文](README.md) · English
 
@@ -7,7 +7,9 @@ versions, trash, WebDAV, multiple S3-compatible nodes and verified replicas.
 The backend runs Java 21 / Spring Boot with MySQL and Redis; the web app uses Vue 3.
 The default deployment runs one application process.
 
-Current release: **2.0.0-rc.1**. The 2.1 Connected Workspace work has started;
+Current development version: **2.3.0-dev.1**. The 2.2/2.3 implementation includes folder snapshots, recoveries, integrity scans, transfer fallback, team ACLs and scoped contribution nodes. See [Horizon Next](docs/horizon-next.md) and its [API contract](docs/horizon-next-api.md). Windows mounting currently uses WebDAV; native WinFsp, offline writeback and the encrypted vault are not implemented. Real Windows mounting, Garage public direct uploads and cross-machine stability tests remain release gates.
+
+The 2.1 Connected Workspace baseline includes:
 Opt-in [bounded Agent runs and human proposals](docs/en/agent-runtime.md), resource topology, and a [Windows sync development client](clients/windows-sync/README.md) are implemented as development features, not a stable release.
 Real Garage failure/recovery tests, isolated restoration and 1 GB VPS measurements
 remain release gates. See the [delivery status](docs/connected-workspace.md).

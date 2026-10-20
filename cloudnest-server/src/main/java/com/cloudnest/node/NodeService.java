@@ -106,6 +106,10 @@ public class NodeService {
   }
 
   public void admit(String backend, boolean migration, long bytes) {
+    if (backend.startsWith("peer:") && db.count(
+        "SELECT COUNT(*) FROM storage_contribution c JOIN team_member m ON m.team_id=c.team_id AND m.user_id=c.contributor_id JOIN sys_user u ON u.id=m.user_id WHERE c.backend=? AND c.status='APPROVED' AND c.last_heartbeat>? AND m.contributor=TRUE AND u.enabled=TRUE",
+        backend, System.currentTimeMillis() - 120000) != 1)
+      throw new Problem(409, "CONTRIBUTION_UNAVAILABLE", "贡献节点离线、暂停或授权已撤销");
     var n = node(backend);
     if (!b(n, "enabled")
         || !"ACTIVE".equals(s(n, "management"))
@@ -123,6 +127,12 @@ public class NodeService {
     long budget = n(n, "budget_bytes");
     if (bytes < 0 || (budget > 0 && bytes > budget - used(backend) - reserved(backend)))
       throw new Problem(409, "NODE_CAPACITY", "节点管理员预算不足");
+  }
+
+  public void authorizeTarget(String uid, String backend) {
+    if (backend.startsWith("peer:") && db.count(
+        "SELECT COUNT(*) FROM storage_contribution c JOIN team_workspace w ON w.id=c.team_id WHERE c.backend=? AND w.storage_user=? AND c.status='APPROVED'", backend, uid) != 1)
+      throw new Problem(403, "NODE_TEAM_MISMATCH", "成员存储只能分配给其授权团队");
   }
 
   public long tempReserved() {

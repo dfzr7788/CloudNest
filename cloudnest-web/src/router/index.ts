@@ -10,12 +10,14 @@ export const router = createRouter({
       props: true,
     },
     { path: "/admin/nodes", component: () => import("../views/NodeCenterView.vue") },
+    { path: "/resilience", component: () => import("../views/ResilienceView.vue") },
+    { path: "/teams", component: () => import("../views/TeamsView.vue") },
     { path: "/", component: () => import("../views/DriveView.vue") },
     { path: "/:pathMatch(.*)*", redirect: "/" },
   ],
 });
 router.beforeEach(async (to) => {
-  if (to.path === "/" || to.path.startsWith("/admin/")) {
+  if (["/", "/resilience", "/teams"].includes(to.path) || to.path.startsWith("/admin/")) {
     try {
       await api.get("/user/me");
     } catch {

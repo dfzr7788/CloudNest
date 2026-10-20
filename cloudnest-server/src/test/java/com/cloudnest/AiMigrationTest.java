@@ -15,7 +15,7 @@ class AiMigrationTest {
         "sa",
         "h2",
         "12",
-        "17");
+        "22");
   }
 
   @Test
@@ -23,7 +23,7 @@ class AiMigrationTest {
     String url = System.getenv("CN_AI_TEST_DATABASE_URL");
     Assumptions.assumeTrue(
         url != null, "Set CN_AI_TEST_DATABASE_URL to a local disposable MySQL test database");
-    upgrade(url, "root", "mysql", "13", "18");
+    upgrade(url, "root", "mysql", "13", "22");
   }
 
   private void upgrade(String url, String user, String vendor, String previous, String current)

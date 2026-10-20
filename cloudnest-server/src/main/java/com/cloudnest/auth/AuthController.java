@@ -133,7 +133,7 @@ public class AuthController {
             new QueryWrapper<Account>().eq("username", input.username.toLowerCase(Locale.ROOT)));
     if (a == null
         || !passwords.matches(input.password, a.passwordHash)
-        || db.count("SELECT COUNT(*) FROM sys_user WHERE id=? AND enabled=TRUE", a.id) != 1)
+        || db.count("SELECT COUNT(*) FROM sys_user WHERE id=? AND enabled=TRUE AND workspace_account=FALSE", a.id) != 1)
       throw new Problem(401, "INVALID_CREDENTIALS", "账号或密码错误");
     mfa.verify(a.id, input.otp());
     issue(a.id, req, res);

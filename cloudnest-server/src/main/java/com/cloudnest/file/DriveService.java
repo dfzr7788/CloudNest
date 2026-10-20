@@ -430,6 +430,7 @@ public class DriveService {
   public boolean referenced(String blob) {
     return db.count("SELECT COUNT(*) FROM drive_entry WHERE blob_id=?", blob) > 0
         || db.count("SELECT COUNT(*) FROM file_version WHERE blob_id=?", blob) > 0
+        || db.count("SELECT COUNT(*) FROM folder_snapshot_entry WHERE blob_id=?", blob) > 0
         || db.count("SELECT COUNT(*) FROM file_share WHERE pinned_blob=?", blob) > 0;
   }
 

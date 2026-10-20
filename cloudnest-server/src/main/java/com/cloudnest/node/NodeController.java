@@ -58,6 +58,10 @@ public class NodeController {
     nodes.locked(
         () -> {
           nodes.node(backend);
+          if (backend.startsWith("peer:")) {
+            var contribution=db.one("SELECT capacity_bytes FROM storage_contribution WHERE backend=?",backend);
+            if(in.budgetBytes()==0 || in.budgetBytes()>n(contribution,"capacity_bytes")) throw Problem.invalid("贡献节点预算不能超过成员授权上限或设为无限");
+          }
           if (in.budgetBytes() > 0
               && in.budgetBytes() < nodes.used(backend) + nodes.reserved(backend))
             throw Problem.conflict("预算不能低于已用与预留");

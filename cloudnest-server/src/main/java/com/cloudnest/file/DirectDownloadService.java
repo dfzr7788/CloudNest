@@ -56,7 +56,8 @@ public class DirectDownloadService {
                 s(entry, "name"),
                 seconds);
         if (signed.isPresent())
-          return Map.of("mode", "direct", "url", signed.get(), "expiresAt", now + seconds * 1000L);
+          return Map.of("mode", "direct", "url", signed.get(), "expiresAt", now + seconds * 1000L,
+              "fallbackUrl",proxy,"supportsRange",b(node,"supports_range"));
       } catch (IOException ignored) {
         /* Provider error details and signed URLs must never enter logs. */
       }

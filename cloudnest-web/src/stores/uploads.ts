@@ -132,6 +132,48 @@ export const useUploads = defineStore("uploads", () => {
       }
       if (s.status !== "UPLOADING")
         throw new Error("上传会话已取消或失效，请创建新的上传任务");
+      if (!s.uploadedParts.length) {
+        try {
+          const plan = (
+            await api.post(`/uploads/${s.id}/plan`, undefined, { signal })
+          ).data;
+          if (plan.mode === "direct-post") {
+            task.state = "上传中";
+            const form = new FormData();
+            for (const [key, value] of Object.entries(plan.fields))
+              form.append(key, String(value));
+            form.append("file", task.file, task.name);
+            await axios.post(plan.url, form, {
+              signal,
+              withCredentials: false,
+              timeout: 180000,
+              onUploadProgress: (e) => {
+                if (e.total)
+                  task.progress = Math.min(95, (e.loaded / e.total) * 95);
+              },
+            });
+            task.state = "合并校验中";
+            await api.post(`/uploads/${s.id}/direct-commit`, undefined, {
+              signal,
+              timeout: 180000,
+            });
+            task.state = "上传完成";
+            task.progress = 100;
+            revision.value++;
+            return;
+          }
+        } catch (error) {
+          if (signal.aborted) return;
+          s = (await api.get(`/uploads/${s.id}`, { signal })).data;
+          if (s.status === "COMPLETE") {
+            task.state = "上传完成";
+            task.progress = 100;
+            revision.value++;
+            return;
+          }
+          if (s.status !== "UPLOADING") throw error;
+        }
+      }
       task.state = "上传中";
       const started = performance.now();
       let transmitted = 0;

@@ -2,6 +2,7 @@
 import { t } from "../i18n";
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
+import ThemeSwitcher from "../components/common/ThemeSwitcher.vue";
 import { api, bytes, date, errorText } from "../api";
 import { ElMessage } from "element-plus";
 import NodePolicyForm from "../components/nodes/NodePolicyForm.vue";
@@ -107,8 +108,13 @@ async function saveNode(n: any) {
         <h1>{{ t("nav.nodes") }}</h1>
         <p>{{ t("nodes.intro") }}</p>
       </div>
-      <LanguageSwitcher />
-      <router-link to="/">{{ t("nodes.back") }}</router-link>
+      <div class="node-header-actions">
+        <ThemeSwitcher />
+        <LanguageSwitcher />
+        <router-link to="/" class="node-back-link">{{
+          t("nodes.back")
+        }}</router-link>
+      </div>
     </header>
     <el-alert v-if="failure" type="error" :title="failure" :closable="false" />
     <el-alert
@@ -360,9 +366,26 @@ async function saveNode(n: any) {
 </template>
 <style scoped>
 .node-center {
+  min-height: 100dvh;
   max-width: 1440px;
   margin: auto;
   padding: 32px;
+}
+.node-center :deep(.el-tabs__content) {
+  background: var(--cn-canvas);
+  border: 1px solid var(--cn-border);
+  border-radius: 10px;
+  padding: 24px;
+  box-shadow: var(--cn-panel-shadow);
+}
+.node-center :deep(.el-table) {
+  border: 1px solid var(--cn-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 12px;
+}
+.node-center :deep(.el-tab-pane > p) {
+  margin-bottom: 12px;
 }
 header {
   display: flex;
@@ -370,36 +393,69 @@ header {
   gap: 20px;
   align-items: center;
   margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--cn-border);
+}
+.node-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.node-back-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: var(--cn-radius-control);
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border-strong);
+  box-shadow: var(--cn-btn-secondary-shadow);
+  color: var(--cn-heading);
+  font-size: 13px;
+  font-weight: 500;
+  transition: background var(--cn-duration) var(--cn-ease);
+}
+.node-back-link:hover {
+  background: var(--cn-hover);
 }
 h1 {
   margin: 6px 0;
+  font-size: 22px;
+  font-weight: 600;
 }
 p {
   color: var(--cn-muted);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 .eyebrow {
-  font-size: 12px;
-  letter-spacing: 2px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
 }
 .metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 28px;
 }
 .metrics article,
 .attributes article {
-  border: 1px solid var(--cn-border-strong);
-  border-radius: 12px;
-  padding: 20px;
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  box-shadow: var(--cn-specular);
+  border-radius: 10px;
+  padding: 18px 20px;
 }
 .metrics strong {
   display: block;
-  font-size: 28px;
-  margin-top: 12px;
+  font-size: 24px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--cn-heading);
+  margin-top: 8px;
 }
 .metrics span {
+  font-size: 12.5px;
   color: var(--cn-muted);
 }
 .attributes {
@@ -412,15 +468,21 @@ p {
   max-width: 480px;
 }
 h2 {
-  font-size: 19px;
-  margin-top: 30px;
+  font-size: 17px;
+  font-weight: 600;
+  margin-top: 28px;
+  margin-bottom: 12px;
 }
 @media (max-width: 640px) {
   .node-center {
     padding: 16px;
   }
+  .node-center :deep(.el-tabs__content) {
+    padding: 16px;
+  }
   header {
     align-items: flex-start;
+    flex-direction: column;
   }
 }
 </style>

@@ -82,6 +82,10 @@ for (const width of [390, 1440]) {
       "Fixture-Password-123",
     );
     await expect(page.locator("html")).toHaveAttribute("lang", "en-US");
+    await page.getByRole("button", { name: "Switch to light mode", exact: true }).click();
+    await expect(page.locator("html")).toHaveClass(/light/);
+    await page.getByRole("button", { name: "Switch to dark mode", exact: true }).click();
+    await expect(page.locator("html")).toHaveClass(/dark/);
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
     await expect(
       page.getByRole("heading", { name: "My drive", exact: true }),

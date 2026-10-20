@@ -28,37 +28,37 @@ withDefaults(
       fill="none"
       aria-hidden="true"
     >
-      <ellipse cx="80" cy="98" rx="57" ry="5" fill="#191A1D" />
-      <circle cx="80" cy="52" r="44" fill="#25262B" />
+      <ellipse cx="80" cy="98" rx="57" ry="5" fill="var(--cn-illust-shadow)" />
+      <circle cx="80" cy="52" r="44" fill="var(--cn-illust-circle)" />
       <path
         d="M111 26h15a8 8 0 0 0-1-16 11 11 0 0 0-21 3 7 7 0 0 0 1 13h6"
-        stroke="#454853"
+        stroke="var(--cn-illust-stroke)"
         stroke-width="1.5"
       />
       <path
         d="M32 41a6 6 0 0 1 6-6h30l9 9h44a6 6 0 0 1 6 6v38a6 6 0 0 1-6 6H38a6 6 0 0 1-6-6V41Z"
-        fill="#343742"
+        fill="var(--cn-illust-back)"
       />
       <path
         d="M58 29h40a4 4 0 0 1 4 4v44H54V33a4 4 0 0 1 4-4Z"
-        fill="#30323A"
-        stroke="#565A68"
+        fill="var(--cn-illust-sheet)"
+        stroke="var(--cn-illust-stroke)"
         transform="rotate(8 78 53)"
       />
       <path
         d="M65 41h25M65 49h19"
-        stroke="#626675"
+        stroke="var(--cn-illust-stroke)"
         stroke-width="2"
         stroke-linecap="round"
       />
       <path
         d="M29 58a6 6 0 0 1 6-6h91a6 6 0 0 1 6 7l-6 30a6 6 0 0 1-6 5H41a6 6 0 0 1-6-5l-6-30Z"
-        fill="#2C2E36"
-        stroke="#5C6173"
+        fill="var(--cn-illust-front)"
+        stroke="var(--cn-illust-stroke)"
         stroke-width="1.5"
       />
       <g
-        stroke="#999DB8"
+        stroke="var(--cn-illust-icon)"
         stroke-width="2"
         stroke-linecap="round"
         stroke-linejoin="round"
@@ -91,7 +91,7 @@ withDefaults(
       </g>
       <path
         d="M22 30v6M19 33h6M139 70v6M136 73h6"
-        stroke="#484B57"
+        stroke="var(--cn-illust-stroke)"
         stroke-width="1.5"
         stroke-linecap="round"
       />
@@ -113,19 +113,20 @@ withDefaults(
   color: var(--cn-muted);
 }
 .empty-illustration {
-  width: 128px;
-  height: 90px;
-  margin-bottom: 24px;
+  width: 124px;
+  height: 88px;
+  margin-bottom: 20px;
 }
 h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 8px;
+  color: var(--cn-heading);
+  margin-bottom: 6px;
 }
 p {
-  font-size: 14px;
-  max-width: 380px;
-  margin-bottom: 24px;
+  font-size: 13px;
+  max-width: 360px;
+  margin-bottom: 20px;
 }
 @media (max-width: 767px) {
   .cn-empty {

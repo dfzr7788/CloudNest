@@ -14,8 +14,15 @@ const emit = defineEmits<{ click: [event: MouseEvent] }>();
 </template>
 <style scoped>
 .cn-icon-button {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   padding: 0;
+  flex-shrink: 0;
+}
+@media (max-width: 767px) {
+  .cn-icon-button {
+    width: 36px;
+    height: 36px;
+  }
 }
 </style>

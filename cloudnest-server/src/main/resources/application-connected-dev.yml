@@ -1,7 +1,7 @@
-# Explicit development schema. Never enable against the only copy of production data.
+# Explicit development capabilities. Schema history is canonical in db/migration.
 spring:
   flyway:
-    locations: classpath:db/migration/{vendor},classpath:db/connected/{vendor}
+    locations: classpath:db/migration/{vendor}
 cloudnest:
   agent:
     approvals-enabled: true

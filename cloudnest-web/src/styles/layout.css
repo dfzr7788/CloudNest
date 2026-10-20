@@ -2,90 +2,115 @@
   height: 100dvh;
   display: flex;
   overflow: hidden;
+  background: var(--cn-app-bg);
 }
 .sidebar {
-  width: 220px;
-  flex: 0 0 220px;
+  width: 224px;
+  flex: 0 0 224px;
   display: flex;
   flex-direction: column;
-  padding: 20px 12px 16px;
+  padding: 18px 12px 14px;
   background: var(--cn-sidebar);
-  border-right: 1px solid var(--cn-border);
 }
 .sidebar-brand {
-  padding: 0 12px;
+  padding: 2px 10px;
+  display: inline-flex;
+  align-items: center;
 }
 .workspace-caption {
-  margin: 32px 12px 12px;
-  font-size: 12px;
+  margin: 24px 10px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--cn-muted);
 }
 .sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 2px;
 }
 .sidebar nav button,
 .sidebar nav .node-center-link {
   position: relative;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   width: 100%;
-  min-height: 36px;
-  padding: 6px 12px;
+  min-height: 34px;
+  padding: 6px 10px;
   border: 0;
   border-radius: 6px;
+  font-size: 13px;
+  font-weight: 450;
   color: var(--cn-muted);
   background: transparent;
   text-align: left;
   transition:
-    background var(--cn-duration),
-    color var(--cn-duration);
+    background var(--cn-duration) var(--cn-ease),
+    color var(--cn-duration) var(--cn-ease),
+    box-shadow var(--cn-duration) var(--cn-ease);
 }
 .sidebar nav .el-icon {
-  font-size: 17px;
+  font-size: 16px;
   flex-shrink: 0;
+  transition: color var(--cn-duration) var(--cn-ease);
 }
 .sidebar nav button:hover,
 .sidebar nav .node-center-link:hover {
-  background: var(--cn-subtle);
+  background: var(--cn-hover);
   color: var(--cn-heading);
 }
 .sidebar nav button.active {
   background: var(--cn-selected);
   color: var(--cn-heading);
   font-weight: 500;
+  box-shadow:
+    inset 2px 0 0 var(--cn-brand),
+    var(--cn-specular);
+}
+.sidebar nav button.active .el-icon {
+  color: var(--cn-accent);
 }
 .nav-divider {
   height: 1px;
   background: var(--cn-border);
-  margin: 16px;
+  margin: 12px 10px;
 }
 .storage-card {
   margin-top: auto;
-  padding: 20px 12px;
-  border-top: 1px solid var(--cn-border);
+  margin-bottom: 10px;
+  padding: 14px 12px;
+  background: var(--cn-surface);
+  border: 1px solid var(--cn-border);
+  border-radius: 8px;
+  box-shadow: var(--cn-specular);
 }
 .storage-card > div:first-child {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 12px;
-  font-size: 13px;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--cn-heading);
 }
 .storage-card strong {
-  color: var(--cn-muted);
-  font-weight: 500;
+  color: var(--cn-accent);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 .storage-card p {
-  font-size: 13px;
-  margin: 12px 0 4px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--cn-text);
+  margin: 10px 0 3px;
 }
 .storage-card small {
   display: block;
-  font-size: 12px;
+  font-size: 11.5px;
   color: var(--cn-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 .sidebar-profile {
   display: flex;
@@ -93,21 +118,30 @@
   gap: 10px;
   min-width: 0;
   width: 100%;
-  padding: 20px 8px 0;
-  border: 0;
-  border-top: 1px solid var(--cn-border);
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: none;
   text-align: left;
+  transition:
+    background var(--cn-duration) var(--cn-ease),
+    border-color var(--cn-duration) var(--cn-ease);
+}
+.sidebar-profile:hover {
+  background: var(--cn-hover);
+  border-color: var(--cn-border);
 }
 .avatar {
   display: grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
+  width: 30px;
+  height: 30px;
   flex-shrink: 0;
-  border-radius: 50%;
-  color: var(--cn-accent);
-  background: var(--cn-selected);
+  border-radius: 7px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--cn-brand), #818cf8);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  font-size: 13px;
   font-weight: 600;
 }
 .profile-copy {
@@ -119,28 +153,40 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 14px;
-  color: var(--cn-text);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cn-heading);
 }
 .sidebar-profile small {
   color: var(--cn-muted);
-  font-size: 12px;
+  font-size: 11.5px;
 }
 .main-shell {
   flex: 1;
   min-width: 0;
   overflow: auto;
   scrollbar-gutter: stable;
+  background: var(--cn-canvas);
+}
+@media (min-width: 768px) {
+  .main-shell {
+    margin: 6px 6px 6px 0;
+    border-radius: 10px;
+    border: 1px solid var(--cn-border);
+    box-shadow: var(--cn-panel-shadow);
+  }
 }
 .topbar {
   position: sticky;
   top: 0;
   display: flex;
   align-items: center;
-  gap: var(--cn-space-3);
-  min-height: 56px;
-  padding: 10px 28px;
-  background: var(--cn-canvas);
+  gap: var(--cn-space-2);
+  min-height: 52px;
+  padding: 8px 28px;
+  background: var(--cn-topbar-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--cn-border);
   z-index: var(--cn-z-toolbar);
 }
@@ -148,12 +194,13 @@
   display: flex;
   align-items: center;
   gap: var(--cn-space-1);
-  color: var(--cn-muted);
+  color: var(--cn-heading);
   white-space: nowrap;
 }
 .topbar-context strong {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13.5px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 .topbar-search {
   flex: 1;
@@ -164,25 +211,25 @@
 .file-search {
   display: flex;
   min-width: 0;
-  gap: var(--cn-space-1);
+  background: var(--cn-subtle);
+  border: 1px solid var(--cn-border);
+  box-shadow: var(--cn-specular);
+  border-radius: 7px;
+  padding: 1px;
+  gap: 0;
+  transition:
+    border-color var(--cn-duration) var(--cn-ease),
+    box-shadow var(--cn-duration) var(--cn-ease),
+    background var(--cn-duration) var(--cn-ease);
 }
 .file-search > .el-input {
   flex: 1;
   min-width: 80px;
 }
-.file-search {
-  background: var(--cn-subtle);
-  border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 2px;
-  gap: 0;
-  transition:
-    border-color var(--cn-duration),
-    box-shadow var(--cn-duration);
-}
 .file-search:focus-within {
+  background: var(--cn-surface);
   border-color: var(--cn-brand);
-  box-shadow: 0 0 0 3px #5266f112;
+  box-shadow: 0 0 0 3px var(--cn-brand-glow);
 }
 .file-search .el-input__wrapper,
 .file-search .el-select__wrapper {
@@ -197,7 +244,7 @@
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: var(--cn-space-1);
+  gap: 6px;
 }
 .topbar-right .el-button + .el-button {
   margin-left: 0;
@@ -208,13 +255,15 @@
 }
 .drive-main {
   padding: 24px 28px 32px;
-  min-height: calc(100dvh - 100px);
+  min-height: calc(100dvh - 112px);
   position: relative;
 }
 .app-footer {
   display: flex;
   justify-content: space-between;
-  padding: 0 32px 24px;
+  align-items: center;
+  padding: 14px 28px 20px;
+  border-top: 1px solid var(--cn-border-subtle);
   color: var(--cn-muted);
   font-size: 12px;
 }
@@ -228,7 +277,7 @@
 }
 @media (min-width: 1600px) {
   .drive-main {
-    padding: 24px 36px 32px;
+    padding: 28px 36px 36px;
   }
   .topbar {
     padding-inline: 36px;
@@ -239,9 +288,9 @@
 }
 @media (min-width: 768px) and (max-width: 1199px) {
   .sidebar {
-    width: 72px;
-    flex-basis: 72px;
-    padding: 24px 10px;
+    width: 68px;
+    flex-basis: 68px;
+    padding: 20px 8px;
     align-items: center;
   }
   .sidebar-brand {
@@ -257,18 +306,18 @@
     display: none;
   }
   .sidebar nav {
-    margin-top: 32px;
+    margin-top: 28px;
     width: 100%;
   }
   .sidebar nav button,
   .sidebar nav .node-center-link {
-    padding: 12px;
+    padding: 10px;
     justify-content: center;
   }
   .sidebar-profile {
     margin-top: auto;
     justify-content: center;
-    padding: 20px 0 0;
+    padding: 12px 0 0;
   }
   .nav-divider {
     margin: 12px 4px;
@@ -299,18 +348,19 @@
   }
   .mobile-menu.el-button {
     display: inline-flex;
-    width: 40px;
+    width: 36px;
+    height: 36px;
     padding: 0;
   }
   .topbar .topbar-context .mobile-brand {
     display: inline-flex;
   }
   .topbar .mobile-brand svg {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
   }
   .topbar .mobile-brand .cn-logo-name {
-    font-size: 18px;
+    font-size: 17px;
   }
   .topbar-right {
     gap: 4px;
@@ -321,6 +371,7 @@
   }
   .topbar-right .cn-icon-button {
     width: 36px;
+    height: 36px;
   }
   .topbar-right .account-trigger {
     width: 36px !important;
@@ -341,7 +392,7 @@
     padding: 20px 16px 24px;
   }
   .app-footer {
-    padding: 0 16px 24px;
+    padding: 12px 16px 24px;
   }
   .cn-nav-drawer .cn-logo-name,
   .cn-nav-drawer .workspace-caption,
@@ -349,9 +400,6 @@
   .cn-nav-drawer .profile-copy {
     display: block;
   }
-}
-
-@media (max-width: 767px) {
   .sidebar nav button,
   .sidebar nav .node-center-link {
     min-height: 44px;

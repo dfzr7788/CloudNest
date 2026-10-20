@@ -77,7 +77,7 @@ public class SecurityConfig {
         .csrf(
             c ->
                 c.csrfTokenRepository(repo)
-                    .ignoringRequestMatchers("/dav", "/dav/**", "/api/public/office/callback")
+                    .ignoringRequestMatchers("/dav", "/dav/**", "/api/public/office/callback", "/api/public/nodes/*/heartbeat")
                     .sessionAuthenticationStrategy(
                         new org.springframework.security.web.authentication.session
                             .NullAuthenticatedSessionStrategy())

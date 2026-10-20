@@ -140,6 +140,45 @@ class StorageContractTest {
   @Autowired Db db;
   @Autowired ObjectStorage storage;
   @Autowired com.cloudnest.storage.StorageController policies;
+  @Autowired com.cloudnest.upload.UploadService uploads;
+  @Autowired com.cloudnest.upload.TransferPlanner transfers;
+  @Autowired com.cloudnest.file.DriveService drive;
+
+  @Test
+  void directStagingMustPassHashBeforePartsAndCannotOverwritePublishedContent() throws Exception {
+    String uid=seed()[0],root=drive.root(uid),key="objects/"+Util.id();
+    byte[] content="direct upload bytes".getBytes(StandardCharsets.UTF_8);
+    var session=uploads.init(uid,root,"direct.txt",content.length,Util.hash(new ByteArrayInputStream(content)));
+    String id=Db.s(session,"id");
+    db.update("UPDATE upload_session SET backend='minio' WHERE id=?",id);
+    db.update("INSERT INTO direct_upload_ticket(session_id,user_id,backend,object_key,size,expires_at) VALUES(?,?,'minio',?,?,?)",id,uid,key,content.length,System.currentTimeMillis()+180000);
+    byte[] bad=new byte[content.length];Arrays.fill(bad,(byte)'!');storage.put("minio",key,new ByteArrayInputStream(bad),bad.length);
+    assertEquals("CHECKSUM_MISMATCH",assertThrows(Problem.class,()->transfers.commit(uid,id)).code);
+    assertEquals(0,db.count("SELECT COUNT(*) FROM upload_part WHERE session_id=?",id));
+    storage.put("minio",key,new ByteArrayInputStream(content),content.length);
+    var result=transfers.commit(uid,id);assertEquals("COMPLETE",Db.s(result,"status"));
+    var blob=db.one("SELECT b.* FROM file_blob b JOIN drive_entry e ON e.blob_id=b.id WHERE e.id=?",result.get("fileId"));
+    assertNotEquals(key,Db.s(blob,"object_key"));
+    storage.put("minio",key,new ByteArrayInputStream(bad),bad.length);
+    try(var input=storage.openWhole(Db.s(blob,"backend"),Db.s(blob,"object_key"),content.length)){assertArrayEquals(content,input.readAllBytes());}
+    assertEquals(result.get("fileId"),transfers.commit(uid,id).get("fileId"));
+  }
+
+  @Test
+  void uploadPostPolicyBindsExactObjectSizeAndDoesNotExposeSecret() throws Exception {
+    String uid=seed()[0];db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?",uid);
+    var auth=new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(uid,"test",List.of());
+    var policy=policies.policy(auth,new StorageController.Policy(null,"Upload signing","http://127.0.0.1:"+server.getAddress().getPort(),"cloudnest","post-access","post-secret-never-public","us-east-1"));
+    String key="objects/"+Util.id();
+    var signed=storage.presignUpload("s3:"+policy.get("id"),key,"https://objects.example.invalid",37,60).orElseThrow();
+    assertEquals(key,signed.fields().get("key"));assertEquals("https://objects.example.invalid/cloudnest",signed.url());
+    var json=new com.fasterxml.jackson.databind.ObjectMapper();
+    var document=json.readTree(Base64.getDecoder().decode(signed.fields().get("policy")));
+    boolean bound=false;
+    for(var condition:document.path("conditions"))if(condition.isArray() && condition.path(0).asText().equals("content-length-range")){assertEquals(37,condition.path(1).asLong());assertEquals(37,condition.path(2).asLong());bound=true;}
+    assertTrue(bound);assertFalse(signed.fields().toString().contains("post-secret-never-public"));
+    assertTrue(storage.presignUpload("local",key,"https://objects.example.invalid",37,60).isEmpty());
+  }
 
   @AfterAll
   void close() {

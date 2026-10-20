@@ -8,6 +8,7 @@
 @import "./styles/sharing.css";
 @import "./styles/auth.css";
 @import "./styles/settings.css";
+@import "./styles/next.css";
 
 .trash-note {
   display: flex;
@@ -15,11 +16,12 @@
   gap: 10px;
   border: 1px solid var(--cn-border);
   background: var(--cn-subtle);
-  padding: 15px 18px;
+  box-shadow: var(--cn-specular);
+  padding: 12px 16px;
   color: var(--cn-muted);
-  font-size: 14px;
-  margin-bottom: 24px;
-  border-radius: 10px;
+  font-size: 13px;
+  margin-bottom: 20px;
+  border-radius: 8px;
 }
 .load-error {
   margin-bottom: 15px;
@@ -28,9 +30,12 @@
   padding: 20px 12px;
 }
 .folder-picker {
-  margin: 22px 0;
+  margin: 18px 0;
   max-height: 300px;
   overflow: auto;
+  border: 1px solid var(--cn-border);
+  border-radius: 8px;
+  background: var(--cn-subtle);
 }
 .folder-picker > button {
   display: flex;
@@ -39,10 +44,15 @@
   width: 100%;
   background: none;
   border: 0;
-  border-bottom: 1px solid var(--cn-border);
-  padding: 16px;
+  border-bottom: 1px solid var(--cn-border-subtle);
+  padding: 12px 16px;
   text-align: left;
-  color: var(--cn-muted);
+  color: var(--cn-text);
+  font-size: 13.5px;
+  transition: background var(--cn-duration);
+}
+.folder-picker > button:last-child {
+  border-bottom: 0;
 }
 .folder-picker > button:hover {
   background: var(--cn-hover);
@@ -55,47 +65,52 @@
   gap: 14px;
   align-items: center;
   background: var(--cn-subtle);
-  padding: 17px;
-  border-radius: 10px;
-  margin-bottom: 22px;
+  border: 1px solid var(--cn-border);
+  box-shadow: var(--cn-specular);
+  padding: 14px 16px;
+  border-radius: 8px;
+  margin-bottom: 20px;
 }
 .sharing-file strong {
   display: block;
-  font-size: 13px;
+  font-size: 13.5px;
+  color: var(--cn-heading);
   overflow-wrap: anywhere;
 }
 .sharing-file small {
   display: block;
-  margin-top: 7px;
+  margin-top: 4px;
   font-size: 12px;
   color: var(--cn-muted);
 }
 .share-result {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 16px;
 }
 .drop-zone {
   position: absolute;
   inset: 8px;
   z-index: 15;
-  background: #202126ed;
-  border: 2px dashed var(--cn-border);
-  border-radius: 15px;
+  background: var(--cn-dropzone-bg);
+  backdrop-filter: blur(8px);
+  border: 1.5px dashed var(--cn-brand);
+  border-radius: 12px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
   pointer-events: none;
   color: var(--cn-accent);
+  box-shadow: inset 0 0 60px var(--cn-brand-glow);
 }
 .drop-zone .el-icon {
-  font-size: 60px;
-  margin-bottom: 20px;
+  font-size: 52px;
+  margin-bottom: 16px;
 }
 .drop-zone p {
-  margin-top: 12px;
-  font-size: 14px;
+  margin-top: 8px;
+  font-size: 13.5px;
   color: var(--cn-muted);
   text-align: center;
   padding-inline: 16px;

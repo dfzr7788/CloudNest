@@ -53,6 +53,8 @@ const links = computed(() => [
         </button></el-tooltip
       >
       <div class="nav-divider" />
+      <router-link to="/resilience" class="node-center-link"><el-icon><Clock /></el-icon><span>{{ t("next.resilience") }}</span></router-link>
+      <router-link to="/teams" class="node-center-link"><el-icon><Connection /></el-icon><span>{{ t("next.teams") }}</span></router-link>
       <el-tooltip :content="t('nav.shares')" placement="right" :show-after="600"
         ><button
           :aria-label="t('nav.shares')"

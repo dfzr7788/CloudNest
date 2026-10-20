@@ -89,16 +89,19 @@ class AgentToolsTest {
   }
 
   @Test
-  void exposesOnlyFiveStrictReadOnlyTools() {
+  void exposesOnlyEightStrictReadOnlyTools() {
     var available = tools.available(admin);
     assertTrue(available.enabled());
-    assertEquals(5, available.tools().size());
+    assertEquals(8, available.tools().size());
     assertEquals(
         Set.of(
             "get_node_status",
             "get_storage_capacity",
             "get_node_events",
             "get_active_storage_jobs",
+            "get_resilience_health",
+            "get_team_capacity",
+            "get_migration_candidates",
             "explain_storage_policy"),
         new HashSet<>(available.tools().stream().map(AgentToolRegistry.Tool::name).toList()));
     available

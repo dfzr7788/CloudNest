@@ -64,21 +64,21 @@ const icon = computed(
     >
       <path
         d="M5 11a6 6 0 0 1 6-6h15l7 7h20a6 6 0 0 1 6 6v25H5V11Z"
-        fill="#647991"
+        fill="var(--cn-folder-back)"
       />
       <path
         d="M5 23a6 6 0 0 1 6-6h42a6 6 0 0 1 6 6v20a6 6 0 0 1-6 6H11a6 6 0 0 1-6-6V23Z"
-        fill="#859BB8"
+        fill="var(--cn-folder-front)"
       />
       <path
         d="M11 18h42"
-        stroke="#A6BAD2"
+        stroke="var(--cn-folder-highlight)"
         stroke-width="2"
         stroke-linecap="round"
       />
       <path
         d="M14 39h13"
-        stroke="#C0CEDC"
+        stroke="var(--cn-folder-line)"
         stroke-width="2"
         stroke-linecap="round"
       />

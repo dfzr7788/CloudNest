@@ -23,7 +23,7 @@ $statePath = Join-Path $applicationPath 'install-state.json'
 Assert-PlainPath $statePath
 if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'No installation ownership marker found.' }
 $state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
-$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1')
+$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1','mount.ps1')
 $shortcutPath = [IO.Path]::GetFullPath((Join-Path $ShortcutDirectory 'CloudNest Sync Development.lnk'))
 if ($state.app -ne 'CloudNestSyncDevelopment' -or $state.schema -ne 1 -or
     $state.directory -ne $applicationPath -or $state.shortcut -ne $shortcutPath -or

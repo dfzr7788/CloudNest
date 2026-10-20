@@ -29,6 +29,9 @@ export const agentRuns = {
 };
 
 export type AgentToolName =
+  | "get_resilience_health"
+  | "get_team_capacity"
+  | "get_migration_candidates"
   | "get_node_status"
   | "get_storage_capacity"
   | "get_node_events"

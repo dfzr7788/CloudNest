@@ -7,37 +7,43 @@
 }
 .account-tabs.el-tabs--left > .el-tabs__header {
   flex-shrink: 0;
-  width: 164px;
+  width: 168px;
   margin: 0 24px 0 0;
 }
 .account-tabs.el-tabs--left .el-tabs__nav-wrap::after {
   width: 1px;
   background: var(--cn-border);
 }
+.account-tabs.el-tabs--left .el-tabs__active-bar {
+  background-color: var(--cn-brand);
+}
 .account-tabs.el-tabs--left .el-tabs__item {
   justify-content: flex-start;
   text-align: left;
-  height: 44px;
-  padding: 0 16px;
-  font-size: 14px;
+  height: 38px;
+  padding: 0 14px;
+  margin-bottom: 2px;
+  border-radius: 6px;
+  font-size: 13px;
   color: var(--cn-muted);
 }
 .account-tabs.el-tabs--left .el-tabs__item.is-active {
-  color: var(--cn-accent);
+  color: var(--cn-heading);
   background: var(--cn-selected);
-  border-radius: 8px 0 0 8px;
-  font-weight: 600;
+  box-shadow: var(--cn-specular);
+  font-weight: 500;
 }
 .account-dialog .el-tabs__item {
   transition:
     background var(--cn-duration),
     color var(--cn-duration);
 }
-.account-dialog .el-tabs__item:hover {
-  background: var(--cn-subtle);
+.account-dialog .el-tabs__item:hover:not(.is-active) {
+  background: var(--cn-hover);
+  color: var(--cn-heading);
 }
 .account-dialog .el-tabs__nav-wrap {
-  padding-right: 8px;
+  padding-right: 10px;
 }
 .account-dialog .el-divider {
   border-color: var(--cn-border);
@@ -52,7 +58,7 @@
 }
 .account-dialog .el-tab-pane {
   color: var(--cn-text);
-  line-height: 1.7;
+  line-height: 1.65;
 }
 .account-dialog .el-tab-pane > p {
   margin: 0 0 16px;
@@ -60,8 +66,8 @@
 .account-dialog
   :is(.ai-settings, .knowledge, .organize, .server-settings, .access-settings)
   h3 {
-  font-size: 18px;
-  margin: 28px 0 12px;
+  font-size: 16px;
+  margin: 24px 0 10px;
   font-weight: 600;
 }
 .account-dialog
@@ -72,8 +78,9 @@
 .account-dialog :is(.connection-card, .knowledge .card, .organize .card) {
   border: 1px solid var(--cn-border);
   border-radius: 8px;
-  padding: 20px;
-  background: var(--cn-surface);
+  padding: 18px;
+  background: var(--cn-subtle);
+  box-shadow: var(--cn-specular);
 }
 .account-dialog .settings-form {
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
@@ -84,13 +91,13 @@
   margin-inline: 0;
 }
 .account-dialog :is(.knowledge, .organize, .ai-settings, .access-settings) p {
-  font-size: 14px;
-  margin-block: 12px;
+  font-size: 13.5px;
+  margin-block: 10px;
 }
 .account-dialog :is(.knowledge, .organize, .ai-settings) .el-button {
   white-space: normal;
   height: auto;
-  min-height: 40px;
+  min-height: 36px;
   line-height: 1.5;
 }
 .account-dialog .el-form {
@@ -103,7 +110,7 @@
   .settings-mobile-nav.el-select {
     display: block;
     width: 100%;
-    margin-bottom: 24px;
+    margin-bottom: 20px;
     position: sticky;
     top: 0;
     z-index: 2;

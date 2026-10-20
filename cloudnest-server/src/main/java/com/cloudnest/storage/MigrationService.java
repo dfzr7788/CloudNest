@@ -48,6 +48,7 @@ public class MigrationService {
   /** Caller holds user then storage_guard locks. May adopt an upload's replica reservation. */
   public String enqueue(
       String uid, Map<String, Object> blob, String target, String kind, String adoption) {
+    nodes.authorizeTarget(uid, target);
     if (!Set.of("MIGRATE", "REPLICATE").contains(kind)) throw Problem.invalid("任务类型无效");
     if (!uid.equals(s(blob, "user_id"))) throw Problem.missing();
     boolean repairingPrimary =

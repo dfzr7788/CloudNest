@@ -5,6 +5,7 @@ import { ElMessage } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import CloudNestLogo from "../components/brand/CloudNestLogo.vue";
 import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
+import ThemeSwitcher from "../components/common/ThemeSwitcher.vue";
 import { api, errorText } from "../api";
 import { useUser } from "../stores/user";
 import { Lock } from "@element-plus/icons-vue";
@@ -99,7 +100,7 @@ async function reset() {
 <template>
   <main class="login-page">
     <section class="login-story">
-      <CloudNestLogo light />
+      <CloudNestLogo />
       <div class="login-story-copy">
         <span class="eyebrow">{{ t("login.workspace") }}</span>
         <h1>{{ t("login.headlineOne") }}<br />{{ t("login.headlineTwo") }}</h1>
@@ -114,26 +115,45 @@ async function reset() {
               width="418"
               height="250"
               rx="10"
-              fill="#222327"
-              stroke="#3A3B41"
+              fill="var(--cn-surface)"
+              stroke="var(--cn-border-strong)"
             />
-            <path d="M1 40h418M112 40v211" stroke="#34353A" />
-            <circle cx="18" cy="21" r="3" fill="#6C6E78" />
-            <circle cx="30" cy="21" r="3" fill="#52545D" />
-            <circle cx="42" cy="21" r="3" fill="#45474F" />
-            <rect x="16" y="60" width="80" height="25" rx="4" fill="#33343B" />
+            <path
+              d="M1 40h418M112 40v211"
+              stroke="var(--cn-border)"
+            />
+            <circle cx="18" cy="21" r="3.2" fill="var(--cn-danger)" opacity="0.75" />
+            <circle cx="30" cy="21" r="3.2" fill="var(--cn-warning)" opacity="0.75" />
+            <circle cx="42" cy="21" r="3.2" fill="var(--cn-success)" opacity="0.75" />
+            <rect
+              x="16"
+              y="60"
+              width="80"
+              height="25"
+              rx="5"
+              fill="var(--cn-selected)"
+            />
+            <rect
+              x="16"
+              y="65"
+              width="2"
+              height="15"
+              rx="1"
+              fill="var(--cn-brand)"
+            />
             <path
               d="M28 72h54M28 105h45M28 137h51M28 169h37"
-              stroke="#696B76"
-              stroke-width="3"
+              stroke="var(--cn-muted)"
+              stroke-width="2.5"
               stroke-linecap="round"
+              opacity="0.6"
             />
             <path
               d="M128 87h275M128 128h275M128 169h275M128 210h275"
-              stroke="#2E3035"
+              stroke="var(--cn-border)"
             />
             <g
-              stroke="#8A8D9C"
+              stroke="var(--cn-accent)"
               stroke-width="1.5"
               stroke-linecap="round"
               stroke-linejoin="round"
@@ -146,8 +166,9 @@ async function reset() {
               />
             </g>
             <g
-              fill="#B9BBC6"
+              fill="var(--cn-heading)"
               font-size="12"
+              font-weight="500"
               font-family="Inter, Segoe UI, Microsoft YaHei, sans-serif"
             >
               <text x="166" y="71">{{ t("login.sampleProjects") }}</text>
@@ -157,16 +178,18 @@ async function reset() {
             </g>
             <path
               d="M343 68h42M355 109h30M343 150h42M355 191h30"
-              stroke="#4A4C55"
-              stroke-width="3"
+              stroke="var(--cn-muted)"
+              stroke-width="2.5"
               stroke-linecap="round"
+              opacity="0.45"
             />
-            <circle cx="136" cy="231" r="3" fill="#83BFA4" />
+            <circle cx="136" cy="231" r="3.5" fill="var(--cn-success)" />
             <path
               d="M148 231h77"
-              stroke="#555762"
-              stroke-width="3"
+              stroke="var(--cn-muted)"
+              stroke-width="2.5"
               stroke-linecap="round"
+              opacity="0.55"
             />
           </svg>
         </div>
@@ -175,7 +198,10 @@ async function reset() {
     </section>
     <section class="login-form">
       <div class="login-card">
-        <LanguageSwitcher />
+        <div class="login-card-toolbar">
+          <ThemeSwitcher />
+          <LanguageSwitcher />
+        </div>
         <CloudNestLogo class="login-mobile-logo" />
         <span class="eyebrow">CLOUDNEST</span>
         <h2>{{ registering ? t("login.createDrive") : t("login.welcome") }}</h2>

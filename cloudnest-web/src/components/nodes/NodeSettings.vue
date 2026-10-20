@@ -79,6 +79,14 @@ async function save() {
     publicEndpoint: n.public_endpoint || "",
     directDownload: n.direct_download,
   });
+  await api.put(
+    `/resilience/nodes/${encodeURIComponent(n.backend)}/capabilities`,
+    {
+      publicUpload: !!n.public_upload && !!n.direct_download,
+      supportsRange: !!n.supports_range,
+      performanceClass: n.performance_class || "STANDARD",
+    },
+  );
   editing.value = null;
 }
 async function testNode(row: any) {
@@ -231,6 +239,24 @@ async function testNode(row: any) {
           {{ t("nodeSettings.checkedPrefix")
           }}{{ date(editing.checked_at) }}；{{ editing.latency_ms }} ms
         </p>
+        <el-checkbox
+          v-model="editing.public_upload"
+          :disabled="
+            !editing.backend.startsWith('s3:') || !editing.direct_download
+          "
+          >{{ t("next.publicUpload") }}</el-checkbox
+        >
+        <el-checkbox v-model="editing.supports_range">{{
+          t("next.rangeSupport")
+        }}</el-checkbox>
+        <el-form-item :label="t('next.performance')"
+          ><el-select v-model="editing.performance_class"
+            ><el-option
+              v-for="value in ['FAST', 'STANDARD', 'CAPACITY']"
+              :key="value"
+              :value="value"
+              :label="t(`next.${value}`)" /></el-select
+        ></el-form-item>
         <p>{{ t("nodeSettings.credentialsHelp") }}</p>
         <el-table :data="events"
           ><el-table-column :label="t('nodeSettings.history')"

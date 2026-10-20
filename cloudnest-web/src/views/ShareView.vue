@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { t } from "../i18n";
 import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
+import ThemeSwitcher from "../components/common/ThemeSwitcher.vue";
 import { useDownload } from "../api/download";
 const { downloading, download } = useDownload();
 import { onMounted, ref } from "vue";
@@ -166,7 +167,9 @@ onMounted(load);
     <header>
       <router-link to="/" class="brand"><CloudNestLogo /></router-link
       ><span>{{ t("share.title") }}</span
-      ><LanguageSwitcher />
+      ><div class="share-header-actions">
+        <ThemeSwitcher /><LanguageSwitcher />
+      </div>
     </header>
     <section class="share-card" v-loading="busy">
       <div v-if="zipBusy" role="status">

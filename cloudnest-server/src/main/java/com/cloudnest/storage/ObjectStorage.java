@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class ObjectStorage implements StorageService {
+  @org.springframework.beans.factory.annotation.Autowired private PeerStorage peers;
   private static final okhttp3.OkHttpClient HTTP =
       new okhttp3.OkHttpClient.Builder()
           .connectTimeout(5, java.util.concurrent.TimeUnit.SECONDS)
@@ -89,6 +90,7 @@ public class ObjectStorage implements StorageService {
 
   @Override
   public void probe(String backend) throws IOException {
+    if (backend.startsWith("peer:")) { peers.probe(backend); return; }
     if ("local".equals(backend)) {
       if (!Files.isDirectory(root) || !Files.isWritable(root))
         throw new IOException("Local unavailable");
@@ -149,6 +151,7 @@ public class ObjectStorage implements StorageService {
 
   @Override
   public void put(String backend, String key, InputStream in, long size) throws IOException {
+    if (backend.startsWith("peer:")) { peers.put(backend, key, in, size); return; }
     path(key);
     if (backend.equals("local")) {
       Path target = path(key);
@@ -186,7 +189,29 @@ public class ObjectStorage implements StorageService {
   }
 
   @Override
+  public java.util.Optional<StorageService.UploadForm> presignUpload(String backend,String key,String publicEndpoint,long size,int seconds) throws IOException {
+    path(key);
+    if(!backend.startsWith("s3:")) return java.util.Optional.empty();
+    try {
+      var uri=com.cloudnest.user.RuntimeSettings.httpUrl(publicEndpoint);
+      if(!uri.getScheme().equals("https")) return java.util.Optional.empty();
+      var p=policies.one("SELECT * FROM storage_policy WHERE id=? AND enabled=TRUE",backend.substring(3));
+      String region=com.cloudnest.common.Db.s(p,"region"),b=com.cloudnest.common.Db.s(p,"bucket");
+      var signer=MinioClient.builder().endpoint(publicEndpoint)
+          .credentials(cipher.decrypt(com.cloudnest.common.Db.s(p,"access_key")),cipher.decrypt(com.cloudnest.common.Db.s(p,"secret_key")))
+          .region(region==null || region.isBlank()?"us-east-1":region).build();
+      var policy=new PostPolicy(b,java.time.ZonedDateTime.now(java.time.ZoneOffset.UTC).plusSeconds(seconds));
+      policy.addEqualsCondition("key",key);
+      policy.addContentLengthRangeCondition(size,size);
+      var fields=new java.util.LinkedHashMap<>(signer.getPresignedPostFormData(policy));
+      fields.put("key",key);
+      return java.util.Optional.of(new StorageService.UploadForm(publicEndpoint.replaceAll("/$","")+"/"+b,fields));
+    } catch(Exception e) {throw new IOException("Upload authorization unavailable");}
+  }
+
+  @Override
   public InputStream openWhole(String backend, String key, long expectedSize) throws IOException {
+    if (backend.startsWith("peer:")) return peers.open(backend, key, 0, expectedSize, true);
     path(key);
     if ("local".equals(backend)) return open(backend, key, 0, expectedSize);
     try {
@@ -201,6 +226,7 @@ public class ObjectStorage implements StorageService {
 
   @Override
   public InputStream open(String backend, String key, long offset, long length) throws IOException {
+    if (backend.startsWith("peer:")) return peers.open(backend, key, offset, length, false);
     path(key);
     if (backend.equals("local")) {
       var in = Files.newInputStream(path(key));
@@ -233,6 +259,7 @@ public class ObjectStorage implements StorageService {
 
   @Override
   public void delete(String backend, String key) throws IOException {
+    if (backend.startsWith("peer:")) { peers.delete(backend, key); return; }
     path(key);
     if (backend.equals("local")) {
       Path p = path(key);
@@ -252,6 +279,7 @@ public class ObjectStorage implements StorageService {
 
   @Override
   public boolean exists(String backend, String key) throws IOException {
+    if (backend.startsWith("peer:")) return peers.exists(backend, key);
     path(key);
     if (backend.equals("local")) return Files.isRegularFile(path(key));
     if (!backend.equals("minio") && !backend.startsWith("s3:"))

@@ -7,7 +7,7 @@ import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 FILES = ["README.md", "cloudnest_sync.py", "credentials.py", "desktop.py",
-         "install.ps1", "uninstall.ps1", "shortcut.ps1", "sync_engine.py", "transport.py"]
+         "install.ps1", "uninstall.ps1", "shortcut.ps1", "mount.ps1", "sync_engine.py", "transport.py"]
 
 
 def main():

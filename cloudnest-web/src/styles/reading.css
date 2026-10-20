@@ -24,9 +24,9 @@
   text-overflow: ellipsis;
 }
 .preview-heading p {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--cn-muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .preview-heading .preview-download {
   margin-right: 8px;
@@ -62,12 +62,13 @@
   overflow-wrap: anywhere;
   color: var(--cn-text);
   font:
-    14px/1.8 Consolas,
+    13.5px/1.8 "JetBrains Mono",
+    Consolas,
     monospace;
   background: var(--cn-surface);
 }
 .preview-body.preview-image {
-  background: #17181a;
+  background: var(--cn-preview-stage);
 }
 .preview-body video {
   max-height: 100%;
@@ -110,16 +111,17 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--cn-space-1);
-  padding: 16px 20px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--cn-border);
 }
 .assistant-heading strong {
-  font-size: 16px;
+  font-size: 15px;
+  color: var(--cn-heading);
 }
 .assistant-heading p {
   font-size: 12px;
   color: var(--cn-muted);
-  margin-top: 4px;
+  margin-top: 3px;
 }
 .assistant-content {
   overflow: auto;
@@ -136,12 +138,12 @@
 }
 .reading-assistant :is(.ai-result, .coverage, .qa-message) {
   border: 1px solid var(--cn-border);
-  background: var(--cn-hover);
+  background: var(--cn-subtle);
   border-radius: 8px;
   padding: var(--cn-space-2);
 }
 .reading-assistant .ai-panel h3 {
-  font-size: 16px;
+  font-size: 15px;
   margin-top: 24px;
 }
 .reading-assistant .ai-panel .history-item {
@@ -167,25 +169,25 @@
 .reading-assistant .qa-message-user {
   background: var(--cn-selected);
   margin-left: 24px;
-  border-color: var(--cn-border);
-  border-radius: 14px 14px 4px 14px;
+  border-color: var(--cn-selected-border);
+  border-radius: 12px 12px 4px 12px;
 }
 .reading-assistant .qa-message-assistant {
   margin-right: 12px;
   background: var(--cn-subtle);
-  border-radius: 14px 14px 14px 4px;
+  border-radius: 12px 12px 12px 4px;
 }
 .reading-assistant .qa-message strong {
-  font-size: 13px;
+  font-size: 12.5px;
   color: var(--cn-muted);
 }
 .reading-assistant .qa-text {
   margin-top: 8px;
-  line-height: 1.8;
+  line-height: 1.75;
 }
 .reading-assistant .qa-message small {
   display: block;
-  margin-top: 12px;
+  margin-top: 10px;
   color: var(--cn-muted);
 }
 @media (max-width: 1099px) {

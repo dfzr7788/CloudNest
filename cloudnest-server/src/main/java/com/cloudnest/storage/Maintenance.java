@@ -84,7 +84,8 @@ public class Maintenance implements ApplicationRunner {
                             "SELECT (SELECT COALESCE(SUM(size),0) FROM drive_entry WHERE user_id=?"
                                 + " AND kind='FILE') + (SELECT COALESCE(SUM(v.size),0) FROM"
                                 + " file_version v JOIN drive_entry e ON e.id=v.entry_id WHERE"
-                                + " e.user_id=?)",
+                                + " e.user_id=?) + (SELECT COALESCE(SUM(total_bytes),0) FROM folder_snapshot WHERE user_id=?)",
+                            uid,
                             uid,
                             uid),
                     reserved =
