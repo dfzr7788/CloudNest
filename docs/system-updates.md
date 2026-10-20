@@ -41,10 +41,20 @@ bash scripts/install-updater.sh
 
 ```bash
 install -m 0755 scripts/updater.py /opt/cloudnest-updater/updater.py
+install -m 0644 scripts/split_backup.py /opt/cloudnest-updater/split_backup.py
 systemctl restart cloudnest-updater
 ```
 
 然后回网页重试“一键更新”。这一步只更新宿主机更新程序，不改变 `.env`、数据库、文件卷或当前应用容器。若提示预构建镜像尚未就绪，等待该提交的 GitHub Actions 完成后重试。
+
+同步 worker 时必须同时同步 `split_backup.py`，不能只复制主程序。不要通过重跑完整安装脚本排查备份故障，完整安装流程还可能构建或重建应用容器。
+成功升级后的 worker 接纳流程也会检查并同步辅助脚本，即使主程序内容未改变也会补齐缺失模块。
+
+如果已释放磁盘空间后失败阶段变为“备份数据”，说明失败点已经改变；不应继续仅按磁盘不足处理。
+新版 worker 会记录 `backupStep`，区分停写、远端对象检查/检查点、MySQL 导出、文件归档、配置保存、校验清单及异地元数据上传。
+Python 异常的堆栈写入 root 私有 `worker.log` 和 systemd journal，网页只显示步骤、异常类型与受控提示；日志写盘失败仍尝试恢复原容器。
+旧 worker 的泛化错误可能完全没有堆栈，需要先同步宿主机脚本，再重试以获得具体原因。
+备份失败恢复原容器不代表备份成功，不能将失败目录作为已验证的恢复基线。
 
 ## 备份与排障
 

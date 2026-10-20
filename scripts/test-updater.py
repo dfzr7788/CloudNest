@@ -74,6 +74,76 @@ class FakeUpdater(module.Updater):
 
 
 class Tests(unittest.TestCase):
+    def test_worker_refresh_installs_missing_helper_even_if_main_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            (updater.repo/'scripts').mkdir()
+            (updater.repo/'scripts/updater.py').write_text('main-fixture')
+            (updater.repo/'scripts/split_backup.py').write_text('helper-fixture')
+            installed=updater.base/'updater.py'
+            installed.write_text('main-fixture')
+            self.assertTrue(updater.refresh_worker_files(installed))
+            self.assertEqual('helper-fixture',installed.with_name('split_backup.py').read_text())
+            self.assertFalse(updater.refresh_worker_files(installed))
+
+    def test_incomplete_worker_sources_do_not_replace_existing_installation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            (updater.repo/'scripts').mkdir()
+            (updater.repo/'scripts/updater.py').write_text('new-main')
+            installed=updater.base/'updater.py'
+            installed.write_text('old-main')
+            with self.assertRaisesRegex(RuntimeError,'不完整'):updater.refresh_worker_files(installed)
+            self.assertEqual('old-main',installed.read_text())
+
+    def test_unexpected_backup_exception_is_logged_without_exposing_details(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            updater.log=updater.base/'worker.log'
+            def fail(folder):
+                updater.stopped=True
+                updater.backup_step('DATABASE','正在导出数据库')
+                raise TypeError('private-fixture-detail')
+            with patch.object(updater,'backup',side_effect=fail),patch.object(module.sys,'stderr',io.StringIO()) as journal:
+                updater.perform('update')
+            self.assertEqual('FAILED',updater.status['phase'])
+            self.assertEqual('DATABASE',updater.status['backupStep'])
+            self.assertIn('TypeError',updater.status['message'])
+            self.assertNotIn('private-fixture-detail',json.dumps(updater.status))
+            self.assertIn('Traceback',updater.log.read_text(encoding='utf-8'))
+            self.assertIn('private-fixture-detail',journal.getvalue())
+            self.assertIn(('docker','compose','start','server','web'),updater.calls)
+            self.assertFalse(any('up' in command for command in updater.calls))
+
+    def test_log_write_failure_still_recovers_original_containers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory,failure='backup')
+            updater.log=updater.base/'nonexistent'/'worker.log'
+            with patch.object(module.sys,'stderr',io.StringIO()):updater.perform('update')
+            self.assertEqual('FAILED',updater.status['phase'])
+            self.assertIn(('docker','compose','start','server','web'),updater.calls)
+
+    def test_missing_host_split_module_is_explicit_and_recovers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            with patch.dict(module.os.environ,{'CLOUDNEST_BACKUP_MODE':'split'}),patch.dict('sys.modules',{'split_backup':None}),patch.object(module.sys,'stderr',io.StringIO()),patch.object(updater,'backup',side_effect=lambda folder:module.Updater.backup(updater,folder)):
+                updater.perform('update')
+            self.assertEqual('FAILED',updater.status['phase'])
+            self.assertEqual('REMOTE_CHECKPOINT',updater.status['backupStep'])
+            self.assertIn('缺少 split_backup.py',updater.status['message'])
+            self.assertIn(('docker','compose','start','server','web'),updater.calls)
+
+    def test_low_download_space_reports_actual_free_space_and_cleans_partial_archive(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater=FakeUpdater(directory)
+            payload=b'fixture-archive'
+            checksum=hashlib.sha256(payload).hexdigest()
+            responses=[io.BytesIO((checksum+'  cloudnest-images-linux-amd64.tar.gz\n').encode()),io.BytesIO(payload)]
+            with patch.object(module.urllib.request,'urlopen',side_effect=responses),patch.object(module.shutil,'disk_usage',return_value=SimpleNamespace(free=int(2.9*1024**3))):
+                with self.assertRaisesRegex(RuntimeError,'当前 2.90 GiB'):module.Updater.prebuilt(updater,'b'*40)
+            self.assertFalse((updater.base/'images.download').exists())
+            self.assertFalse(any(c[:2]==('docker','load') for c in updater.calls))
+
     def test_containerd_platform_ids_are_not_used_as_tag_sources(self):
         with tempfile.TemporaryDirectory() as directory:
             updater=FakeUpdater(directory)
@@ -221,7 +291,7 @@ class Tests(unittest.TestCase):
             updater = FakeUpdater(directory)
             folder = Path(directory) / 'backup'
             folder.mkdir()
-            with patch.object(module.subprocess, 'run', return_value=SimpleNamespace(returncode=1)):
+            with patch.object(module.subprocess, 'run', return_value=SimpleNamespace(returncode=1,stderr=b'dump failed')),patch.object(module.sys,'stderr',io.StringIO()):
                 with self.assertRaisesRegex(RuntimeError, '数据库备份失败'):
                     module.Updater.backup(updater, folder)
             self.assertFalse((folder / 'app-data.tar.gz').exists())

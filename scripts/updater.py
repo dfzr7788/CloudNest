@@ -16,6 +16,7 @@ import platform
 import re
 import urllib.request
 import urllib.error
+import traceback
 
 ORIGIN = 'https://github.com/duyan9030-dotcom/CloudNest.git'
 
@@ -53,6 +54,23 @@ class Updater:
     def compose(self, *args, **kwargs):
         return self.run('docker', 'compose', *args, **kwargs)
 
+    def record_failure(self, phase):
+        """Keep exception details in root-only logs, never in the browser status."""
+        detail = f'CloudNest worker failure: phase={phase}, backupStep={self.status.get("backupStep")}\n{traceback.format_exc()}'
+        if self.log:
+            try:
+                if self.log.exists() and self.log.stat().st_size > 10 * 1024 * 1024:
+                    self.log.replace(self.log.with_suffix('.log.1'))
+                with self.log.open('a', encoding='utf-8') as stream:
+                    self.log.chmod(0o600)
+                    stream.write(detail + '\n')
+            except OSError:
+                pass  # A full log disk must not prevent original-container recovery.
+        print(detail, file=sys.stderr, flush=True)
+
+    def backup_step(self, step, message):
+        self.publish('BACKUP', message, backupStep=step)
+
     def inspect_target(self):
         if self.run('git', 'remote', 'get-url', 'origin') != ORIGIN:
             raise RuntimeError('origin 地址与已配置的官方仓库不符，已停止')
@@ -76,22 +94,31 @@ class Updater:
         return head, target
 
     def backup(self, folder):
-        self.publish('BACKUP', '暂停写入并备份数据库与文件，请保持页面打开')
+        self.backup_step('STOP', '暂停写入并备份数据库与文件，请保持页面打开')
         self.stopped = True
         self.compose('stop', 'web', 'server')
+        self.backup_step('INSPECT_OBJECTS', '正在检查远端对象与备份方式')
         remote_count=self.compose('exec','-T','mysql','sh','-c',
                      'MYSQL_PWD="$MYSQL_PASSWORD" mysql -ucloudnest -Dcloudnest -N -B -e "SELECT COUNT(*) FROM file_blob WHERE status=\'READY\' AND backend<>\'local\'"',log_output=False)
         mode = os.environ.get('CLOUDNEST_BACKUP_MODE', 'split' if remote_count.strip() != '0' else 'portable')
         if mode not in ('split', 'portable'):
             raise RuntimeError('Invalid CLOUDNEST_BACKUP_MODE')
         if mode == 'split':
-            from split_backup import checkpoint
+            self.backup_step('REMOTE_CHECKPOINT', '正在创建远端对象检查点')
+            try:
+                from split_backup import checkpoint
+            except ModuleNotFoundError as error:
+                if error.name != 'split_backup':
+                    raise
+                raise RuntimeError('宿主机更新器缺少 split_backup.py，请同步宿主机脚本后重试') from error
             checkpoint(self, folder)
         elif remote_count.strip() != '0':
+            self.backup_step('REMOTE_EXPORT', '正在导出并校验远端对象')
             self.compose('run','--rm','--no-deps','server','--server.port=0',
                          '--cloudnest.maintenance=true','--cloudnest.action=export-objects',
                          '--cloudnest.index-enabled=false',timeout=3600)
         # Dump through the container environment; passwords are never argv or status data.
+        self.backup_step('DATABASE', '正在导出 MySQL 数据库')
         dump = folder / 'database.sql'
         with dump.open('wb') as stream:
             result = subprocess.run(
@@ -99,7 +126,10 @@ class Updater:
                  'MYSQL_PWD="$MYSQL_PASSWORD" mysqldump -ucloudnest --single-transaction --no-tablespaces cloudnest'],
                 cwd=self.repo, stdin=subprocess.DEVNULL, stdout=stream, stderr=subprocess.PIPE, timeout=900)
         if result.returncode or not dump.stat().st_size:
+            if result.stderr:
+                print(result.stderr.decode(errors='replace'), file=sys.stderr, flush=True)
             raise RuntimeError('数据库备份失败，已中止更新')
+        self.backup_step('FILES', '正在归档文件数据与签名密钥')
         container = self.compose('ps', '-a', '-q', 'server')
         mounts = json.loads(self.run('docker', 'inspect', '--format', '{{json .Mounts}}', container))
         volume = next((m['Name'] for m in mounts if m['Destination'] == '/app/data' and m['Type'] == 'volume'), None)
@@ -110,6 +140,7 @@ class Updater:
                      '-v', str(folder) + ':/backup', 'server',
                      *(['--exclude=./backup-export'] if mode == 'split' else []),
                      '-czf', '/backup/app-data.tar.gz', '-C', '/app/data', '.', timeout=1800)
+        self.backup_step('CONFIG', '正在保存部署配置和版本信息')
         shutil.copyfile(self.repo / '.env', folder / '.env')
         for name in ['docker-compose.yml', 'deploy/compose.public.yml',
                      'deploy/compose.updater.yml', 'deploy/compose.tls.yml', 'deploy/compose.images.yml']:
@@ -121,6 +152,7 @@ class Updater:
         (folder / 'revisions.json').write_text(json.dumps({k: self.status.get(k) for k in ('current', 'latest')}))
         if not (folder / 'app-data.tar.gz').is_file():
             raise RuntimeError('文件备份产物缺失')
+        self.backup_step('CHECKSUM', '正在生成备份校验清单')
         with (folder / 'SHA256SUMS').open('w') as sums:
             for item in sorted(folder.rglob('*')):
                 if item.is_file() and item != folder / 'SHA256SUMS':
@@ -128,6 +160,7 @@ class Updater:
                         digest = hashlib.file_digest(stream, 'sha256').hexdigest()
                     sums.write(f'{digest}  {item.relative_to(folder).as_posix()}\n')
         if mode == 'split':
+            self.backup_step('OFFSITE', '正在上传分离备份元数据')
             from split_backup import upload_metadata
             upload_metadata(self, folder)
 
@@ -156,8 +189,11 @@ class Updater:
             with urllib.request.urlopen(base + asset, timeout=60) as response, archive.open('wb') as out:
                 while block:=response.read(1024*1024):
                     size+=len(block)
-                    if size>2*1024**3 or shutil.disk_usage(self.base).free<3*1024**3:
-                        raise RuntimeError('镜像下载过大或磁盘可用空间不足 3 GiB')
+                    if size>2*1024**3:
+                        raise RuntimeError('镜像归档超过 2 GiB 下载上限，未导入镜像')
+                    free = shutil.disk_usage(self.base).free
+                    if free-len(block)<3*1024**3:
+                        raise RuntimeError(f'更新盘可用空间不足：当前 {free/1024**3:.2f} GiB，下载期间需保留至少 3 GiB')
                     digest.update(block)
                     out.write(block)
             if digest.hexdigest()!=matches[0]:
@@ -183,6 +219,27 @@ class Updater:
         temporary.write_text(text,encoding='utf-8')
         temporary.chmod(0o600)
         temporary.replace(env)
+
+    def refresh_worker_files(self, installed):
+        """Adopt the trusted revision's worker and helper together after a successful update."""
+        installed = Path(installed)
+        if not installed.is_file():
+            return False
+        files = [(self.repo/'scripts/split_backup.py', installed.with_name('split_backup.py'), 0o644),
+                 (self.repo/'scripts/updater.py', installed, 0o755)]
+        # Validate all sources before replacing either installed file.
+        if not all(source.is_file() for source, _, _ in files):
+            raise RuntimeError('受信源码中的宿主机更新脚本不完整')
+        changed = False
+        for source, target, mode in files:
+            if target.is_file() and source.read_bytes() == target.read_bytes():
+                continue
+            temporary = target.with_suffix(target.suffix+'.new')
+            shutil.copyfile(source, temporary)
+            temporary.chmod(mode)
+            temporary.replace(target)
+            changed = True
+        return changed
 
     def snapshot_images(self, stamp):
         """Pin the images actually used by the single-instance containers, before building.
@@ -233,7 +290,7 @@ class Updater:
     def perform(self, action):
         self.stopped = False
         self.deploying = False
-        self.publish('CHECKING', '正在检查 GitHub main 分支', busy=True, failedPhase=None, backup=None)
+        self.publish('CHECKING', '正在检查 GitHub main 分支', busy=True, failedPhase=None, backup=None, backupStep=None)
         try:
             head, target = self.inspect_target()
             if action == 'check' or not self.status['available']:
@@ -271,13 +328,17 @@ class Updater:
             self.publish('COMPLETE', '更新完成，服务健康检查通过，请刷新页面', busy=False, current=target, available=False)
         except Exception as error:
             failed_phase = self.status.get('phase', 'CHECKING')
-            message = str(error) if isinstance(error, RuntimeError) else '更新执行异常，请查看服务器日志'
+            self.record_failure(failed_phase)
+            message = str(error) if isinstance(error, RuntimeError) else f'更新执行异常（{type(error).__name__}），请查看服务器日志'
+            if failed_phase == 'BACKUP' and self.status.get('backupStep'):
+                message = f'备份步骤 {self.status["backupStep"]} 失败：' + message
             if self.stopped and not self.deploying:
                 try:
                     # Start original containers, not the newly built image tags.
                     self.compose('start', 'server', 'web', timeout=180)
                     message += '；原服务已恢复'
                 except Exception:
+                    self.record_failure('RECOVER_ORIGINAL')
                     message += '；恢复原服务失败，需要服务器维护'
             if self.deploying:
                 message += '；新版启动失败，请根据备份人工恢复，未自动回退数据库'
@@ -320,7 +381,7 @@ class Updater:
                     if action not in ('check', 'update', 'backup'):
                         raise ValueError('Invalid action')
                     if action=='backup':
-                        self.publish('BACKUP','正在创建一致性备份，服务将短暂停止',busy=True)
+                        self.publish('BACKUP','正在创建一致性备份，服务将短暂停止',busy=True,backupStep=None)
                         self.run(sys.executable,str(self.repo/'scripts/backup.py'),'create','--repo',str(self.repo),'--base',str(self.base),timeout=10800)
                         self.publish('COMPLETE','备份与校验完成；详情见备份列表',busy=False)
                     else:
@@ -329,17 +390,13 @@ class Updater:
                             self.perform(action)
                     reload_worker = action == 'update' and self.status.get('phase') == 'COMPLETE'
                 except Exception:
+                    self.record_failure('REQUEST')
                     self.publish('FAILED', '更新请求无效或执行中断，请查看服务器日志', busy=False)
                 finally:
                     active.unlink(missing_ok=True)
                 # Adopt the worker from the same trusted revision, after completing the request.
                 installed = Path('/opt/cloudnest-updater/updater.py')
-                source = self.repo / 'scripts/updater.py'
-                if reload_worker and installed.exists() and source.read_bytes() != installed.read_bytes():
-                    temporary = installed.with_suffix('.new')
-                    shutil.copyfile(source, temporary)
-                    temporary.chmod(0o755)
-                    temporary.replace(installed)
+                if reload_worker and self.refresh_worker_files(installed):
                     os.execv(sys.executable, [sys.executable, str(installed), '--repo', str(self.repo), '--base', str(self.base)])
             time.sleep(2)
 
