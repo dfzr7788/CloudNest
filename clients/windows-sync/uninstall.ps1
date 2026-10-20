@@ -23,7 +23,7 @@ $statePath = Join-Path $applicationPath 'install-state.json'
 Assert-PlainPath $statePath
 if (-not (Test-Path -LiteralPath $statePath -PathType Leaf)) { throw 'No installation ownership marker found.' }
 $state = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
-$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','uninstall.ps1')
+$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1')
 $shortcutPath = [IO.Path]::GetFullPath((Join-Path $ShortcutDirectory 'CloudNest Sync Development.lnk'))
 if ($state.app -ne 'CloudNestSyncDevelopment' -or $state.schema -ne 1 -or
     $state.directory -ne $applicationPath -or $state.shortcut -ne $shortcutPath -or
@@ -33,15 +33,25 @@ foreach ($name in $names) {
   Assert-PlainPath (Join-Path $applicationPath $name)
 }
 Assert-PlainPath $shortcutPath
+if ((Get-SourceDigest (Join-Path $PSScriptRoot 'shortcut.ps1')) -cne [string]$state.files.'shortcut.ps1') {
+  throw 'Modified shortcut helper; preserve and inspect the installation before uninstalling.'
+}
+. (Join-Path $PSScriptRoot 'shortcut.ps1')
 if (Test-Path -LiteralPath $shortcutPath) {
-  $shortcut = (New-Object -ComObject WScript.Shell).CreateShortcut($shortcutPath)
-  if ($shortcut.Arguments -eq ('"' + (Join-Path $applicationPath 'desktop.py') + '"')) {
+  $shortcutArguments = [CloudNestSyncShortcut]::Arguments($shortcutPath)
+  if ($shortcutArguments -eq ('"' + (Join-Path $applicationPath 'desktop.py') + '"')) {
     Remove-Item -LiteralPath $shortcutPath -Force
   } else { Write-Warning 'Shortcut was changed; preserving it.' }
 }
 $preserved = $false
 foreach ($name in $names) {
-  if ($name -eq 'uninstall.ps1' -and $preserved) { continue }
+  $file = Join-Path $applicationPath $name
+  if (Test-Path -LiteralPath $file -PathType Leaf) {
+    if ((Get-SourceDigest $file) -cne [string]$state.files.$name) { $preserved = $true }
+  } elseif (Test-Path -LiteralPath $file) { $preserved = $true }
+}
+foreach ($name in $names) {
+  if ($name -in @('uninstall.ps1','shortcut.ps1') -and $preserved) { continue }
   $file = Join-Path $applicationPath $name
   Assert-PlainPath $file
   if (Test-Path -LiteralPath $file -PathType Leaf) {

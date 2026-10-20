@@ -15,6 +15,7 @@ It does not require administrator rights or install an automatic startup task.
 Verify the release `SHA256SUMS` before extracting. When present, the installer checks every file against
 the package manifest before copying. Upgrades refuse modified installed files; preserve your changes first.
 An existing nonempty directory without an installation ownership marker is also refused.
+Shortcuts use the native Unicode interface, including paths outside the Windows ANSI code page.
 
 Close the client before upgrading or uninstalling. To revoke its device and remove the stored credential,
 use `logout` before uninstalling, or revoke the device from the web interface. Run

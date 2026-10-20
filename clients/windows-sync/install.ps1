@@ -9,7 +9,7 @@ function Get-SourceDigest([string]$Path) {
   try { return [BitConverter]::ToString($sha.ComputeHash([IO.File]::ReadAllBytes($Path))).Replace('-','').ToLowerInvariant() }
   finally { $sha.Dispose() }
 }
-$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','uninstall.ps1')
+$names = @('cloudnest_sync.py','desktop.py','sync_engine.py','transport.py','credentials.py','README.md','shortcut.ps1','uninstall.ps1')
 function Assert-PlainPath([string]$Path) {
   $current = [IO.Path]::GetFullPath($Path)
   while ($current) {
@@ -64,11 +64,11 @@ if (Test-Path -LiteralPath $applicationPath) {
     throw 'Installation directory is not empty and has no ownership marker. Choose another directory.'
   }
 }
-$shell = New-Object -ComObject WScript.Shell
+. (Join-Path $PSScriptRoot 'shortcut.ps1')
 $desktopArgument = '"' + (Join-Path $applicationPath 'desktop.py') + '"'
 if (Test-Path -LiteralPath $shortcutPath) {
-  $existing = $shell.CreateShortcut($shortcutPath)
-  if ($existing.Arguments -ne $desktopArgument -or -not (Test-Path -LiteralPath $statePath)) {
+  $existingArguments = [CloudNestSyncShortcut]::Arguments($shortcutPath)
+  if ($existingArguments -ne $desktopArgument -or -not (Test-Path -LiteralPath $statePath)) {
     throw 'The existing shortcut is not owned by this installation.'
   }
 }
@@ -89,12 +89,7 @@ foreach ($name in $names) {
 }
 $state = [ordered]@{ app='CloudNestSyncDevelopment'; schema=1; directory=$applicationPath; shortcut=$shortcutPath; files=$hashes }
 $state | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $statePath -Encoding UTF8
-$shortcut = $shell.CreateShortcut($shortcutPath)
-$shortcut.TargetPath = $pythonWindowPath
-$shortcut.Arguments = $desktopArgument
-$shortcut.WorkingDirectory = $applicationPath
-$shortcut.Description = 'CloudNest sync development preview; independent backups required.'
-$shortcut.Save()
+[CloudNestSyncShortcut]::Create($shortcutPath, $pythonWindowPath, $desktopArgument, $applicationPath)
 Write-Output "Installed current-user application: $applicationPath"
 Write-Output "Start menu shortcut: $shortcutPath"
 if ($Run) { Start-Process -FilePath $pythonWindowPath -ArgumentList @($desktopArgument) -WindowStyle Hidden }

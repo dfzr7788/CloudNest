@@ -33,7 +33,7 @@ class PackageTest(unittest.TestCase):
         manifest = json.loads((self.package / "manifest.json").read_text(encoding="utf-8"))
         self.assertTrue(manifest["development"])
         self.assertEqual("installer-fixture", manifest["revision"])
-        self.assertEqual(8, len(manifest["sha256"]))
+        self.assertEqual(9, len(manifest["sha256"]))
         self.assertIn("uninstall.ps1", manifest["sha256"])
         self.assertEqual(set(manifest["sha256"]) | {"manifest.json"},
                          {p.name for p in self.package.iterdir()})
@@ -45,7 +45,7 @@ class PackageTest(unittest.TestCase):
 class WindowsInstallerTest(PackageTest):
     def setUp(self):
         super().setUp()
-        self.app = self.root / "CloudNest 客户端"
+        self.app = self.root / "CloudNest 客户端 🌥"
         self.menu = self.root / "Programs"
         self.powershell = shutil.which("powershell.exe")
         if not self.powershell:
@@ -73,7 +73,7 @@ class WindowsInstallerTest(PackageTest):
         self.install()
         marker = json.loads((self.app / "install-state.json").read_text(encoding="utf-8-sig"))
         self.assertEqual("CloudNestSyncDevelopment", marker["app"])
-        self.assertEqual(7, len(marker["files"]))
+        self.assertEqual(8, len(marker["files"]))
         self.assertTrue((self.menu / "CloudNest Sync Development.lnk").is_file())
         self.install()
         self.uninstall()
@@ -94,7 +94,18 @@ class WindowsInstallerTest(PackageTest):
         self.assertEqual(b"preserve", (self.app / "unknown.dat").read_bytes())
         self.assertEqual("preserve journal", (runtime / "format").read_text(encoding="utf-8"))
         self.assertTrue((self.app / "uninstall.ps1").is_file())
+        self.assertTrue((self.app / "shortcut.ps1").is_file())
         self.assertTrue((self.app / "install-state.json").is_file())
+        shutil.copyfile(self.package / "README.md", self.app / "README.md")
+        self.uninstall()
+        self.assertEqual(b"preserve", (self.app / "unknown.dat").read_bytes())
+        self.assertFalse((self.app / "desktop.py").exists())
+
+    def test_modified_shortcut_helper_is_not_executed_by_uninstaller(self):
+        self.install()
+        (self.app / "shortcut.ps1").write_text("throw 'Do not execute modified helpers'\n", encoding="utf-8")
+        self.uninstall(success=False)
+        self.assertTrue((self.app / "desktop.py").exists())
 
     def test_tampered_package_and_foreign_destination_fail_before_copying(self):
         source = self.package / "desktop.py"
