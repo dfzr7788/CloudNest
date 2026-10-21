@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { ref, watch, onUnmounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { api, bytes, date, errorText } from "../api";
@@ -121,7 +122,7 @@ async function restore() {
     await api.post(`${base()}/snapshots/${detail.value.id}/restore`, {
       targetFolder: props.folderId,
       selectedEntry: selected.value || null,
-      requestKey: crypto.randomUUID(),
+      requestKey: requestKey(),
     });
     preview.value = null;
     detail.value = null;

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { onBeforeUnmount, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
 import { api, date, errorText, type Entry } from "../api";
@@ -81,7 +82,7 @@ async function generate() {
       expectedDigest: preview.value!.digest,
     };
     if (!pending || JSON.stringify(pending.body) !== JSON.stringify(body))
-      pending = { body, key: crypto.randomUUID() };
+      pending = { body, key: requestKey() };
     task.value = await workspace.job(
       `files/${props.file.id}/change-summaries`,
       body,

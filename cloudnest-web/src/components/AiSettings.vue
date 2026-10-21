@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { t } from "../i18n";
 import { computed, reactive, ref, watch, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -199,7 +200,7 @@ async function test(m: AiModel) {
       m.purpose === "EMBEDDING" ? t("ai.testEmbedding") : t("ai.testChat"),
     );
     if (!pendingTest || pendingTest.model !== m.id)
-      pendingTest = { model: m.id, key: crypto.randomUUID() };
+      pendingTest = { model: m.id, key: requestKey() };
     testTask.value =
       m.purpose === "EMBEDDING"
         ? await ai.embeddingTest(m.id, pendingTest.key)

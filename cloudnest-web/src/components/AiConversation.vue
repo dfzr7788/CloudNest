@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { ref, watch, onBeforeUnmount, computed } from "vue";
 import { ElMessageBox } from "element-plus";
 import { date, errorText, type Entry } from "../api";
@@ -134,7 +135,7 @@ async function send() {
     };
     const signature = JSON.stringify({ id: current.value.id, input });
     if (!pending || pending.signature !== signature)
-      pending = { key: crypto.randomUUID(), signature };
+      pending = { key: requestKey(), signature };
     task.value = await ai.question(current.value.id, input, pending.key);
     pending = undefined;
     question.value = "";

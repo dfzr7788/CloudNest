@@ -461,7 +461,7 @@ p {
 }
 .attributes {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(270px, 100%), 1fr));
   gap: 16px;
   margin: 24px 0;
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { computed, ref, watch, onBeforeUnmount } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { marked } from "marked";
@@ -184,7 +185,7 @@ async function generate(
     };
     const signature = kind + JSON.stringify(input);
     if (!pending || pending.signature !== signature)
-      pending = { key: crypto.randomUUID(), signature };
+      pending = { key: requestKey(), signature };
     // Keep the same key after a lost response, so retrying cannot create a second paid task.
     task.value = await ai.generate(props.file.id, kind, input, pending.key);
     pending = undefined;

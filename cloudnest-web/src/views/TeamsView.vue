@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from "vue";
+import { onMounted, onUnmounted, computed, ref } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { api, bytes, date, errorText } from "../api";
@@ -51,6 +51,8 @@ const readable = computed(
   () => current.value && current.value.file_role !== "NONE",
 );
 const base = () => `/teams/${current.value.id}`;
+let loadGeneration = 0;
+onUnmounted(() => loadGeneration++);
 async function refreshTeams() {
   workspaces.value = (await api.get("/teams")).data;
   if (current.value)
@@ -58,22 +60,28 @@ async function refreshTeams() {
       workspaces.value.find((w) => w.id === current.value.id) || null;
 }
 async function load() {
+  const generation = ++loadGeneration;
   if (!current.value) return;
   const team = current.value.id;
+  const path = `/teams/${team}`;
+  const parentId = parent.value;
+  const requestedPage = page.value;
+  const isCurrent = () =>
+    generation === loadGeneration && current.value?.id === team;
   const [m, c] = await Promise.all([
-    api.get(`${base()}/members`),
-    api.get(`${base()}/contributions`),
+    api.get(`${path}/members`),
+    api.get(`${path}/contributions`),
   ]);
-  if (current.value?.id !== team) return;
+  if (!isCurrent()) return;
   members.value = m.data;
   contributions.value = c.data;
   if (readable.value) {
     const result = (
-      await api.get(`${base()}/files`, {
-        params: { parentId: parent.value, page: page.value },
+      await api.get(`${path}/files`, {
+        params: { parentId, page: requestedPage },
       })
     ).data;
-    if (current.value?.id !== team) return;
+    if (!isCurrent()) return;
     files.value = result.items;
     parent.value = result.parentId;
     crumbs.value = result.breadcrumbs;
@@ -84,11 +92,12 @@ async function load() {
   }
   if (admin.value) {
     const [a, r, targets, jobs] = await Promise.all([
-      api.get(`${base()}/audit`),
-      api.get(`${base()}/trash`),
-      api.get(`${base()}/storage/targets`),
-      api.get(`${base()}/storage/jobs`),
+      api.get(`${path}/audit`),
+      api.get(`${path}/trash`),
+      api.get(`${path}/storage/targets`),
+      api.get(`${path}/storage/jobs`),
     ]);
+    if (!isCurrent()) return;
     audits.value = a.data;
     trash.value = r.data;
     storageTargets.value = targets.data;
@@ -117,6 +126,17 @@ onMounted(() =>
 async function choose(team: any) {
   if (uploadBusy.value) return;
   current.value = team;
+  files.value = [];
+  members.value = [];
+  contributions.value = [];
+  audits.value = [];
+  trash.value = [];
+  storageTargets.value = [];
+  storageJobs.value = [];
+  selectedFiles.value = [];
+  storageTarget.value = "";
+  moving.value = null;
+  acl.value = { entry: "", user: "", permission: "READ" };
   parent.value = team.root_id;
   page.value = 1;
   tab.value = "files";

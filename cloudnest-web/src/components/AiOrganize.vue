@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { onBeforeUnmount, ref, watch, computed } from "vue";
 import { ElMessageBox } from "element-plus";
 import { api, errorText } from "../api";
@@ -118,7 +119,7 @@ async function generate() {
       allowPartial: true,
     };
     if (!pending || JSON.stringify(pending.body) !== JSON.stringify(body))
-      pending = { body, key: crypto.randomUUID() };
+      pending = { body, key: requestKey() };
     task.value = await workspace.job("organization-jobs", body, pending.key);
     pending = undefined;
     outcomes.value = [];

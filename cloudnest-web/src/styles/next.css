@@ -1,4 +1,6 @@
 .next-page {
+  min-width: 0;
+  overflow-wrap: anywhere;
   max-width: 1180px;
   margin: auto;
   padding: 28px 24px 64px;
@@ -20,6 +22,7 @@
 }
 .next-toolbar h2 {
   flex: 1;
+  min-width: 0;
   margin: 0;
 }
 .next-toolbar .el-input {
@@ -39,10 +42,50 @@
 .next-form .el-select {
   min-width: 170px;
 }
+.next-toolbar > * {
+  max-width: 100%;
+}
+.next-panel .el-button {
+  max-width: 100%;
+  height: auto;
+  white-space: normal;
+}
+.next-panel .el-button > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.next-toolbar .el-button + .el-button {
+  margin-left: 0;
+}
+.next-panel .el-checkbox {
+  height: auto;
+  min-height: 32px;
+  max-width: 100%;
+}
+.next-panel .el-checkbox__label {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.next-form .el-form-item__content {
+  min-width: 0;
+  gap: 8px;
+}
+.next-form .el-form-item__content > * {
+  max-width: 100%;
+}
+.next-form .el-form-item__content .el-button + .el-button {
+  margin-left: 0;
+}
+.next-panel .el-alert__content {
+  min-width: 0;
+}
 .next-page code {
   overflow-wrap: anywhere;
 }
 @media (max-width: 600px) {
+  .next-toolbar h2 {
+    flex-basis: 100%;
+  }
   .next-page {
     padding: 16px 10px;
   }

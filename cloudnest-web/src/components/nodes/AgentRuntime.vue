@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../../utils/requestKey";
 import { ref, watch, onBeforeUnmount, computed } from "vue";
 import { t } from "../../i18n";
 import { errorText, date } from "../../api";
@@ -80,7 +81,7 @@ async function start() {
   failure.value = "";
   const signature = JSON.stringify([model.value, objective.value]);
   if (pending?.signature !== signature)
-    pending = { signature, key: crypto.randomUUID() };
+    pending = { signature, key: requestKey() };
   try {
     const created = await agentRuns.create(
       model.value,

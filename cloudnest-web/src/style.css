@@ -59,6 +59,8 @@
 }
 .folder-picker > button span:not(.el-icon) {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .sharing-file {
   display: flex;

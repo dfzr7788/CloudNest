@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { onMounted, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import { ElMessage } from "element-plus";
@@ -80,7 +81,7 @@ async function startScan() {
   await act(async () => {
     scanId.value = (
       await api.post("/resilience/integrity", {
-        requestKey: crypto.randomUUID(),
+        requestKey: requestKey(),
       })
     ).data.id;
   });
@@ -243,57 +244,3 @@ async function startScan() {
     </template>
   </main>
 </template>
-<style>
-.next-page {
-  max-width: 1180px;
-  margin: auto;
-  padding: 28px 24px 64px;
-}
-.next-panel {
-  margin: 24px 0;
-  padding: 24px;
-  background: var(--el-bg-color);
-  border: 1px solid var(--el-border-color-light);
-  border-radius: 16px;
-  overflow: hidden;
-}
-.next-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 16px 0;
-}
-.next-toolbar h2 {
-  flex: 1;
-  margin: 0;
-}
-.next-toolbar .el-input {
-  max-width: 440px;
-}
-.next-form {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 20px;
-  margin-top: 20px;
-}
-.next-form .el-form-item {
-  min-width: 150px;
-  max-width: 100%;
-}
-.next-form .el-select {
-  min-width: 170px;
-}
-.next-page code {
-  overflow-wrap: anywhere;
-}
-@media (max-width: 600px) {
-  .next-page {
-    padding: 16px 10px;
-  }
-  .next-panel {
-    padding: 16px 10px;
-  }
-}
-</style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../utils/requestKey";
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { ElMessageBox } from "element-plus";
 import { api, date, errorText } from "../api";
@@ -152,7 +153,7 @@ async function submit(path: string, body: object) {
     pending.path !== path ||
     JSON.stringify(pending.body) !== JSON.stringify(body)
   )
-    pending = { path, body, key: crypto.randomUUID() };
+    pending = { path, body, key: requestKey() };
   task.value = await workspace.job(path, body, pending.key);
   pending = undefined;
   schedule();

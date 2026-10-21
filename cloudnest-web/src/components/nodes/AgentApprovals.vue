@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { requestKey } from "../../utils/requestKey";
 import { ref, watch, onBeforeUnmount } from "vue";
 import { t } from "../../i18n";
 import { api, date, errorText } from "../../api";
@@ -86,7 +87,7 @@ async function propose() {
     const value = input(),
       signature = JSON.stringify(value);
     if (pending?.signature !== signature)
-      pending = { signature, key: crypto.randomUUID() };
+      pending = { signature, key: requestKey() };
     await api.post("/admin/agent/approvals", value, {
       headers: { "Idempotency-Key": pending.key },
     });

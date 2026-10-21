@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from "vue";
+import { onUnmounted, ref, watch } from "vue";
 import { api, errorText, type Entry } from "../api";
 import { ElMessage } from "element-plus";
 import { Folder, ArrowRight } from "@element-plus/icons-vue";
@@ -15,14 +15,20 @@ const current = ref(""),
   folders = ref<Entry[]>([]),
   crumbs = ref<{ id: string; name: string }[]>([]),
   busy = ref(false);
+let generation = 0;
+onUnmounted(() => generation++);
 async function load(id: string) {
+  const token = ++generation;
   busy.value = true;
+  current.value = "";
+  folders.value = [];
+  crumbs.value = [];
   try {
-    current.value = id;
     if (props.teamId) {
       const { data } = await api.get(`/teams/${props.teamId}/folders`, {
         params: { parentId: id },
       });
+      if (token !== generation) return;
       folders.value = data.items;
       crumbs.value = data.breadcrumbs;
     } else {
@@ -30,20 +36,28 @@ async function load(id: string) {
         api.get<Entry[]>("/folders", { params: { parentId: id } }),
         api.get(`/folders/${id}/breadcrumbs`),
       ]);
+      if (token !== generation) return;
       folders.value = list.data;
       crumbs.value = path.data;
     }
+    current.value = id;
   } catch (e) {
-    ElMessage.error(errorText(e));
+    if (token === generation) ElMessage.error(errorText(e));
   } finally {
-    busy.value = false;
+    if (token === generation) busy.value = false;
   }
 }
 watch(
-  () => props.open,
-  (v) => {
-    if (v) load(props.rootId);
+  () => [props.open, props.rootId, props.teamId],
+  () => {
+    if (props.open) void load(props.rootId);
+    else {
+      generation++;
+      current.value = "";
+      busy.value = false;
+    }
   },
+  { immediate: true },
 );
 </script>
 <template>
