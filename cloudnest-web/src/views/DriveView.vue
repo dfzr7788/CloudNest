@@ -453,7 +453,11 @@ function open(e: Entry) {
 }
 async function addFiles(files: File[]) {
   if (!files.length) return;
-  await uploads.add(files, current.value, conflictPolicy.value);
+  try {
+    await uploads.add(files, current.value, conflictPolicy.value);
+  } catch (err) {
+    ElMessage.error(errorText(err));
+  }
 }
 async function foldersSelected(e: Event) {
   const input = e.target as HTMLInputElement,
@@ -466,30 +470,13 @@ async function importFolderFiles(files: File[]) {
     ElMessage.error(t("drive.importLimit"));
     return;
   }
-  const base = current.value,
-    parents = new Map<string, string>();
-  for (const file of files) {
-    const path = file.webkitRelativePath.split("/");
-    path.pop();
-    const key = path.join("/");
-    try {
-      let parent = parents.get(key);
-      if (!parent) {
-        parent = (
-          await api.post("/folders/resolve-path", {
-            parentId: base,
-            segments: path,
-          })
-        ).data.id as string;
-        parents.set(key, parent);
-      }
-      uploads.enqueue([file], parent, conflictPolicy.value);
-    } catch (err) {
-      ElMessage.error(`${file.webkitRelativePath}: ${errorText(err)}`);
-    }
+  try {
+    await uploads.enqueue(files, current.value, conflictPolicy.value, true);
+    await uploads.pump();
+    await load();
+  } catch (err) {
+    ElMessage.error(errorText(err));
   }
-  await uploads.pump();
-  await load();
 }
 async function favorite(e: Entry) {
   try {
@@ -773,7 +760,7 @@ async function logout() {
   }
   try {
     await store.logout();
-    uploads.clear();
+    await uploads.clear();
     await router.push("/login");
   } catch (e) {
     ElMessage.error(errorText(e));

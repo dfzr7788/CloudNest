@@ -58,7 +58,7 @@ async function selected(e: Event) {
   if (!file || !target) return;
   busy.value = true;
   try {
-    uploads.enqueue([file], target.parentId || props.folderId, "keep");
+    await uploads.enqueue([file], target.parentId || props.folderId, "keep");
     const task = uploads.tasks[uploads.tasks.length - 1]!;
     await uploads.run(task);
     if (!task.sessionId || !task.state.includes("完成"))
@@ -84,7 +84,8 @@ async function selected(e: Event) {
 }
 </script>
 <template>
-  <el-dialog class="cn-dialog"
+  <el-dialog
+    class="cn-dialog"
     :model-value="!!file"
     title="文件版本历史"
     width="min(720px,94vw)"

@@ -1,9 +1,13 @@
 import { defineStore } from "pinia";
 import axios from "axios";
-import { reactive, ref } from "vue";
+import { reactive, ref, watch } from "vue";
 import { api, errorText, type UploadSession } from "../api";
-// UI-only keys live in this page; server-generated session IDs handle authorization.
-let taskSequence = 0;
+import { useUser } from "./user";
+import {
+  loadUploads,
+  saveUploads,
+  type SavedUpload,
+} from "../utils/uploadQueue";
 export interface UploadTask {
   key: string;
   name: string;
@@ -17,17 +21,78 @@ export interface UploadTask {
   controller?: AbortController;
   worker?: Worker;
   active?: boolean;
+  cancelling?: boolean;
   policy?: string;
   sent?: number;
   speed?: number;
   remaining?: number;
+  ownerId?: string;
+  segments?: string[];
 }
 export const useUploads = defineStore("uploads", () => {
   const tasks = reactive<UploadTask[]>([]),
     revision = ref(0);
   let pumping = false;
+  const user = useUser();
+  let saving = 0;
+  window.addEventListener("beforeunload", (event) => {
+    if (saving) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+  });
+  watch(
+    () => user.user?.id,
+    () => {
+      for (const task of tasks) task.controller?.abort();
+      tasks.splice(0);
+    },
+    { flush: "sync" },
+  );
+  function snapshot(task: UploadTask): SavedUpload {
+    return {
+      key: task.key,
+      ownerId: task.ownerId!,
+      name: task.name,
+      size: task.size,
+      folderId: task.folderId,
+      segments: task.segments ? [...task.segments] : undefined,
+      sessionId: task.sessionId,
+      policy: task.policy,
+      state: task.state,
+      file: task.file,
+    };
+  }
+  async function persist(task: UploadTask) {
+    await saveUploads([snapshot(task)]);
+  }
   async function restore() {
+    const ownerId = user.user?.id;
+    if (!ownerId) return;
+    const saved = await loadUploads(ownerId);
+    if (user.user?.id !== ownerId) return;
+    for (const task of saved) {
+      if (
+        tasks.some(
+          (t) =>
+            t.key === task.key ||
+            (task.sessionId && t.sessionId === task.sessionId),
+        )
+      )
+        continue;
+      tasks.push({
+        ...task,
+        progress: 0,
+        error: "",
+        state: task.file
+          ? task.state === "已暂停"
+            ? "已暂停"
+            : "排队中"
+          : "等待选择原文件",
+      });
+    }
     const { data } = await api.get<UploadSession[]>("/uploads");
+    if (user.user?.id !== ownerId) return;
     for (const s of data)
       if (!tasks.some((t) => t.sessionId === s.id))
         tasks.push({
@@ -39,7 +104,9 @@ export const useUploads = defineStore("uploads", () => {
           progress: (s.uploadedParts.length / s.partCount) * 100,
           state: "等待选择原文件",
           error: "",
+          ownerId,
         });
+    void pump();
   }
   function digest(task: UploadTask, file: File) {
     return new Promise<string>((resolve, reject) => {
@@ -77,11 +144,33 @@ export const useUploads = defineStore("uploads", () => {
     });
   }
   async function run(task: UploadTask) {
-    if (task.active || !task.file) return;
+    if (
+      task.active ||
+      task.cancelling ||
+      !task.file ||
+      task.ownerId !== user.user?.id
+    )
+      return;
     task.active = true;
     task.controller = new AbortController();
     const signal = task.controller.signal;
     try {
+      await persist(task);
+      if (signal.aborted) return;
+      if (task.segments?.length) {
+        const { data } = await api.post(
+          "/folders/resolve-path",
+          {
+            parentId: task.folderId,
+            segments: task.segments,
+          },
+          { signal },
+        );
+        task.folderId = data.id;
+        task.segments = undefined;
+        await persist(task);
+      }
+      if (signal.aborted) return;
       task.state = "校验文件";
       task.error = "";
       const hash = await digest(task, task.file);
@@ -123,6 +212,7 @@ export const useUploads = defineStore("uploads", () => {
           )
         ).data;
         task.sessionId = s.id;
+        await persist(task);
       }
       if (s.status === "COMPLETE") {
         task.state = "秒传完成";
@@ -257,13 +347,36 @@ export const useUploads = defineStore("uploads", () => {
     } finally {
       task.active = false;
       task.worker?.terminate();
+      try {
+        if (task.cancelling) {
+          // cancel() owns cleanup; do not recreate its deleted queue record.
+        } else if (
+          task.state.includes("完成") ||
+          ["已取消", "已跳过"].includes(task.state)
+        ) {
+          await saveUploads([], [task.key]);
+          task.file = undefined;
+        } else await persist(task);
+      } catch (e) {
+        task.error = `本地上传队列保存失败：${errorText(e)}`;
+      }
     }
   }
-  function enqueue(files: File[], folderId: string, policy = "keep") {
+  async function enqueue(
+    files: File[],
+    folderId: string,
+    policy = "keep",
+    folder = false,
+  ) {
+    const ownerId = user.user?.id;
+    if (!ownerId) throw new Error("请先登录");
+    const queued: UploadTask[] = [];
     // A file queue limits simultaneous hash/merge memory while each file has three part workers.
     for (const file of files) {
       const task: UploadTask = reactive({
-        key: `local-upload-${++taskSequence}`,
+        // Queue identity must also work on self-hosted HTTP origins.
+        key: `local-upload-${Array.from(crypto.getRandomValues(new Uint32Array(4)), (n) => n.toString(16).padStart(8, "0")).join("")}`,
+        ownerId,
         name: file.name,
         size: file.size,
         progress: 0,
@@ -272,12 +385,26 @@ export const useUploads = defineStore("uploads", () => {
         folderId,
         file,
         policy,
+        segments: folder
+          ? file.webkitRelativePath.split("/").slice(0, -1)
+          : undefined,
       });
-      tasks.push(task);
+      queued.push(task);
+    }
+    saving++;
+    try {
+      await saveUploads(queued.map(snapshot));
+      if (user.user?.id === ownerId) tasks.push(...queued);
+    } catch (e) {
+      throw new Error(
+        `无法保存上传队列，请检查浏览器存储空间后重试：${errorText(e)}`,
+      );
+    } finally {
+      saving--;
     }
   }
   async function add(files: File[], folderId: string, policy = "keep") {
-    enqueue(files, folderId, policy);
+    await enqueue(files, folderId, policy);
     await pump();
   }
   async function pump() {
@@ -292,14 +419,24 @@ export const useUploads = defineStore("uploads", () => {
   function pause(task: UploadTask) {
     task.controller?.abort();
     task.state = "已暂停";
+    void persist(task).catch((e) => {
+      task.error = errorText(e);
+    });
   }
   async function cancel(task: UploadTask) {
+    if (task.cancelling) return;
+    task.cancelling = true;
     task.state = "已暂停";
     task.controller?.abort();
-    if (task.sessionId) await api.delete(`/uploads/${task.sessionId}`);
-    task.state = "已取消";
-    task.file = undefined;
-    revision.value++;
+    try {
+      if (task.sessionId) await api.delete(`/uploads/${task.sessionId}`);
+      await saveUploads([], [task.key]);
+      task.state = "已取消";
+      task.file = undefined;
+      revision.value++;
+    } finally {
+      task.cancelling = false;
+    }
   }
   async function choose(task: UploadTask, file: File) {
     if (task.active) return;
@@ -308,8 +445,12 @@ export const useUploads = defineStore("uploads", () => {
     task.file = file;
     await run(task);
   }
-  function clear() {
+  async function clear() {
     if (tasks.some((t) => t.active)) throw new Error("请先暂停上传");
+    await saveUploads(
+      [],
+      tasks.map((t) => t.key),
+    );
     tasks.splice(0, tasks.length);
   }
   function pauseAll() {
@@ -330,7 +471,9 @@ export const useUploads = defineStore("uploads", () => {
     for (let i = tasks.length - 1; i >= 0; i--)
       if (
         !tasks[i]!.active &&
-        ["已完成", "秒传完成", "已取消", "已跳过"].includes(tasks[i]!.state)
+        ["已完成", "上传完成", "秒传完成", "已取消", "已跳过"].includes(
+          tasks[i]!.state,
+        )
       )
         tasks.splice(i, 1);
   }
