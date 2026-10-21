@@ -44,6 +44,7 @@ class AiIntegrationTest {
   @Autowired Db db;
   @Autowired AiTaskService tasks;
   @Autowired AiConnectionService configs;
+  @Autowired com.cloudnest.user.RuntimeSettings runtimeSettings;
   @Autowired DocumentExtractionService extraction;
   @MockitoBean ModelGateway gateway;
   @MockitoBean EmbeddingGateway embeddings;
@@ -71,6 +72,45 @@ class AiIntegrationTest {
   record User(String id, String root, Cookie cookie) {}
 
   record Setup(User user, String connection, String model) {}
+
+  @Test
+  void administratorCanToggleSiteAiWithoutRestartAndMembersCannot() throws Exception {
+    var setup = setup();
+    var admin = setup.user();
+    var member = user();
+    db.update("UPDATE sys_user SET administrator=TRUE WHERE id=?", admin.id());
+    try {
+      call(member, put("/api/ai/site-settings"), Map.of("enabled", false), 403);
+      assertTrue(configs.enabled());
+      mvc.perform(
+              put("/api/ai/site-settings")
+                  .cookie(admin.cookie())
+                  .contentType("application/json")
+                  .content("{\"enabled\":false}"))
+          .andExpect(
+              org.springframework.test.web.servlet.result.MockMvcResultMatchers.status()
+                  .isForbidden());
+      call(admin, put("/api/ai/site-settings"), Map.of(), 400);
+      call(admin, put("/api/ai/site-settings"), Map.of("enabled", false), 200);
+      assertFalse(call(member, get("/api/ai/capabilities"), null, 200).path("enabled").asBoolean());
+      assertFalse(
+          new AiConnectionService(
+                  db, mock(AiSecrets.class), mock(AiOutboundPolicy.class), runtimeSettings)
+              .enabled());
+      call(admin, post("/api/ai/connections"), Map.of("name", "blocked"), 403);
+      assertFalse(
+          call(admin, get("/api/admin/agent/runs/available"), null, 200)
+              .path("enabled")
+              .asBoolean());
+      call(admin, put("/api/ai/site-settings"), Map.of("enabled", true), 200);
+      assertTrue(configs.enabled());
+      assertEquals(1, configs.connections(admin.id()).size());
+      db.update("UPDATE sys_user SET administrator=FALSE WHERE id=?", admin.id());
+      call(admin, put("/api/ai/site-settings"), Map.of("enabled", false), 403);
+    } finally {
+      db.update("DELETE FROM system_setting WHERE name='ai'");
+    }
+  }
 
   JsonNode call(User user, MockHttpServletRequestBuilder request, Object body, int expected)
       throws Exception {

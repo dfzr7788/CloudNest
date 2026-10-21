@@ -44,6 +44,15 @@ public class AiController {
         1);
   }
 
+  public record SiteSettings(@jakarta.validation.constraints.NotNull Boolean enabled) {}
+
+  @PutMapping("/site-settings")
+  public Object siteSettings(
+      Authentication a, @jakarta.validation.Valid @RequestBody SiteSettings input) {
+    configs.setEnabled(a.getName(), input.enabled());
+    return Map.of("enabled", configs.enabled());
+  }
+
   @GetMapping("/connections")
   public Object connections(Authentication a) {
     return configs.connections(a.getName());

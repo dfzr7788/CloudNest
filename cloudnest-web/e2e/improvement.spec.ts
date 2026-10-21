@@ -62,9 +62,8 @@ test("IMPUI01 收藏、批量删除撤销与账号会话设置", async ({ page }
   await page.getByRole("button", { name: "账号与安全", exact: true }).click();
   await page.getByRole("tab", { name: "登录会话" }).click();
   await expect(page.getByText(/当前会话 ·/)).toBeVisible();
-  await page.getByRole("tab", { name: "空间明细" }).click();
+  await page.getByRole("tab", { name: "空间与回收站" }).click();
   await expect(page.getByText("有效文件：13 B")).toBeVisible();
-  await page.getByRole("tab", { name: "回收站设置" }).click();
   await expect(page.getByLabel("回收站保留天数")).toHaveValue("0");
   await page.screenshot({
     path: "../.tools/ui-ux-refactor/screenshots/e2e/improvement-account.png",

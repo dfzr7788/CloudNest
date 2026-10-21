@@ -2,7 +2,7 @@
 import { t } from "../../i18n";
 import { ref, onMounted } from "vue";
 import { api, errorText } from "../../api";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 const rows = ref<any[]>([]),
   defaultBackend = ref("local"),
   busy = ref(false);
@@ -16,10 +16,15 @@ const blank = () => ({
   secretKey: "",
 });
 const policy = ref(blank());
+const warning = ref(80);
 async function load() {
-  const { data } = await api.get("/admin/storage");
+  const [{ data }, config] = await Promise.all([
+    api.get("/admin/storage"),
+    api.get("/admin/config/storage"),
+  ]);
   rows.value = data.policies;
   defaultBackend.value = data.defaultBackend;
+  warning.value = Number(config.data.warningPercent || 80);
 }
 onMounted(() => load().catch((e) => ElMessage.error(errorText(e))));
 async function act(fn: () => Promise<unknown>) {
@@ -29,7 +34,7 @@ async function act(fn: () => Promise<unknown>) {
     await load();
     ElMessage.success(t("nodePolicy.saved"));
   } catch (e) {
-    ElMessage.error(errorText(e));
+    if (e !== "cancel" && e !== "close") ElMessage.error(errorText(e));
   } finally {
     busy.value = false;
   }
@@ -60,7 +65,22 @@ async function save() {
         ><template #default="{ row }"
           ><el-button text @click="edit(row)">{{
             t("nodePolicy.edit")
-          }}</el-button></template
+          }}</el-button>
+          <el-button
+            text
+            type="danger"
+            @click="
+              act(async () => {
+                await ElMessageBox.confirm(
+                  t('nodePolicy.removeConfirm'),
+                  t('nodePolicy.remove'),
+                );
+                await api.delete('/admin/storage/policies/' + row.id);
+                if (policy.id === row.id) policy = blank();
+              })
+            "
+            >{{ t("common.delete") }}</el-button
+          ></template
         ></el-table-column
       ></el-table
     >
@@ -106,9 +126,32 @@ async function save() {
         :label="n.name"
         :value="'s3:' + n.id"
     /></el-select>
+    <el-form label-position="top">
+      <el-form-item :label="t('nodePolicy.warning')">
+        <el-input-number v-model="warning" :min="50" :max="95" />
+      </el-form-item>
+    </el-form>
     <el-button
-      @click="act(() => api.put('/admin/config/storage', { defaultBackend }))"
+      @click="
+        act(() =>
+          api.put('/admin/config/storage', {
+            defaultBackend,
+            warningPercent: String(warning),
+          }),
+        )
+      "
       >{{ t("nodePolicy.saveDefault") }}</el-button
+    >
+    <el-button
+      @click="
+        act(async () => {
+          const { data } = await api.post('/admin/storage/test', {
+            backend: defaultBackend,
+          });
+          if (!data.ok) throw new Error(t('nodePolicy.testFailed'));
+        })
+      "
+      >{{ t("nodePolicy.test") }}</el-button
     >
   </section>
 </template>

@@ -96,6 +96,8 @@ for (const width of [390, 1440]) {
           };
         } else if (path === "/api/admin/nodes")
           body = { nodes: [], unknownBackends: [] };
+        else if (path === "/api/admin/config/storage")
+          body = { warningPercent: "80" };
         else if (path === "/api/admin/storage")
           body = { policies: [], defaultBackend: "local" };
         else if (path === "/api/auth/csrf") body = { token: "fixture" };

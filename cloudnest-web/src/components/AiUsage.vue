@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from "../i18n";
 import { ref, watch } from "vue";
 import { api, date, errorText } from "../api";
 import { ElMessage } from "element-plus";
@@ -48,72 +49,101 @@ watch(
 </script>
 <template>
   <section v-loading="busy" class="ai-usage">
-    <p>
-      每日最多 100 次上游调用，按 UTC 00:00（北京时间
-      08:00）重置；测试及分段调用均计数。
-    </p>
-    <el-input-number v-model="days" :min="1" :max="90" aria-label="统计天数" />
-    天
+    <p>{{ t("usage.limit") }}</p>
+    <el-input-number
+      v-model="days"
+      :min="1"
+      :max="90"
+      :aria-label="t('usage.days')"
+    />
     <el-button
       @click="
         page = 1;
         load();
       "
-      >刷新用量</el-button
+      >{{ t("usage.refresh") }}</el-button
     >
     <p v-if="summary">
-      共 {{ summary.calls }} 次调用，{{ summary.known_usage_calls }} 次返回总
-      token；已知总量
       {{
-        summary.total_tokens ?? "未知"
-      }}。未返回用量显示“未知”，费用以供应商账单为准。
+        t("usage.summary", {
+          calls: summary.calls,
+          known: summary.known_usage_calls,
+          tokens: summary.total_tokens ?? t("usage.unknown"),
+        })
+      }}
     </p>
-    <el-table :data="items" max-height="350" empty-text="暂无调用记录">
-      <el-table-column label="时间" min-width="160"
-        ><template #default="s">{{
-          date(s.row.created_at)
+    <el-table :data="items" max-height="350" :empty-text="t('usage.empty')">
+      <el-table-column :label="t('common.time')" min-width="160"
+        ><template #default="{ row }">{{
+          date(row.created_at)
         }}</template></el-table-column
       >
-      <el-table-column prop="model_name" label="模型" min-width="100" />
-      <el-table-column label="用途" min-width="70"
-        ><template #default="s">{{
-          s.row.purpose === "EMBEDDING" ? "向量" : "聊天"
+      <el-table-column
+        prop="model_name"
+        :label="t('usage.model')"
+        min-width="100"
+      />
+      <el-table-column :label="t('usage.purpose')" min-width="110"
+        ><template #default="{ row }">{{
+          row.purpose === "EMBEDDING" ? t("usage.embedding") : t("usage.chat")
         }}</template></el-table-column
       >
-      <el-table-column prop="status" label="状态" min-width="110" />
-      <el-table-column label="输入/输出 token" min-width="150"
-        ><template #default="s"
-          >{{ s.row.input_tokens ?? "未知" }} /
+      <el-table-column
+        prop="status"
+        :label="t('common.status')"
+        min-width="110"
+      />
+      <el-table-column :label="t('usage.tokens')" min-width="150"
+        ><template #default="{ row }"
+          >{{ row.input_tokens ?? t("usage.unknown") }} /
           {{
-            s.row.purpose === "EMBEDDING"
-              ? "不适用"
-              : (s.row.output_tokens ?? "未知")
+            row.purpose === "EMBEDDING"
+              ? t("usage.na")
+              : (row.output_tokens ?? t("usage.unknown"))
           }}</template
         ></el-table-column
       >
-      <el-table-column label="耗时" min-width="90"
-        ><template #default="s">{{
-          s.row.latency == null ? "未知" : s.row.latency + " ms"
+      <el-table-column :label="t('usage.latency')" min-width="110"
+        ><template #default="{ row }">{{
+          row.latency == null ? t("usage.unknown") : row.latency + " ms"
         }}</template></el-table-column
       >
-      <el-table-column prop="error_code" label="错误码" min-width="150" />
+      <el-table-column
+        prop="error_code"
+        :label="t('usage.error')"
+        min-width="150"
+      />
     </el-table>
-    <el-button
-      :disabled="page === 1"
-      @click="
-        page--;
-        load();
-      "
-      >上一页</el-button
-    >
-    <span>第 {{ page }} 页</span>
-    <el-button
-      :disabled="items.length < 50"
-      @click="
-        page++;
-        load();
-      "
-      >下一页</el-button
-    >
+    <div class="usage-pagination">
+      <el-button
+        :disabled="page === 1"
+        @click="
+          page--;
+          load();
+        "
+        >{{ t("usage.previous") }}</el-button
+      >
+      <span>{{ t("account.page", { page }) }}</span>
+      <el-button
+        :disabled="items.length < 50"
+        @click="
+          page++;
+          load();
+        "
+        >{{ t("usage.next") }}</el-button
+      >
+    </div>
   </section>
 </template>
+<style scoped>
+.ai-usage {
+  min-width: 0;
+}
+.usage-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+</style>

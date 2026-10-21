@@ -14,22 +14,34 @@ public class AiConnectionService {
   public final Db db;
   private final AiSecrets secrets;
   private final AiOutboundPolicy policy;
+  private final com.cloudnest.user.RuntimeSettings settings;
 
   @Value("${cloudnest.ai.enabled:false}")
   private boolean enabled;
 
-  public AiConnectionService(Db db, AiSecrets secrets, AiOutboundPolicy policy) {
+  public AiConnectionService(
+      Db db,
+      AiSecrets secrets,
+      AiOutboundPolicy policy,
+      com.cloudnest.user.RuntimeSettings settings) {
     this.db = db;
     this.secrets = secrets;
     this.policy = policy;
+    this.settings = settings;
   }
 
   public boolean enabled() {
-    return enabled;
+    return Boolean.parseBoolean(
+        settings.get("ai").getOrDefault("enabled", Boolean.toString(enabled)));
+  }
+
+  public void setEnabled(String uid, boolean value) {
+    settings.admin(uid);
+    settings.set("ai", Map.of("enabled", Boolean.toString(value)));
   }
 
   public void requireEnabled() {
-    if (!enabled) throw new Problem(403, "AI_DISABLED", "站点尚未开启 AI，请联系管理员");
+    if (!enabled()) throw new Problem(403, "AI_DISABLED", "站点尚未开启 AI，请联系管理员");
   }
 
   public static String hash(String value) {

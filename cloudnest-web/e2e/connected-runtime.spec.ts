@@ -186,7 +186,9 @@ test("ordinary user device credentials clear on tab changes and delayed response
     .getByRole("button", { name: "Account and security", exact: true })
     .click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("tab", { name: "Sync devices", exact: true }).click();
+  await dialog
+    .getByRole("tab", { name: "Clients and sync", exact: true })
+    .click();
   const section = page.locator(".sync-devices");
   await section.getByRole("textbox", { name: "Device name" }).fill("Laptop");
   await section
@@ -198,7 +200,9 @@ test("ordinary user device credentials clear on tab changes and delayed response
   await dialog
     .getByRole("tab", { name: "Change password", exact: true })
     .click();
-  await dialog.getByRole("tab", { name: "Sync devices", exact: true }).click();
+  await dialog
+    .getByRole("tab", { name: "Clients and sync", exact: true })
+    .click();
   await expect(section.locator('input[type="password"]')).toHaveCount(0);
   await section
     .getByRole("button", { name: "Revoke device", exact: true })
@@ -221,7 +225,9 @@ test("ordinary user device credentials clear on tab changes and delayed response
     .click();
   release();
   await completed;
-  await dialog.getByRole("tab", { name: "Sync devices", exact: true }).click();
+  await dialog
+    .getByRole("tab", { name: "Clients and sync", exact: true })
+    .click();
   await expect(section).toContainText("Slow laptop");
   await expect(section.locator('input[type="password"]')).toHaveCount(0);
   expect(errors).toEqual([]);
@@ -264,6 +270,8 @@ for (const width of [390, 1440]) {
         else if (path === "/api/auth/csrf") body = { token: "fixture" };
         else if (path === "/api/admin/nodes")
           body = { nodes: [], unknownBackends: [] };
+        else if (path === "/api/admin/config/storage")
+          body = { warningPercent: "80" };
         else if (path === "/api/admin/storage")
           body = { policies: [], defaultBackend: "local" };
         else if (path === "/api/admin/horizon")
@@ -501,6 +509,8 @@ for (const width of [390, 1440]) {
           };
         else if (path === "/api/admin/nodes")
           body = { nodes: [], unknownBackends: [] };
+        else if (path === "/api/admin/config/storage")
+          body = { warningPercent: "80" };
         else if (path === "/api/admin/storage")
           body = { policies: [], defaultBackend: "local" };
         else if (path === "/api/admin/agent/runs/available")

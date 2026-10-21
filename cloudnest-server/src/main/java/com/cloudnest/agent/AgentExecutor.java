@@ -18,25 +18,26 @@ public class AgentExecutor {
   private final boolean enabled;
   private final AgentApprovalService approvals;
 
-  @Value("${cloudnest.ai.enabled:false}")
-  private boolean aiEnabled = true;
+  private final com.cloudnest.ai.AiConnectionService ai;
 
   public AgentExecutor(
       AgentToolRegistry registry,
       ObjectMapper json,
       AgentApprovalService approvals,
+      com.cloudnest.ai.AiConnectionService ai,
       @Value("${cloudnest.agent.runtime-enabled:false}") boolean enabled) {
     this.registry = registry;
     this.json = json;
     this.enabled = enabled;
     this.approvals = approvals;
+    this.ai = ai;
   }
 
   public Map<String, Object> available(String uid) {
     var tools = registry.available(uid);
     return Map.of(
         "enabled",
-        enabled && tools.enabled() && aiEnabled,
+        enabled && tools.enabled() && ai.enabled(),
         "maxTurns",
         MAX_TURNS,
         "maxTools",

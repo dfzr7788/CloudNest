@@ -232,16 +232,15 @@ test("LAYOUT03 普通用户与管理员所有设置面板、小屏切换不产�
   await page.getByRole("button", { name: "账号与安全", exact: true }).click();
   const labels = [
     "修改密码",
-    "验证与客户端",
+    "客户端与同步",
     "登录会话",
-    "空间明细",
-    "回收站设置",
+    "空间与回收站",
     "活动记录",
     "AI 设置",
     "AI 知识库",
     "智能整理",
     "系统管理",
-    "服务与存储",
+    "集成服务",
     "系统更新",
   ];
   for (const name of labels) {

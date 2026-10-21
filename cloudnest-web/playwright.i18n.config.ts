@@ -6,6 +6,7 @@ export default defineConfig({
     "i18n.spec.ts",
     "agent-tools.spec.ts",
     "connected-runtime.spec.ts",
+    "settings-layout.spec.ts",
   ],
   workers: 1,
   timeout: 45000,

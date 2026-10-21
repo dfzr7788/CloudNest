@@ -27,11 +27,11 @@ async function copyInvite() {
       input.select();
       const copied = document.execCommand("copy");
       input.remove();
-      if (!copied) throw new Error("请选中链接后手动复制");
+      if (!copied) throw new Error(t("account.selectTheLinkAndCopyIt"));
     }
-    ElMessage.success("邀请链接已复制");
+    ElMessage.success(t("account.invitationLinkCopied"));
   } catch {
-    ElMessage.info("请选中下方链接，按 Ctrl+C 复制");
+    ElMessage.info(t("account.selectTheLinkBelowAndPress"));
   }
 }
 const router = useRouter(),
@@ -44,17 +44,17 @@ const inviteLink = ref("");
 async function invite() {
   try {
     const { value } = await ElMessageBox.prompt(
-      "新账号配额（GiB，邀请码一次有效，48 小时过期）",
-      "邀请新用户",
+      t("account.newAccountQuotaInGibSingle"),
+      t("account.inviteUser"),
       {
         inputValue: "5",
-        confirmButtonText: "生成",
+        confirmButtonText: t("account.generate"),
         cancelButtonText: t("common.cancel"),
       },
     );
     const quota = Number(value) * 1024 ** 3;
     if (!Number.isSafeInteger(quota) || quota < 1048576)
-      throw new Error("请输入至少 1 MiB 的有效容量");
+      throw new Error(t("account.enterAValidQuotaOfAt"));
     inviteBusy.value = true;
     const { data } = await api.post("/admin/invitations", { quota });
     inviteLink.value = location.origin + "/login?invitation=" + data.token;
@@ -87,14 +87,12 @@ const settingsGroups = computed(() => [
     items: [
       { value: "password", label: t("settings.password") },
       { value: "access", label: t("settings.clients") },
-      { value: "sync", label: t("syncDevices.title") },
       { value: "sessions", label: t("settings.sessions") },
     ],
   },
   {
     label: t("settings.files"),
     items: [
-      { value: "space", label: t("settings.space") },
       { value: "trash", label: t("settings.trash") },
       { value: "activity", label: t("settings.activity") },
     ],
@@ -121,29 +119,29 @@ const settingsGroups = computed(() => [
     : []),
 ]);
 const activityLabels = computed<Record<string, string>>(() => ({
-  FOLDER_CREATED: "创建文件夹",
-  ENTRY_UPDATED: "修改文件或目录",
+  FOLDER_CREATED: t("account.createFolder"),
+  ENTRY_UPDATED: t("account.updateFileOrFolder"),
   TRASH: t("files.trash"),
-  RESTORE: "恢复文件或目录",
+  RESTORE: t("account.restoreFileOrFolder"),
   PURGE: t("common.purge"),
-  UPLOAD_COMPLETED: "上传完成",
+  UPLOAD_COMPLETED: t("account.uploadCompleted"),
   SHARE_CREATED: t("drive.createShare"),
   SHARE_REVOKED: t("drive.revokeShare"),
-  SHARE_UPDATED: "修改分享设置",
-  ACCESS_DENIED: "访问被拒或资源不可见",
-  VERSION_APPENDED: "保存新版本",
-  VERSION_RESTORED: "恢复历史版本",
-  VERSION_DELETED: "删除历史版本",
+  SHARE_UPDATED: t("account.updateShareSettings"),
+  ACCESS_DENIED: t("account.accessDeniedOrResourceUnavailable"),
+  VERSION_APPENDED: t("account.saveNewVersion"),
+  VERSION_RESTORED: t("account.restoreVersion"),
+  VERSION_DELETED: t("account.deleteVersion"),
   PASSWORD_CHANGED: t("settings.password"),
-  SESSION_REVOKED: "退出指定会话",
-  OTHER_SESSIONS_REVOKED: "退出其他会话",
-  TRASH_AUTO_PURGED: "自动清理回收站",
-  USER_UPDATED: "修改用户状态或配额",
-  CREATE_ADMIN: "创建管理员",
-  CREATE_USER: "创建用户",
-  RESET_PASSWORD: "维护人员重置密码",
-  SYSTEM_UPDATE_REQUESTED: "请求更新系统",
-  SYSTEM_UPDATE_CHECKED: "检查系统版本",
+  SESSION_REVOKED: t("account.signOutSession"),
+  OTHER_SESSIONS_REVOKED: t("account.signOutOtherSessions"),
+  TRASH_AUTO_PURGED: t("account.automaticallyEmptyTrash"),
+  USER_UPDATED: t("account.updateAccountStatusOrQuota"),
+  CREATE_ADMIN: t("account.createAdministrator"),
+  CREATE_USER: t("account.createUser"),
+  RESET_PASSWORD: t("account.passwordResetByOperator"),
+  SYSTEM_UPDATE_REQUESTED: t("account.requestSystemUpdate"),
+  SYSTEM_UPDATE_CHECKED: t("account.checkSystemVersion"),
 }));
 const account = useUser(),
   activityPage = ref(1),
@@ -183,16 +181,16 @@ async function policy() {
   try {
     await ElMessageBox.confirm(
       trashDays.value
-        ? `启用后，删除超过 ${trashDays.value} 天的内容会永久清理，无法恢复。`
-        : "关闭回收站自动清理。",
-      "回收站保留策略",
+        ? t("account.retentionConfirm", { days: trashDays.value })
+        : t("account.turnOffAutomaticTrashCleanup"),
+      t("account.trashRetention"),
       {
         confirmButtonText: t("common.save"),
         cancelButtonText: t("common.cancel"),
       },
     );
     await api.put("/user/trash-policy", { days: trashDays.value });
-    ElMessage.success("保留策略已保存");
+    ElMessage.success(t("account.retentionPolicySaved"));
   } catch (e) {
     if (e !== "cancel" && e !== "close") ElMessage.error(errorText(e));
   }
@@ -201,8 +199,8 @@ watch([activityPage, adminPage], extra);
 async function editUser(u: (typeof adminUsers.value)[number]) {
   try {
     const { value } = await ElMessageBox.prompt(
-      "新的容量配额（GiB）",
-      "调整用户配额",
+      t("account.newStorageQuotaGib"),
+      t("account.changeUserQuota"),
       {
         inputValue: String(u.storage_quota / 1024 ** 3),
         confirmButtonText: t("common.save"),
@@ -211,7 +209,7 @@ async function editUser(u: (typeof adminUsers.value)[number]) {
     );
     const quota = Number(value) * 1024 ** 3;
     if (!Number.isSafeInteger(quota) || quota < 0)
-      throw new Error("请输入有效容量");
+      throw new Error(t("account.enterAValidQuota"));
     await api.patch(`/admin/users/${u.id}`, { quota, enabled: u.enabled });
     await extra();
   } catch (e) {
@@ -221,8 +219,10 @@ async function editUser(u: (typeof adminUsers.value)[number]) {
 async function toggleUser(u: (typeof adminUsers.value)[number]) {
   try {
     await ElMessageBox.confirm(
-      `${u.enabled ? "禁用会退出该用户全部会话" : "将启用该用户"}。`,
-      "修改用户状态",
+      u.enabled
+        ? t("account.disablingSignsThisUserOutOf")
+        : t("account.thisUserWillBeEnabled"),
+      t("account.changeAccountStatus"),
       {
         confirmButtonText: t("common.confirm"),
         cancelButtonText: t("common.cancel"),
@@ -256,7 +256,7 @@ async function show() {
 async function revoke(id?: string) {
   try {
     await api.delete("/user/sessions" + (id ? "/" + id : ""));
-    ElMessage.success("已退出所选会话");
+    ElMessage.success(t("account.selectedSessionsSignedOut"));
     await load();
   } catch (e) {
     ElMessage.error(errorText(e));
@@ -264,18 +264,21 @@ async function revoke(id?: string) {
 }
 async function change() {
   if (newPassword.value !== confirmation.value) {
-    ElMessage.error("两次新密码不一致");
+    ElMessage.error(t("account.passwordsDoNotMatch"));
     return;
   }
   if (newPassword.value.length < 8) {
-    ElMessage.error("新密码至少 8 个字符");
+    ElMessage.error(t("account.useAPasswordOfAtLeast"));
     return;
   }
   try {
     await ElMessageBox.confirm(
-      "修改密码将退出所有设备，请重新登录。",
+      t("account.changingYourPasswordSignsOutAll"),
       t("settings.password"),
-      { confirmButtonText: "确认修改", cancelButtonText: t("common.cancel") },
+      {
+        confirmButtonText: t("account.confirmChange"),
+        cancelButtonText: t("common.cancel"),
+      },
     );
     busy.value = true;
     await api.post("/user/password", {
@@ -283,7 +286,7 @@ async function change() {
       newPassword: newPassword.value,
     });
     visible.value = false;
-    ElMessage.success("密码已修改，请重新登录");
+    ElMessage.success(t("account.passwordChangedSignInAgain"));
     await router.push("/login");
     location.reload();
   } catch (e) {
@@ -329,14 +332,14 @@ async function change() {
     <el-tabs v-model="activeTab" class="account-tabs" tab-position="left">
       <el-tab-pane name="password" :label="t('settings.password')">
         <el-form label-position="top" @submit.prevent="change">
-          <el-form-item label="原密码"
+          <el-form-item :label="t('account.currentPassword')"
             ><el-input
               v-model="oldPassword"
               type="password"
               show-password
               autocomplete="current-password"
           /></el-form-item>
-          <el-form-item label="新密码（8～64 个字符）"
+          <el-form-item :label="t('account.newPassword864Characters')"
             ><el-input
               v-model="newPassword"
               type="password"
@@ -351,51 +354,54 @@ async function change() {
               show-password
               autocomplete="new-password"
           /></el-form-item>
-          <el-button type="primary" :loading="busy" native-type="submit"
-            >修改密码并退出所有设备</el-button
-          >
+          <el-button type="primary" :loading="busy" native-type="submit">{{
+            t("account.changePasswordAndSignOutAll")
+          }}</el-button>
         </el-form>
       </el-tab-pane>
       <el-tab-pane name="access" :label="t('settings.clients')"
-        ><AccessSettings :active="visible && activeTab === 'access'"
-      /></el-tab-pane>
-      <el-tab-pane name="sync" :label="t('syncDevices.title')"
-        ><SyncDevices :active="visible && activeTab === 'sync'"
-      /></el-tab-pane>
+        ><AccessSettings :active="visible && activeTab === 'access'" />
+        <h3>{{ t("syncDevices.title") }}</h3>
+        <SyncDevices :active="visible && activeTab === 'access'" />
+      </el-tab-pane>
       <el-tab-pane name="sessions" :label="t('settings.sessions')">
-        <p>客户端信息用于辅助识别。最近活动时间最多延迟一分钟。</p>
-        <el-button @click="revoke()">退出其他会话</el-button>
+        <p>{{ t("account.clientDetailsHelpIdentifySessionsLast") }}</p>
+        <el-button @click="revoke()">{{
+          t("account.signOutOtherSessions")
+        }}</el-button>
         <el-table :data="sessions"
-          ><el-table-column label="客户端" min-width="180"
+          ><el-table-column :label="t('account.client')" min-width="180"
             ><template #default="{ row }"
-              >{{ row.current ? "当前会话 · " : ""
+              >{{ row.current ? t("account.currentSession") : ""
               }}{{ row.client_label }}</template
             ></el-table-column
-          ><el-table-column label="最近活动" min-width="150"
+          ><el-table-column :label="t('account.lastActive')" min-width="150"
             ><template #default="{ row }">{{
               date(row.last_seen)
             }}</template></el-table-column
           ><el-table-column :label="t('common.actions')" width="80"
             ><template #default="{ row }"
-              ><el-button v-if="!row.current" text @click="revoke(row.id)"
-                >退出</el-button
-              ></template
+              ><el-button v-if="!row.current" text @click="revoke(row.id)">{{
+                t("account.signOut")
+              }}</el-button></template
             ></el-table-column
           ></el-table
         >
       </el-tab-pane>
-      <el-tab-pane name="space" :label="t('settings.space')"
-        ><template v-if="space"
-          ><p>有效文件：{{ bytes(space.live) }}</p>
-          <p>回收站当前内容：{{ bytes(space.trash) }}</p>
-          <p>全部历史版本：{{ bytes(space.versions) }}</p>
-          <p>上传预留：{{ bytes(space.reserved) }}</p>
-          <p>回收站继续占用配额；同内容副本按各自大小计费。</p></template
-        ></el-tab-pane
-      >
-      <el-tab-pane name="trash" :label="t('settings.trash')"
-        ><p>
-          默认关闭自动清理。启用后按服务器时间每小时检查，永久清理不会进入另一个回收站。
+      <el-tab-pane name="trash" :label="t('settings.trash')">
+        <template v-if="space"
+          ><p>{{ t("account.activeFiles") }} {{ bytes(space.live) }}</p>
+          <p>{{ t("account.trash") }} {{ bytes(space.trash) }}</p>
+          <p>{{ t("account.allFileVersions") }} {{ bytes(space.versions) }}</p>
+          <p>
+            {{ t("account.reservedForUploads") }} {{ bytes(space.reserved) }}
+          </p>
+          <p>{{ t("account.trashCountsTowardsYourQuotaEach") }}</p></template
+        >
+
+        <h3>{{ t("settings.retention") }}</h3>
+        <p>
+          {{ t("account.automaticCleanupIsOffByDefault") }}
         </p>
         <div
           style="
@@ -410,25 +416,30 @@ async function change() {
             v-model="trashDays"
             :min="0"
             :max="365"
-            aria-label="回收站保留天数"
-          /><span>天（0 表示关闭）</span
-          ><el-button @click="policy">保存保留策略</el-button>
+            :aria-label="t('account.trashRetentionDays')"
+          /><span>{{ t("account.days0DisablesCleanup") }}</span
+          ><el-button @click="policy">{{
+            t("account.saveRetentionPolicy")
+          }}</el-button>
         </div></el-tab-pane
       >
       <el-tab-pane name="activity" :label="t('settings.activity')"
-        ><p>每页 50 条安全与整理、版本和自动清理操作，保留 90 天。</p>
+        ><p>{{ t("account.securityOrganizationVersionAndCleanupEvents") }}</p>
         <div>
-          <el-button :disabled="activityPage <= 1" @click="activityPage--"
-            >上一页活动</el-button
-          ><span>第 {{ activityPage }} 页</span
-          ><el-button :disabled="activity.length < 50" @click="activityPage++"
-            >下一页活动</el-button
+          <el-button :disabled="activityPage <= 1" @click="activityPage--">{{
+            t("account.previousEvents")
+          }}</el-button
+          ><span>{{ t("account.page", { page: activityPage }) }}</span
+          ><el-button
+            :disabled="activity.length < 50"
+            @click="activityPage++"
+            >{{ t("account.nextEvents") }}</el-button
           >
         </div>
         <el-table :data="activity"
           ><el-table-column :label="t('common.actions')"
             ><template #default="{ row }">{{
-              activityLabels[row.action] || "其他操作"
+              activityLabels[row.action] || t("account.otherAction")
             }}</template></el-table-column
           ><el-table-column :label="t('common.time')"
             ><template #default="{ row }">{{
@@ -453,18 +464,18 @@ async function change() {
       >
         <div class="admin-overview">
           <div class="admin-stat">
-            <span>剩余磁盘</span
+            <span>{{ t("account.freeDiskSpace") }}</span
             ><strong>{{ bytes(adminStatus.freeBytes || 0) }}</strong>
           </div>
           <div class="admin-stat">
-            <span>待处理上传</span
+            <span>{{ t("account.pendingUploads") }}</span
             ><strong
               >{{ adminStatus.pendingUploads || 0 }}
               <small>{{ t("drive.items") }}</small></strong
             >
           </div>
           <div class="admin-stat">
-            <span>待清理对象</span
+            <span>{{ t("account.objectsAwaitingCleanup") }}</span
             ><strong
               >{{ adminStatus.pendingDeletes || 0 }}
               <small>{{ t("drive.items") }}</small></strong
@@ -474,47 +485,49 @@ async function change() {
         <section class="admin-card invitation-card">
           <div class="admin-section-heading">
             <div>
-              <h3>邀请新成员</h3>
-              <p>每个链接限用一次，48 小时后失效。</p>
+              <h3>{{ t("account.inviteAMember") }}</h3>
+              <p>{{ t("account.eachLinkCanBeUsedOnce") }}</p>
             </div>
-            <el-button type="primary" :loading="inviteBusy" @click="invite"
-              >邀请新用户</el-button
-            >
+            <el-button type="primary" :loading="inviteBusy" @click="invite">{{
+              t("account.inviteUser")
+            }}</el-button>
           </div>
           <div v-if="inviteLink" class="invitation-result">
-            <label>邀请注册链接</label>
+            <label>{{ t("account.registrationInvitationLink") }}</label>
             <div class="invitation-link">
               <el-input
                 v-if="inviteLink"
                 :model-value="inviteLink"
                 readonly
-                aria-label="邀请注册链接"
+                :aria-label="t('account.registrationInvitationLink')"
               /><el-button @click="copyInvite">{{
                 t("drive.copyLink")
               }}</el-button>
             </div>
-            <p>链接仅在本次创建时显示，请复制后发送给受邀人。</p>
+            <p>{{ t("account.thisLinkIsShownOnlyNow") }}</p>
           </div>
         </section>
         <section class="admin-card">
           <div class="admin-section-heading">
             <div>
-              <h3>用户管理</h3>
-              <p>管理账号的存储配额和访问状态。</p>
+              <h3>{{ t("account.userManagement") }}</h3>
+              <p>{{ t("account.manageAccountQuotasAndAccess") }}</p>
             </div>
-            <span class="page-label">第 {{ adminPage }} 页</span>
+            <span class="page-label">{{
+              t("account.page", { page: adminPage })
+            }}</span>
           </div>
           <el-table
             :data="adminUsers"
             class="admin-user-table"
-            empty-text="暂无用户"
+            :empty-text="t('account.noUsers')"
           >
             <el-table-column
               prop="username"
               :label="t('common.account')"
               min-width="150"
             />
-            <el-table-column label="存储使用" min-width="180"
+            <el-table-column :label="t('account.storageUsage')" min-width="180"
               ><template #default="{ row }"
                 ><strong>{{ bytes(row.storage_used) }}</strong
                 ><span class="quota-detail">
@@ -528,34 +541,44 @@ async function change() {
                   :type="row.enabled ? 'success' : 'info'"
                   size="small"
                   >{{
-                    row.enabled ? t("nodeSettings.active") : "已禁用"
+                    row.enabled
+                      ? t("nodeSettings.active")
+                      : t("account.disabled")
                   }}</el-tag
                 ></template
               ></el-table-column
             >
-            <el-table-column label="管理" width="180"
+            <el-table-column :label="t('account.manage')" width="180"
               ><template #default="{ row }"
-                ><el-button link type="primary" @click="editUser(row)"
-                  >调整配额</el-button
+                ><el-button link type="primary" @click="editUser(row)">{{
+                  t("account.changeQuota")
+                }}</el-button
                 ><el-button
                   link
                   :disabled="row.id === account.user?.id"
                   :type="row.enabled ? 'danger' : 'primary'"
                   @click="toggleUser(row)"
-                  >{{ row.enabled ? "禁用" : t("common.enable") }}</el-button
+                  >{{
+                    row.enabled ? t("account.disable") : t("common.enable")
+                  }}</el-button
                 ></template
               ></el-table-column
             >
           </el-table>
           <div class="account-pagination">
-            <el-button :disabled="adminPage <= 1" @click="adminPage--"
-              >上一页用户</el-button
-            ><el-button :disabled="adminUsers.length < 50" @click="adminPage++"
-              >下一页用户</el-button
+            <el-button :disabled="adminPage <= 1" @click="adminPage--">{{
+              t("account.previousUsers")
+            }}</el-button
+            ><el-button
+              :disabled="adminUsers.length < 50"
+              @click="adminPage++"
+              >{{ t("account.nextUsers") }}</el-button
             >
           </div>
         </section>
-        <p class="account-hint">初始管理员与账号恢复由服务器维护人员处理。</p>
+        <p class="account-hint">
+          {{ t("account.initialAdministratorSetupAndAccountRecovery") }}
+        </p>
       </el-tab-pane>
       <el-tab-pane
         v-if="account.user?.administrator"
@@ -582,7 +605,12 @@ async function change() {
   margin-bottom: 24px;
 }
 .account-tabs :deep(.el-tabs__item) {
-  height: 48px;
+  min-height: 48px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  padding-block: 10px;
   font-size: 14px;
 }
 .account-tabs :deep(.el-tab-pane) {

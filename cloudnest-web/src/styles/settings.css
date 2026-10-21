@@ -7,7 +7,7 @@
 }
 .account-tabs.el-tabs--left > .el-tabs__header {
   flex-shrink: 0;
-  width: 168px;
+  width: 200px;
   margin: 0 24px 0 0;
 }
 .account-tabs.el-tabs--left .el-tabs__nav-wrap::after {
@@ -20,8 +20,12 @@
 .account-tabs.el-tabs--left .el-tabs__item {
   justify-content: flex-start;
   text-align: left;
-  height: 38px;
-  padding: 0 14px;
+  min-height: 38px;
+  height: auto;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+  padding: 10px 14px;
   margin-bottom: 2px;
   border-radius: 6px;
   font-size: 13px;

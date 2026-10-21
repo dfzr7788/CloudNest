@@ -6,6 +6,7 @@ import ThemeSwitcher from "../components/common/ThemeSwitcher.vue";
 import { api, bytes, date, errorText } from "../api";
 import { ElMessage } from "element-plus";
 import NodePolicyForm from "../components/nodes/NodePolicyForm.vue";
+import StorageOperations from "../components/nodes/StorageOperations.vue";
 import NodeSettings from "../components/nodes/NodeSettings.vue";
 import AgentDiagnostics from "../components/nodes/AgentDiagnostics.vue";
 import AgentRuntime from "../components/nodes/AgentRuntime.vue";
@@ -228,7 +229,7 @@ async function saveNode(n: any) {
           >
         </el-tab-pane>
         <el-tab-pane :label="t('nodes.jobs')" name="jobs"
-          ><p>
+          ><StorageOperations :active="tab === 'jobs'" /><p>
             {{ t("nodes.jobsHelp") }}
           </p>
           <el-table :data="data.jobs"

@@ -12,6 +12,8 @@ import {
   type AiTask,
 } from "../api/ai";
 import AiUsage from "./AiUsage.vue";
+import { useUser } from "../stores/user";
+const account = useUser();
 const props = defineProps<{ active: boolean }>();
 const enabled = ref(false),
   busy = ref(false),
@@ -238,6 +240,19 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <section v-loading="busy" class="ai-settings">
+    <div v-if="account.user?.administrator" class="site-ai-control">
+      <div>
+        <strong>{{ t("ai.siteControl") }}</strong>
+        <p>{{ t("ai.siteControlHelp") }}</p>
+      </div>
+      <el-button
+        :type="enabled ? 'danger' : 'primary'"
+        :disabled="busy"
+        @click="run(() => api.put('/ai/site-settings', { enabled: !enabled }))"
+      >
+        {{ enabled ? t("ai.disableSite") : t("ai.enableSite") }}
+      </el-button>
+    </div>
     <el-alert
       v-if="!enabled"
       :title="t('ai.disabledHelp')"
@@ -539,6 +554,21 @@ onBeforeUnmount(() => {
   </section>
 </template>
 <style scoped>
+.site-ai-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--cn-border);
+  border-radius: 8px;
+}
+.site-ai-control > div {
+  flex: 1;
+  min-width: min(240px, 100%);
+}
 .connection-card {
   padding: 14px;
   margin: 12px 0;
