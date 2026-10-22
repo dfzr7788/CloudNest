@@ -6285,10 +6285,38 @@
                   "warningPercent": {
                     "type": "string",
                     "maxLength": 4096
+                  },
+                  "agentTools": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
+                  },
+                  "agentRuntime": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
+                  },
+                  "agentApprovals": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
+                  },
+                  "sync": {
+                    "type": "string",
+                    "enum": [
+                      "true",
+                      "false"
+                    ]
                   }
                 },
                 "additionalProperties": false,
-                "description": "mail: host/port/username/password/from/tls/ssl/baseUrl; office: url/secret/baseUrl; storage: defaultBackend/warningPercent. Values are strings; other section fields are rejected. Empty password/secret preserves the saved value."
+                "description": "mail: host/port/username/password/from/tls/ssl/baseUrl; office: url/secret/baseUrl; storage: defaultBackend/warningPercent; features: agentTools/agentRuntime/agentApprovals/sync (string true or false, persistent runtime overrides). Values are strings; other section fields are rejected. Empty password/secret preserves the saved value."
               }
             }
           }

@@ -9,6 +9,13 @@ for (const width of [390, 1024, 1440]) {
       localStorage.setItem("cloudnest-locale", "en-US"),
     );
     let enabled = false;
+    const features: Record<string, string> = {
+      sync: "false",
+      agentTools: "false",
+      agentRuntime: "false",
+      agentApprovals: "false",
+    };
+    let rejectFeature = false;
     let administrator = true;
     const mutations: boolean[] = [];
     const errors: string[] = [];
@@ -17,6 +24,20 @@ for (const width of [390, 1024, 1440]) {
       (url) => url.pathname.startsWith("/api/"),
       async (route) => {
         const path = new URL(route.request().url()).pathname;
+        if (path === "/api/admin/config/features") {
+          if (route.request().method() === "PUT") {
+            if (rejectFeature) {
+              await route.fulfill({
+                status: 409,
+                json: { message: "Feature update rejected" },
+              });
+              return;
+            }
+            Object.assign(features, route.request().postDataJSON());
+          }
+          await route.fulfill({ json: features });
+          return;
+        }
         if (path === "/api/ai/site-settings") {
           enabled = route.request().postDataJSON().enabled;
           mutations.push(enabled);
@@ -104,6 +125,28 @@ for (const width of [390, 1024, 1440]) {
     ).toBeEnabled();
     expect(mutations).toEqual([true, false]);
     await select("Integrations");
+    const sync = dialog.getByRole("switch", {
+      name: "Sync devices",
+      exact: true,
+    });
+    await expect(sync).not.toBeChecked();
+    await dialog.locator(".feature-settings .el-switch").first().click();
+    await expect(sync).toBeChecked();
+    await page.reload();
+    await page
+      .getByRole("button", { name: "Account and security", exact: true })
+      .click();
+    await select("Integrations");
+    await expect(sync).toBeChecked();
+    rejectFeature = true;
+    await dialog.locator(".feature-settings .el-switch").first().click();
+    await expect(
+      dialog.getByText("Feature update rejected", { exact: true }),
+    ).toBeVisible();
+    await expect(sync).toBeChecked();
+    rejectFeature = false;
+    await dialog.locator(".feature-settings .el-switch").first().click();
+    await expect(sync).not.toBeChecked();
     await expect(
       dialog.getByText("Email and account recovery", { exact: true }),
     ).toBeVisible();

@@ -49,7 +49,7 @@ public class AgentApprovalService {
 
   public boolean available(String uid) {
     settings.admin(uid);
-    return enabled;
+    return settings.featureEnabled("agentApprovals", enabled);
   }
 
   public List<Map<String, Object>> tools(String uid) {

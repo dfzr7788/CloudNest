@@ -62,8 +62,92 @@ class AgentToolsTest {
   @Autowired RateLimits limits;
   @Autowired ObjectMapper json;
   @Autowired MockMvc mvc;
+  @Autowired com.cloudnest.sync.SyncDevices sync;
+  @Autowired com.cloudnest.agent.AgentExecutor executor;
+  @Autowired com.cloudnest.agent.AgentApprovalService approvals;
   @MockitoBean ModelGateway gateway;
   String admin, ordinary;
+
+  @Test
+  void administratorCanPersistAndImmediatelyApplyFeatureSwitches() throws Exception {
+    var original = settings.get("features");
+    var aiOriginal = settings.get("ai");
+    try {
+      String path = "/api/admin/config/features";
+      assertEquals(
+          403, mvc.perform(get(path).with(user(ordinary))).andReturn().getResponse().getStatus());
+      assertEquals(
+          403,
+          mvc.perform(
+                  put(path)
+                      .with(user(ordinary))
+                      .with(csrf())
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content("{\"sync\":\"true\"}"))
+              .andReturn()
+              .getResponse()
+              .getStatus());
+      for (String invalid :
+          List.of("{\"sync\":\"yes\"}", "{\"sync\":null}", "{\"unknown\":\"true\"}"))
+        assertEquals(
+            400,
+            mvc.perform(
+                    put(path)
+                        .with(user(admin))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalid))
+                .andReturn()
+                .getResponse()
+                .getStatus());
+      String enabled =
+          "{\"sync\":\"true\",\"agentTools\":\"true\",\"agentRuntime\":\"true\",\"agentApprovals\":\"true\"}";
+      assertEquals(
+          200,
+          mvc.perform(
+                  put(path)
+                      .with(user(admin))
+                      .with(csrf())
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(enabled))
+              .andReturn()
+              .getResponse()
+              .getStatus());
+      assertEquals("true", settings.get("features").get("sync"));
+      assertTrue(sync.enabled());
+      sync.require();
+      assertTrue(tools.available(admin).enabled());
+      assertTrue(approvals.available(admin));
+      settings.set("ai", Map.of("enabled", "true"));
+      assertEquals(true, executor.available(admin).get("enabled"));
+      assertEquals(
+          200,
+          mvc.perform(
+                  put(path)
+                      .with(user(admin))
+                      .with(csrf())
+                      .contentType(MediaType.APPLICATION_JSON)
+                      .content(enabled.replace("true", "false")))
+              .andReturn()
+              .getResponse()
+              .getStatus());
+      assertThrows(Problem.class, () -> sync.require());
+      assertFalse(tools.available(admin).enabled());
+      assertFalse(approvals.available(admin));
+      assertThrows(Problem.class, () -> executor.require(admin));
+      var saved =
+          json.readTree(
+              mvc.perform(get(path).with(user(admin)))
+                  .andReturn()
+                  .getResponse()
+                  .getContentAsByteArray());
+      assertEquals("false", saved.path("sync").asText());
+      assertEquals("false", saved.path("agentTools").asText());
+    } finally {
+      settings.set("features", original);
+      settings.set("ai", aiOriginal);
+    }
+  }
 
   String createUser(boolean administrator) {
     String id = Util.id();

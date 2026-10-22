@@ -100,9 +100,27 @@ public class AgentToolRegistry {
               EMPTY_SCHEMA,
               true,
               "ADMIN"),
-          new Tool("get_resilience_health", "Read snapshot counts, scan outcomes, and pending recovery states; no file names or content.", schema(false), true, "ADMIN"),
-          new Tool("get_team_capacity", "Read aggregate workspace quotas and contribution availability without member identities or secrets.", schema(false), true, "ADMIN"),
-          new Tool("get_migration_candidates", "Read cold-object handles and current placement for human review. Does not submit migrations.", schema(false), true, "ADMIN"));
+          new Tool(
+              "get_resilience_health",
+              "Read snapshot counts, scan outcomes, and pending recovery states; no file names or"
+                  + " content.",
+              schema(false),
+              true,
+              "ADMIN"),
+          new Tool(
+              "get_team_capacity",
+              "Read aggregate workspace quotas and contribution availability without member"
+                  + " identities or secrets.",
+              schema(false),
+              true,
+              "ADMIN"),
+          new Tool(
+              "get_migration_candidates",
+              "Read cold-object handles and current placement for human review. Does not submit"
+                  + " migrations.",
+              schema(false),
+              true,
+              "ADMIN"));
 
   public AgentToolRegistry(
       StorageDiagnostics diagnostics,
@@ -119,6 +137,7 @@ public class AgentToolRegistry {
 
   public Available available(String actorId) {
     settings.admin(actorId);
+    boolean enabled = settings.featureEnabled("agentTools", this.enabled);
     return new Available(
         enabled, "MANUAL_READ_ONLY_TOOLS", MAX_RESULT_BYTES, enabled ? TOOLS : List.of());
   }
@@ -126,7 +145,8 @@ public class AgentToolRegistry {
   public Result invoke(String actorId, String name, JsonNode arguments) {
     // Re-check authorization on every call, including direct service calls and feature discovery.
     settings.admin(actorId);
-    if (!enabled) throw new Problem(409, "AGENT_TOOLS_DISABLED", "只读 Agent 工具尚未启用");
+    if (!settings.featureEnabled("agentTools", enabled))
+      throw new Problem(409, "AGENT_TOOLS_DISABLED", "只读 Agent 工具尚未启用");
     limits.check("agent-tools:" + actorId, 30);
     var invocation = validated(name, arguments);
     Tool tool = invocation.tool();
@@ -139,13 +159,43 @@ public class AgentToolRegistry {
           case "get_node_events" -> diagnostics.events(actorId, backend, limit);
           case "get_active_storage_jobs" -> diagnostics.activeJobs(actorId, limit);
           case "explain_storage_policy" -> diagnostics.policy(actorId);
-          case "get_resilience_health" -> Map.of(
-              "snapshotCount", db.count("SELECT COUNT(*) FROM folder_snapshot"),
-              "tasks", db.list("SELECT kind,status,COUNT(*) AS total FROM resilience_task GROUP BY kind,status ORDER BY kind,status LIMIT ?",limit),
-              "scanResults", db.list("SELECT status,error_code,COUNT(*) AS total FROM integrity_scan_item GROUP BY status,error_code ORDER BY status LIMIT ?",limit),
-              "independentBackupRequired",true);
-          case "get_team_capacity" -> db.list("SELECT w.id,u.storage_quota,u.storage_used,u.storage_reserved,(SELECT COUNT(*) FROM storage_contribution c WHERE c.team_id=w.id AND c.status='APPROVED' AND c.last_heartbeat>?) AS active_contributions FROM team_workspace w JOIN sys_user u ON u.id=w.storage_user ORDER BY w.id LIMIT ?",System.currentTimeMillis()-120000,limit);
-          case "get_migration_candidates" -> Map.of("requiresHumanApproval",true,"objects",db.list("SELECT b.id,b.backend,b.size,b.desired_replicas,MAX(COALESCE(e.last_opened,e.created_at)) AS last_access FROM file_blob b JOIN drive_entry e ON e.blob_id=b.id WHERE b.status='READY' AND e.deleted=FALSE GROUP BY b.id,b.backend,b.size,b.desired_replicas HAVING MAX(COALESCE(e.last_opened,e.created_at))<? ORDER BY b.size DESC LIMIT ?",System.currentTimeMillis()-90L*86400000,limit));
+          case "get_resilience_health" ->
+              Map.of(
+                  "snapshotCount", db.count("SELECT COUNT(*) FROM folder_snapshot"),
+                  "tasks",
+                      db.list(
+                          "SELECT kind,status,COUNT(*) AS total FROM resilience_task GROUP BY"
+                              + " kind,status ORDER BY kind,status LIMIT ?",
+                          limit),
+                  "scanResults",
+                      db.list(
+                          "SELECT status,error_code,COUNT(*) AS total FROM integrity_scan_item"
+                              + " GROUP BY status,error_code ORDER BY status LIMIT ?",
+                          limit),
+                  "independentBackupRequired", true);
+          case "get_team_capacity" ->
+              db.list(
+                  "SELECT w.id,u.storage_quota,u.storage_used,u.storage_reserved,(SELECT COUNT(*)"
+                      + " FROM storage_contribution c WHERE c.team_id=w.id AND c.status='APPROVED'"
+                      + " AND c.last_heartbeat>?) AS active_contributions FROM team_workspace w"
+                      + " JOIN sys_user u ON u.id=w.storage_user ORDER BY w.id LIMIT ?",
+                  System.currentTimeMillis() - 120000,
+                  limit);
+          case "get_migration_candidates" ->
+              Map.of(
+                  "requiresHumanApproval",
+                  true,
+                  "objects",
+                  db.list(
+                      "SELECT"
+                          + " b.id,b.backend,b.size,b.desired_replicas,MAX(COALESCE(e.last_opened,e.created_at))"
+                          + " AS last_access FROM file_blob b JOIN drive_entry e ON e.blob_id=b.id"
+                          + " WHERE b.status='READY' AND e.deleted=FALSE GROUP BY"
+                          + " b.id,b.backend,b.size,b.desired_replicas HAVING"
+                          + " MAX(COALESCE(e.last_opened,e.created_at))<? ORDER BY b.size DESC"
+                          + " LIMIT ?",
+                      System.currentTimeMillis() - 90L * 86400000,
+                      limit));
           default -> throw new IllegalStateException("Unregistered tool");
         };
     if (data == null) throw new Problem(502, "AGENT_RESULT_INVALID", "诊断数据无效");

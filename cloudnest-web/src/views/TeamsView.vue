@@ -27,6 +27,38 @@ const failure = ref(""),
   total = ref(0);
 const newTeam = ref({ name: "", quotaGiB: 1 }),
   invitation = ref("");
+const availableQuota = computed(() =>
+  user.user && Number.isFinite(user.user.quota)
+    ? Math.max(0, user.user.quota - user.user.used - user.user.reserved)
+    : null,
+);
+const createProblem = computed(() => {
+  if (!newTeam.value.name.trim()) return t("features.teamNameRequired");
+  const quota = Math.floor(Number(newTeam.value.quotaGiB) * 1024 ** 3);
+  if (!Number.isSafeInteger(quota) || quota < 1024)
+    return t("next.invalidQuota");
+  if (availableQuota.value !== null && quota > availableQuota.value)
+    return t("features.teamQuotaInsufficient");
+  return "";
+});
+async function createTeam() {
+  if (busy.value || createProblem.value) return;
+  let created: { id: string } | undefined;
+  await act(async () => {
+    created = (
+      await api.post("/teams", {
+        name: newTeam.value.name.trim(),
+        quota: Math.floor(newTeam.value.quotaGiB * 1024 ** 3),
+      })
+    ).data;
+    await user.load();
+  });
+  if (created) {
+    newTeam.value.name = "";
+    const team = workspaces.value.find((w) => w.id === created!.id);
+    if (team) await choose(team);
+  }
+}
 const acl = ref({ entry: "", user: "", permission: "READ" });
 const moving = ref<any>(null);
 const selectedFiles = ref<any[]>([]),
@@ -450,20 +482,20 @@ async function register() {
           :precision="3"
         /><span>GiB</span
         ><el-button
-          :disabled="!newTeam.name"
+          :disabled="busy || !!createProblem"
           type="primary"
-          @click="
-            act(() =>
-              api.post('/teams', {
-                name: newTeam.name,
-                quota: Math.floor(newTeam.quotaGiB * 1024 ** 3),
-              }),
-            )
-          "
+          @click="createTeam"
           >{{ t("next.createTeam") }}</el-button
         >
       </div>
       <p class="muted">{{ t("next.teamQuotaNotice") }}</p>
+      <p class="muted">{{ t("features.teamsAlwaysOn") }}</p>
+      <p v-if="availableQuota !== null" class="muted">
+        {{ t("features.teamAvailable", { size: bytes(availableQuota) }) }}
+      </p>
+      <p v-if="createProblem" class="muted" role="status">
+        {{ createProblem }}
+      </p>
       <div class="next-toolbar">
         <el-input
           v-model="invitation"

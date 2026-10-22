@@ -20,8 +20,23 @@ public class ConfigurationController {
 
   private final RuntimeSettings settings;
   private final MailRecovery mail;
+
+  @org.springframework.beans.factory.annotation.Value("${cloudnest.agent.tools-enabled:false}")
+  private boolean toolsEnabled;
+
+  @org.springframework.beans.factory.annotation.Value("${cloudnest.agent.runtime-enabled:false}")
+  private boolean runtimeEnabled;
+
+  @org.springframework.beans.factory.annotation.Value("${cloudnest.agent.approvals-enabled:false}")
+  private boolean approvalsEnabled;
+
+  @org.springframework.beans.factory.annotation.Value("${cloudnest.sync.enabled:false}")
+  private boolean syncEnabled;
+
   private static final Map<String, Set<String>> FIELDS =
       Map.of(
+          "features",
+          Set.of("agentTools", "agentRuntime", "agentApprovals", "sync"),
           "mail",
           Set.of("host", "port", "username", "password", "from", "tls", "ssl", "baseUrl"),
           "office",
@@ -43,6 +58,12 @@ public class ConfigurationController {
     settings.admin(a.getName());
     section(section);
     var value = settings.get(section);
+    if (section.equals("features")) {
+      value.putIfAbsent("agentTools", Boolean.toString(toolsEnabled));
+      value.putIfAbsent("agentRuntime", Boolean.toString(runtimeEnabled));
+      value.putIfAbsent("agentApprovals", Boolean.toString(approvalsEnabled));
+      value.putIfAbsent("sync", Boolean.toString(syncEnabled));
+    }
     for (String key : List.of("password", "secret"))
       if (value.containsKey(key)) {
         value.put(key + "Configured", Boolean.toString(!value.get(key).isBlank()));
@@ -57,6 +78,10 @@ public class ConfigurationController {
     settings.admin(a.getName());
     section(section);
     if (!FIELDS.get(section).containsAll(input.keySet())) throw Problem.invalid("未知配置字段");
+    if (section.equals("features")
+        && input.values().stream()
+            .anyMatch(v -> !Set.of("true", "false").contains(v == null ? "" : v)))
+      throw Problem.invalid("功能开关必须为 true 或 false");
     var value = settings.get(section);
     for (var entry : input.entrySet()) {
       if (entry.getValue() == null || entry.getValue().length() > 4096)

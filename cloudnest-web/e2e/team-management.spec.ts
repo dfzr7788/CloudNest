@@ -1,5 +1,71 @@
 import { test, expect, type Page } from "@playwright/test";
 
+test("administrator gets creation requirements and newly created team opens", async ({
+  page,
+}) => {
+  await setup(page);
+  await page.route("**/api/user/me", (route) =>
+    route.fulfill({
+      json: {
+        id: "owner",
+        rootId: "personal",
+        nickname: "Owner",
+        administrator: true,
+        quota: 1024 ** 3,
+        used: 0,
+        reserved: 0,
+      },
+    }),
+  );
+  const teams = [
+    {
+      id: "team",
+      name: "Demo",
+      root_id: "root",
+      file_role: "OWNER",
+      storage_used: 0,
+      storage_quota: 1024,
+    },
+  ];
+  let submitted: any;
+  await page.route("**/api/teams", async (route) => {
+    if (route.request().method() === "POST") {
+      submitted = route.request().postDataJSON();
+      teams.push({
+        id: "new",
+        name: submitted.name,
+        root_id: "new-root",
+        file_role: "OWNER",
+        storage_used: 0,
+        storage_quota: submitted.quota,
+      });
+      await route.fulfill({ json: { id: "new", rootId: "new-root" } });
+    } else await route.fulfill({ json: teams });
+  });
+  await page.reload();
+  const create = page.getByRole("button", { name: "Create team", exact: true });
+  await expect(create).toBeDisabled();
+  await expect(page.getByRole("status")).toContainText("Enter a team name");
+  await page.getByPlaceholder("Team name", { exact: true }).fill("   ");
+  await expect(create).toBeDisabled();
+  await page
+    .getByPlaceholder("Team name", { exact: true })
+    .fill("  New team  ");
+  const quota = page.locator(".next-panel").first().getByRole("spinbutton");
+  await quota.fill("2");
+  await expect(create).toBeDisabled();
+  await expect(page.getByRole("status")).toContainText(
+    "Insufficient personal quota",
+  );
+  await quota.fill("0.5");
+  await expect(create).toBeEnabled();
+  await create.click();
+  await expect(
+    page.getByRole("heading", { name: "New team", exact: true }),
+  ).toBeVisible();
+  expect(submitted).toEqual({ name: "New team", quota: 1024 ** 3 / 2 });
+});
+
 async function setup(page: Page, role = "OWNER") {
   await page.addInitScript(() =>
     localStorage.setItem("cloudnest-locale", "en-US"),

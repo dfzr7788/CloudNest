@@ -32,6 +32,10 @@ public class RuntimeSettings {
     identity.requireAdministrator(uid);
   }
 
+  public boolean featureEnabled(String name, boolean fallback) {
+    return Boolean.parseBoolean(get("features").getOrDefault(name, Boolean.toString(fallback)));
+  }
+
   public Map<String, String> get(String section) {
     var rows = db.list("SELECT setting_value FROM system_setting WHERE name=?", section);
     if (rows.isEmpty()) return new LinkedHashMap<>();

@@ -19,12 +19,17 @@ public class SyncDevices {
   private final Db db;
   private final RateLimits limits;
   private final boolean enabled;
+  private final com.cloudnest.user.RuntimeSettings settings;
 
   public SyncDevices(
-      Db db, RateLimits limits, @Value("${cloudnest.sync.enabled:false}") boolean enabled) {
+      Db db,
+      RateLimits limits,
+      com.cloudnest.user.RuntimeSettings settings,
+      @Value("${cloudnest.sync.enabled:false}") boolean enabled) {
     this.db = db;
     this.limits = limits;
     this.enabled = enabled;
+    this.settings = settings;
   }
 
   @PostConstruct
@@ -33,11 +38,11 @@ public class SyncDevices {
   }
 
   public boolean enabled() {
-    return enabled;
+    return settings.featureEnabled("sync", enabled);
   }
 
   public void require() {
-    if (!enabled) throw new Problem(409, "SYNC_DISABLED", "Sync development profile is disabled");
+    if (!enabled()) throw new Problem(409, "SYNC_DISABLED", "Sync is disabled");
   }
 
   public Map<String, Object> issue(String uid, String name) {

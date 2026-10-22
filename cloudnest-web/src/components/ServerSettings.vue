@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
+import FeatureSettings from "./FeatureSettings.vue";
 import { t } from "../i18n";
 import { ElMessage } from "element-plus";
 import { api, errorText } from "../api";
@@ -64,6 +65,7 @@ function clean(config: Record<string, string>) {
 </script>
 <template>
   <div class="server-settings" v-loading="busy">
+    <FeatureSettings :active="active" />
     <h3>{{ t("services.mailTitle") }}</h3>
     <el-form label-position="top" class="settings-form">
       <el-form-item :label="t('services.smtpHost')"

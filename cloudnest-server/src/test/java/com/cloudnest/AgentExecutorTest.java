@@ -15,13 +15,16 @@ class AgentExecutorTest {
   final ObjectMapper json = new ObjectMapper();
   final AgentToolRegistry registry = mock(AgentToolRegistry.class);
   final com.cloudnest.ai.AiConnectionService ai = mock(com.cloudnest.ai.AiConnectionService.class);
+  final com.cloudnest.user.RuntimeSettings settings =
+      mock(com.cloudnest.user.RuntimeSettings.class);
   final AgentExecutor executor =
-      new AgentExecutor(registry, json, mock(AgentApprovalService.class), ai, true);
+      new AgentExecutor(registry, json, mock(AgentApprovalService.class), ai, settings, true);
   final List<Map<String, Object>> checkpoints = new ArrayList<>();
 
   @BeforeEach
   void setup() {
     when(ai.enabled()).thenReturn(true);
+    when(settings.featureEnabled("agentRuntime", true)).thenReturn(true);
     when(registry.available("admin"))
         .thenReturn(
             new AgentToolRegistry.Available(
@@ -220,7 +223,7 @@ class AgentExecutorTest {
     assertThrows(
         Problem.class,
         () ->
-            new AgentExecutor(registry, json, mock(AgentApprovalService.class), ai, false)
+            new AgentExecutor(registry, json, mock(AgentApprovalService.class), ai, settings, false)
                 .require("admin"));
     when(registry.available("admin")).thenThrow(new Problem(403, "ADMIN_REQUIRED", "revoked"));
     assertThrows(Problem.class, () -> executor.available("admin"));

@@ -168,7 +168,7 @@ Markdown 使用原 preview 接口返回 UTF-8 文本，最多 2 MiB，前端按�
 | POST /api/public/auth/forgot | account，异步发送找回邮件，返回统一提示 |
 | POST /api/public/auth/reset | token/password，撤销会话与应用密码，不移除MFA |
 | /dav/ | 独立Basic应用密码认证，拒绝主密码与Cookie；基础WebDAV方法（不提供LOCK/PROPPATCH） |
-| GET/PUT /api/admin/config/{section} | section为mail/office/storage；密钥脱敏，空密钥保留原值 |
+| GET/PUT /api/admin/config/{section} | section为mail/office/storage/features；features 支持 agentTools/agentRuntime/agentApprovals/sync，值为字符串 true/false，保存后覆盖部署默认并立即生效；密钥脱敏，空密钥保留原值 |
 | POST /api/admin/config/{section}/test | SMTP测试收件人或Office健康检查 |
 | GET /api/admin/storage | 策略、后端对象用量、磁盘容量告警、迁移任务 |
 | POST/DELETE /api/admin/storage/policies[/{id}] | 新建/修改S3策略或删除未使用策略 |
