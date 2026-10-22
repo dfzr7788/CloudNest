@@ -1,12 +1,12 @@
 # CloudNest Windows Sync — development preview
 
-This is an opt-in prototype for isolated, independently backed-up test data. The server must use
-the opt-in `connected-dev` capabilities profile. Horizon Next keeps its unchanged migrations in the canonical schema history. It is **not a stable 2.1 release**.
+This is an opt-in prototype for isolated, independently backed-up test data. Enable sync in the server runtime settings or use
+the opt-in `connected-dev` capabilities profile. Schema migrations use the canonical history. This client is a **development preview**.
 
 Requirements: Windows, Python 3.11+ with Tcl/Tk, HTTPS CloudNest origin and a device token generated
 in **Account and security → Sync devices**. No account password or S3 credential is stored by this app.
 
-For the separate Windows WebDAV drive-letter MVP, run `mount.ps1 -Server https://cloud.example.com/ -Drive N` and enter a dedicated WebDAV application password at the prompt. This uses Windows WebClient caching and file size limits; it does not provide native WinFsp or offline writeback. Close open files and confirm applications saved their changes before `mount.ps1 -Server https://cloud.example.com/ -Drive N -Unmount`. See [Horizon Next](../../docs/horizon-next.md).
+For the separate Windows WebDAV drive-letter MVP, run `mount.ps1 -Server https://cloud.example.com/ -Drive N` and enter a dedicated WebDAV application password at the prompt. This uses Windows WebClient caching and file size limits; it does not provide native WinFsp or offline writeback. Close open files and confirm applications saved their changes before `mount.ps1 -Server https://cloud.example.com/ -Drive N -Unmount`. See [功能说明](../../docs/features.md).
 
 ## Desktop installation
 

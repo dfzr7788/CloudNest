@@ -43,8 +43,8 @@ verified replicas in independent failure domains. Replication does not replace b
 
 AI is optional and disabled by default. Existing assistants use your configured
 external provider; review what content is sent and the request budget before
-confirming a chargeable request. Administrator Agent Runtime, approval-based
-Agent migrations and Windows bidirectional sync remain planned 2.1 work.
+confirming a chargeable request. Bounded administrator Agent runs, human approvals and the Windows sync client
+are available as opt-in development previews. See the [feature guide (Chinese)](../features.md).
 
 
 ## Account email language

@@ -2,9 +2,9 @@
 
 [简体中文](../agent-tools.md) · [English home](../../README.en.md)
 
-This 2.1 foundation exposes five administrator-only diagnostic tools and a manual
-console. It does not call models, plan autonomously, persist Agent runs or modify
-files and nodes. AI provider configuration is not required.
+The manual diagnostic console exposes administrator-only read-only tools.
+Manual queries do not call models or modify files and nodes. AI provider configuration
+is not required. Optional [Agent runs and approvals](agent-runtime.md) use the same tool boundary.
 
 Set `AGENT_TOOLS_ENABLED=true` in the deployment environment and recreate the
 application using the normal procedure for your verified source or image revision.
@@ -35,4 +35,4 @@ health-check time is a separate field. Private file names, object paths, credent
 user identifiers and raw provider errors are excluded from tool data.
 See the [OpenAPI contract](../openapi.json) for response types.
 
-The subsequent [bounded runtime](agent-runtime.md) provides model tool negotiation and durable steps using existing AI tables. Human proposals use only the isolated development schema. Production schema changes and stable release remain subject to the [existing acceptance gates](../connected-workspace.md).
+The subsequent [bounded runtime](agent-runtime.md) provides model tool negotiation and durable steps using existing AI tables. Human proposals use only the isolated development schema. Production schema changes and stable release remain subject to the [existing acceptance gates](../features.md).

@@ -1,22 +1,28 @@
-# CloudNest Horizon Next
+# CloudNest
 
-[简体中文](README.md) · English
+English · [简体中文](README.md)
 
-Self-hosted, multi-user file storage with resumable uploads, previews, sharing,
-versions, trash, WebDAV, multiple S3-compatible nodes and verified replicas.
-The backend runs Java 21 / Spring Boot with MySQL and Redis; the web app uses Vue 3.
-The default deployment runs one application process.
+CloudNest is a self-hosted, multi-user file drive with personal file management, team workspaces, multiple storage nodes and data protection. Optional AI features use your own API provider.
 
-Current development version: **2.3.0-dev.1**. The 2.2/2.3 implementation includes folder snapshots, recoveries, integrity scans, transfer fallback, team ACLs and scoped contribution nodes. See [Horizon Next](docs/horizon-next.md) and its [API contract](docs/horizon-next-api.md). Windows mounting currently uses WebDAV; native WinFsp, offline writeback and the encrypted vault are not implemented. Real Windows mounting, Garage public direct uploads and cross-machine stability tests remain release gates.
+Current version: `2.3.0-dev.1` (development preview). The backend supports one application instance. Windows sync, WebDAV drive mapping and public direct uploads have the limitations described in the [feature guide (Chinese)](docs/features.md#功能边界).
 
-The 2.1 Connected Workspace baseline includes:
-Opt-in [bounded Agent runs and human proposals](docs/en/agent-runtime.md), resource topology, and a [Windows sync development client](clients/windows-sync/README.md) are implemented as development features, not a stable release.
-Real Garage failure/recovery tests, isolated restoration and 1 GB VPS measurements
-remain release gates. See the [delivery status](docs/connected-workspace.md).
+## Features
+
+| Area | Capabilities |
+| --- | --- |
+| Files and transfers | Folders, favorites, tags, full-text search, cross-folder selection, resumable uploads, SHA-256 verification and ZIP download tasks |
+| Reading and sharing | Image, PDF, Markdown and Office reading previews, version history, password-protected shares, collections and upload-only links |
+| Teams | Invitations, member roles, directory ACLs, allocated quotas, team recycle bin and audit records |
+| Data protection | Directory snapshots, comparisons, copy-based restoration, scheduled policies and integrity checks |
+| Storage | Local and S3-compatible storage, capacity budgets, placement policies, migrations, verified replicas and team-contributed nodes |
+| Accounts | Session management, TOTP, email recovery and revocable WebDAV application passwords |
+| Optional services | OnlyOffice, Windows sync prototype, AI reading and knowledge search, read-only diagnostics, bounded Agent runs and human approvals |
+
+AI is disabled by default. Uploading files or saving settings does not call a model. Review external data transfer and costs before confirming requests. Replicas and snapshots do not replace independent backups.
 
 ## Install on Linux
 
-Prerequisites: Git, OpenSSL, Python 3, Docker Engine and Docker Compose 2.24.4+.
+Requirements: Git, OpenSSL, Python 3, Docker Engine and Docker Compose 2.24.4+.
 
 ```bash
 git clone https://github.com/duyan9030-dotcom/CloudNest.git
@@ -27,50 +33,43 @@ docker compose up -d --build --wait --wait-timeout 180
 bash scripts/create-admin.sh owner
 ```
 
-Choose a password interactively. There is no default administrator password.
-Check that the maintenance result reports `problems: 0` and `action: create-admin`.
-Allow inbound TCP 8088, then visit `http://YOUR_SERVER_IP:8088`.
-Public registration is disabled by default; administrators can invite users.
-Configure HTTPS and `SECURE_COOKIES=true` for long-term public use.
-Keep `SECURE_COOKIES=false` when testing over plain HTTP.
+Choose the administrator password interactively; there is no default password. Check for `problems: 0` and `action: create-admin`. Allow inbound TCP 8088 and visit `http://YOUR_SERVER_IP:8088`. Public registration is disabled by default; administrators can invite users.
 
-The language selector on the login page and drive toolbar switches between
-Simplified Chinese and English without resetting the page. Core file management
-and the node center have translations; secondary dialogs and some server messages
-are still in Chinese.
+The initialization script generates random secrets and preserves existing `.env` files. Use HTTPS and `SECURE_COOKIES=true` for public deployment; use `false` for plain HTTP. See the [deployment guide](docs/en/deployment.md).
 
 ## Data and upgrades
 
-Back up MySQL, local files, signing keys, deployment configuration and remote S3
-objects as a consistent set. **`docker compose down -v` deletes business data volumes.**
-Validate restoration before upgrading. After Flyway migrations, switching to an
-older JAR alone does not restore the previous database state.
+Back up MySQL, local and remote objects, signing keys, deployment configuration and the running version as a consistent set. **`docker compose down -v` deletes business data volumes.** Verify restoration before upgrading. Source deployments can then run:
 
-AI is disabled by default and uses a user-configured external API when enabled.
-Saving configuration or uploading files does not automatically request a model.
-Existing AI assistants do not provide an autonomous administrator Agent Runtime.
+```bash
+git pull --ff-only
+docker compose config --quiet
+docker compose up -d --build --wait --wait-timeout 180
+```
 
-## Documentation
-
-- [Deployment and upgrades](docs/en/deployment.md)
-- [Using the drive](docs/en/usage.md)
-- [Troubleshooting](docs/en/troubleshooting.md)
-- [Read-only diagnostic tools](docs/en/agent-tools.md)
-- [Chinese documentation](README.md#文档导航)
-- [API reference](docs/api.md) / [OpenAPI](docs/openapi.json)
-- [Security policy](SECURITY.md)
+After database migrations, changing the image alone cannot restore the previous database. Prebuilt images and web updates are covered in the [system update guide (Chinese)](docs/system-updates.md).
 
 ## Development
 
-Java 21, Maven 3.9+, and Node.js 22.13+ or 24 are required.
+The frontend uses Vue 3 and TypeScript; the backend uses Java 21 and Spring Boot. Docker uses MySQL and Redis; local development supports H2 and local storage.
+
+Install Java 21, Maven 3.9+ and Node.js 22.13+ or 24. Run these in separate PowerShell windows:
 
 ```powershell
 .\scripts\dev.ps1 server
 .\scripts\dev.ps1 web
 ```
 
-Open `http://127.0.0.1:5173`. Local development uses H2 and local storage.
-Run `mvn -B -f cloudnest-server/pom.xml verify`, then in `cloudnest-web` run
-`npm ci`, `npm run check:i18n`, `npm run build` and `npm run test:i18n`.
+Open `http://127.0.0.1:5173`. See the [development guide (Chinese)](docs/development.md) for configuration and checks.
+
+## Documentation
+
+- [Feature guide (Chinese)](docs/features.md) and [using the drive](docs/en/usage.md)
+- [Deployment](docs/en/deployment.md) and [troubleshooting](docs/en/troubleshooting.md)
+- [Read-only diagnostics](docs/en/agent-tools.md) and [Agent runs and approvals](docs/en/agent-runtime.md)
+- [Windows sync client](clients/windows-sync/README.md) and [storage node client](clients/storage-node/README.md)
+- [API reference](docs/api.md), [workspace API](docs/workspace-api.md) and [OpenAPI](docs/openapi.json)
+- [Complete documentation index (Chinese)](README.md#文档导航)
+- [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 
 [MIT license](LICENSE).

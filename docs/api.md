@@ -2,7 +2,7 @@
 
 本文描述接口行为与权限边界，配合 [OpenAPI](openapi.json) 和服务端控制器/校验使用；使用入口见 [使用说明](usage.md)，本地联调见 [开发指南](development.md)。
 
-2.2/2.3 的快照、恢复、巡检、团队、贡献节点与直传协议见 [Horizon Next API](horizon-next-api.md)。运行限制与验收边界见 [Horizon Next](horizon-next.md)。
+2.2/2.3 的快照、恢复、巡检、团队、贡献节点与直传协议见 [团队与数据保护 API](workspace-api.md)。运行限制与验收边界见 [功能说明](features.md)。
 
 ## V1 存储节点与下载授权
 
@@ -302,7 +302,7 @@ source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识
 
 上传会话新增 `backend,replicaBackend`，会话创建后目标固定。高可用上传完成后副本可能仍在排队，不能根据上传 `COMPLETE` 声称双副本完成。受保护对象读取（含分享、版本及 Range）通过校验副本回退；全部不可用返回 `503 REPLICAS_UNAVAILABLE`。任务状态：`QUEUED/RUNNING/COMPLETE/FAILED/INTERRUPTED/CANCELLED`；副本状态：`UNVERIFIED/VERIFIED/CORRUPT`。
 
-调度或容量不满足返回 `409 NO_PLACEMENT/NODE_CAPACITY/NODE_UNAVAILABLE/NODE_WRITE_PAUSED`；暂存不足返回 507。`fileIds` 与目录展开去重的是逻辑内容对象，同内容引用会共享迁移结果；不会访问其他用户对象。完整语义、升级与发布门槛见 [Horizon 2.0](horizon.md)。
+调度或容量不满足返回 `409 NO_PLACEMENT/NODE_CAPACITY/NODE_UNAVAILABLE/NODE_WRITE_PAUSED`；暂存不足返回 507。`fileIds` 与目录展开去重的是逻辑内容对象，同内容引用会共享迁移结果；不会访问其他用户对象。完整语义与备份要求见 [存储节点与副本](storage.md)。
 
 `DELETE /storage/files/{id}/protection`：本人停止该内容对象的自动副本保护，取消排队或执行中的副本任务，保留已有数据。成功空响应；不删除物理副本。
 
@@ -311,7 +311,7 @@ source 结构为 `{sourceId,file_id,revision,name,locator,text,score?}`；标识
 `GET /api/admin/horizon` 的 URL、管理员授权和响应保持兼容，内部通过
 `StorageDiagnostics` 只读服务读取指标；该服务每次独立验证调用者。
 新增的只读工具发现与手动调用接口见 [Agent 工具说明](agent-tools.md)。
-Agent runs、审批和 Sync API 仍处于 [2.1 实施计划](connected-workspace.md) 中。
+Agent runs、审批和 Sync API 属于开发预览，能力与限制见[功能说明](features.md)。
 定时工作器开关和单进程边界见 [控制平面设计](design/control-plane.md)。
 ## Connected Workspace 开发接口
 

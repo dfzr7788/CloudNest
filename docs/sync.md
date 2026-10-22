@@ -3,21 +3,20 @@
 管理员现可在「账号与安全 → 集成服务 → 站点功能开关」保存运行时开关，无需重启。网页保存值优先于下文部署默认值。Agent 运行还需开启只读诊断及站点 AI 并配置模型；预览能力仍需按本文验收。
 
 完整客户端使用与恢复说明见 [客户端 README](../clients/windows-sync/README.md)。
-当前未发布 2.1 稳定版，不建议存放唯一资料；真实双 PC、MySQL、双节点和 VPS 门槛继续保留。
+当前为开发预览，真实双 PC、断网、大文件与长期运行仍需验证。适用范围见[功能边界](features.md#功能边界)。
 
 ## 隔离服务端
 
-同步和审批的新表只在显式 `connected-dev` 配置中加载：
+同步默认关闭。可以通过站点功能开关启用，或在独立开发实例使用 `connected-dev` 配置开启同步与审批能力：
 
 ```powershell
 # 新的、独立的数据目录和数据库；不要复用生产 DATA_DIR 或 DATABASE_URL。
 java -jar cloudnest-server/target/cloudnest-server.jar --spring.profiles.active=connected-dev --server.address=127.0.0.1 --server.port=18080 --cloudnest.storage=local --cloudnest.redis-enabled=false --cloudnest.data-dir=./.data-connected-test --spring.datasource.url="jdbc:h2:file:./.data-connected-test/db;MODE=MySQL;DATABASE_TO_LOWER=TRUE"
 ```
 
-开发迁移位于 `db/connected/{h2,mysql}`，V19 为同步模型，V20 为人工审批模型。
-原 `db/migration/{vendor}` 文件和默认生产 Flyway 位置未修改。桌面客户端使用独立 HTTPS 测试域名反向代理至该端口；CLI 本机 fixture 可显式使用 `--allow-local-http`。
+V19 为同步模型，V20 为人工审批模型，均已纳入规范的 `db/migration/{vendor}` 迁移历史。`connected-dev` 只切换能力开关，不维护另一条迁移路径。桌面客户端使用独立 HTTPS 域名反向代理至该端口；CLI 本机调试可显式使用 `--allow-local-http`。
 回到旧配置不会删除开发表；不能用回退 JAR 代替数据库恢复。
-本地 H2 已验证，MySQL 开发迁移仍需真实数据库验收。
+数据库升级与恢复按[部署手册](deployment.md)执行。
 
 ## 设备与协议
 

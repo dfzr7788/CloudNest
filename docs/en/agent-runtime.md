@@ -1,6 +1,6 @@
 # Bounded Agent runtime and human approvals
 
-This is development work, not a stable 2.1 release. Keep the [acceptance gates](../connected-workspace.md).
+This is a development preview. See the [feature limitations (Chinese)](../features.md#功能边界).
 
 Enable `AI_ENABLED`, `AGENT_TOOLS_ENABLED` and `AGENT_RUNTIME_ENABLED` on an isolated instance.
 Configure an administrator-owned chat model and destination consent in AI settings, then open
@@ -24,8 +24,9 @@ replay paid calls; interrupted runs fail and unfinished billing records become u
 Model text is labeled inference and escaped; actual observations are stored separately. The fixed tool and
 authorization boundary constrains actions, without claiming that model language itself can never be influenced.
 
-Human actions require the separate **connected-dev** schema profile and V20 development migration.
-Use an independent database/data directory. Production migration locations are unchanged.
+Human approvals are disabled by default and can be enabled in runtime settings.
+V20 belongs to the canonical schema history; **connected-dev** enables capabilities only.
+Use an independent database/data directory for development checks.
 The model may only simulate metadata or save a pending proposal using explicit own file IDs, kind and target.
 It cannot approve or execute storage actions. Administrators cannot act on other users' files through this API.
 
