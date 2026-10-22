@@ -920,5 +920,20 @@
   "usage.latency": "耗时",
   "usage.error": "错误码",
   "usage.previous": "上一页",
-  "usage.next": "下一页"
+  "usage.next": "下一页",
+  "teamManagement.invitations": "团队邀请",
+  "teamManagement.validHours": "有效期（小时，1～168）",
+  "teamManagement.revoke": "撤销邀请",
+  "teamManagement.revokeConfirm": "撤销后，此邀请将立即失效。确定继续？",
+  "teamManagement.invitationHistoryNotice": "显示最近 100 条邀请。邀请令牌仅在创建时显示，请及时保存；历史记录不包含令牌。",
+  "teamManagement.noInvitations": "暂无邀请",
+  "teamManagement.expires": "到期时间",
+  "teamManagement.active": "待使用",
+  "teamManagement.used": "已使用",
+  "teamManagement.expired": "已过期",
+  "teamManagement.revoked": "已撤销",
+  "teamManagement.removeConfirm": "确定移除成员“{name}”？该成员将失去团队访问权限。",
+  "teamManagement.loadAcl": "读取当前目录权限",
+  "teamManagement.noAcl": "无单独设置，沿用成员角色及祖先目录限制。",
+  "teamManagement.aclNotice": "先读取现有权限，再选择成员进行修改。点击权限记录可编辑；选择“继承”并保存可移除单独设置。权限只收紧成员角色及祖先限制，不影响所有者和管理员。"
 }

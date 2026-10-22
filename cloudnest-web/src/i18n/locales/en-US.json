@@ -920,5 +920,20 @@
   "usage.latency": "Latency",
   "usage.error": "Error code",
   "usage.previous": "Previous",
-  "usage.next": "Next"
+  "usage.next": "Next",
+  "teamManagement.invitations": "Team invitations",
+  "teamManagement.validHours": "Valid for (hours, 1–168)",
+  "teamManagement.revoke": "Revoke invitation",
+  "teamManagement.revokeConfirm": "This invitation will stop working immediately. Continue?",
+  "teamManagement.invitationHistoryNotice": "Shows the latest 100 invitations. Tokens appear only when created; history does not contain tokens.",
+  "teamManagement.noInvitations": "No invitations",
+  "teamManagement.expires": "Expires at",
+  "teamManagement.active": "Pending",
+  "teamManagement.used": "Used",
+  "teamManagement.expired": "Expired",
+  "teamManagement.revoked": "Revoked",
+  "teamManagement.removeConfirm": "Remove {name}? They will lose access to this team.",
+  "teamManagement.loadAcl": "Load entry permissions",
+  "teamManagement.noAcl": "No explicit settings. Member roles and ancestor restrictions apply.",
+  "teamManagement.aclNotice": "Load existing permissions before editing a member. Select a row to edit; save Inherit to remove its explicit setting. Permissions only restrict roles and ancestor access; owners and admins are unaffected."
 }

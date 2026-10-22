@@ -271,6 +271,52 @@ class ResilienceWorkspaceTest {
   }
 
   @Test
+  void invitationManagementAndAclReadbackCompleteTheAdminWorkflow() throws Exception {
+    String viewer = newUser(), stranger = newUser(), admin = newUser();
+    String team = s(teams.create(uid, "Management", 1000000), "id");
+    teams.accept(viewer, s(teams.invite(uid, team, "VIEWER", false, 24), "token"));
+    teams.accept(admin, s(teams.invite(uid, team, "ADMIN", false, 24), "token"));
+    String path = "/api/teams/" + team;
+    assertEquals(403, request(viewer, get(path + "/invitations"), null));
+    assertEquals(
+        403,
+        request(
+            admin,
+            post(path + "/invitations"),
+            Map.of("role", "ADMIN", "contributor", false, "hours", 24)));
+    var invitation = teams.invite(uid, team, "EDITOR", true, 48);
+    var history = mvc.perform(get(path + "/invitations").with(user(uid))).andReturn().getResponse();
+    assertEquals(200, history.getStatus());
+    var list = json.readTree(history.getContentAsByteArray());
+    assertTrue(list.isArray());
+    assertEquals(3, list.size());
+    for (var row : list) {
+      assertFalse(row.has("token"));
+      assertFalse(row.has("token_hash"));
+      assertTrue(row.has("expires_at"));
+    }
+    assertEquals(403, request(viewer, delete(path + "/invitations/" + invitation.get("id")), null));
+    assertEquals(200, request(uid, delete(path + "/invitations/" + invitation.get("id")), null));
+    assertThrows(Problem.class, () -> teams.accept(stranger, s(invitation, "token")));
+    String storage =
+        s(db.one("SELECT storage_user FROM team_workspace WHERE id=?", team), "storage_user");
+    String fid = file(storage, drive.root(storage), "readback.txt", "content");
+    String aclPath = path + "/entries/" + fid + "/acl";
+    assertEquals(200, request(uid, put(aclPath), Map.of("userId", viewer, "permission", "DENY")));
+    var acl = mvc.perform(get(aclPath).with(user(uid))).andReturn().getResponse();
+    assertEquals(200, acl.getStatus());
+    assertEquals(
+        "DENY", json.readTree(acl.getContentAsByteArray()).get(0).path("permission").asText());
+    assertEquals(403, request(viewer, get(aclPath), null));
+    assertEquals(403, request(viewer, get(path + "/files/" + fid + "/download"), null));
+    assertEquals(
+        200, request(uid, put(aclPath), Map.of("userId", viewer, "permission", "INHERIT")));
+    assertEquals(200, request(viewer, get(path + "/files/" + fid + "/download"), null));
+    var inherited = mvc.perform(get(aclPath).with(user(uid))).andReturn().getResponse();
+    assertEquals(0, json.readTree(inherited.getContentAsByteArray()).size());
+  }
+
+  @Test
   void teamQuotaInvitationRolesAclAndUploadRevocationAreIsolated() throws Exception {
     String viewer = newUser(), editor = newUser(), storageOnly = newUser(), stranger = newUser();
     String team = s(teams.create(uid, "Test team", 1000000), "id");

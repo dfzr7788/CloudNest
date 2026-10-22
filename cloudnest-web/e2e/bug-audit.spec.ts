@@ -32,11 +32,15 @@ test("switching teams clears the previous permission target", async ({
   await page
     .getByRole("button", { name: "Alpha · Owner", exact: true })
     .click();
-  await page.getByRole("tab", { name: "Members and access", exact: true }).click();
-  const entry = page.locator(".next-form .el-input input").first();
+  await page
+    .getByRole("tab", { name: "Members and access", exact: true })
+    .click();
+  const entry = page.locator(".team-acl-form .el-input input").first();
   await entry.fill("alpha-file-id");
   await page.getByRole("button", { name: "Beta · Owner", exact: true }).click();
-  await page.getByRole("tab", { name: "Members and access", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "Members and access", exact: true })
+    .click();
   await expect(entry).toHaveValue("");
 });
 

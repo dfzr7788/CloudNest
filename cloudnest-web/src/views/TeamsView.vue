@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, computed, ref } from "vue";
+import { onMounted, onUnmounted, computed, ref, watch } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { sha256 } from "@noble/hashes/sha2.js";
 import { api, bytes, date, errorText } from "../api";
 import { t } from "../i18n";
 import LanguageSwitcher from "../components/common/LanguageSwitcher.vue";
 import ThemeSwitcher from "../components/common/ThemeSwitcher.vue";
+import TeamInvitations from "../components/TeamInvitations.vue";
 import TimeMachine from "../components/TimeMachine.vue";
 import FolderPicker from "../components/FolderPicker.vue";
 import { useUser } from "../stores/user";
@@ -25,10 +26,7 @@ const failure = ref(""),
   page = ref(1),
   total = ref(0);
 const newTeam = ref({ name: "", quotaGiB: 1 }),
-  invitation = ref(""),
-  issued = ref(""),
-  role = ref("VIEWER"),
-  contributor = ref(false);
+  invitation = ref("");
 const acl = ref({ entry: "", user: "", permission: "READ" });
 const moving = ref<any>(null);
 const selectedFiles = ref<any[]>([]),
@@ -51,6 +49,103 @@ const readable = computed(
   () => current.value && current.value.file_role !== "NONE",
 );
 const base = () => `/teams/${current.value.id}`;
+const assignableRoles = computed(() =>
+  current.value?.file_role === "OWNER"
+    ? ["ADMIN", "EDITOR", "VIEWER", "NONE"]
+    : ["EDITOR", "VIEWER", "NONE"],
+);
+function canManageMember(member: any) {
+  return (
+    admin.value &&
+    (current.value?.file_role === "OWNER" ||
+      !["OWNER", "ADMIN"].includes(member.file_role))
+  );
+}
+async function updateMember(
+  member: any,
+  change: { role?: string; contributor?: boolean },
+) {
+  await act(() =>
+    api.put(`${base()}/members/${member.user_id}`, {
+      role: change.role ?? member.file_role,
+      contributor: change.contributor ?? member.contributor,
+    }),
+  );
+}
+async function removeMember(member: any) {
+  const path = `${base()}/members/${member.user_id}`;
+  try {
+    await ElMessageBox.confirm(
+      t("teamManagement.removeConfirm", { name: member.nickname }),
+      t("next.removeMember"),
+    );
+  } catch {
+    return;
+  }
+  await act(() => api.delete(path));
+}
+const aclRows = ref<any[]>([]),
+  loadedAcl = ref(""),
+  aclBusy = ref(false),
+  aclFailure = ref("");
+let aclGeneration = 0;
+watch(
+  [() => current.value?.id, () => acl.value.entry],
+  () => {
+    aclGeneration++;
+    aclRows.value = [];
+    loadedAcl.value = "";
+    aclFailure.value = "";
+    aclBusy.value = false;
+    acl.value.user = "";
+    acl.value.permission = "INHERIT";
+  },
+  { flush: "sync" },
+);
+onUnmounted(() => aclGeneration++);
+async function loadAcl() {
+  const token = ++aclGeneration,
+    entry = acl.value.entry;
+  loadedAcl.value = "";
+  if (!entry || !admin.value) return;
+  aclBusy.value = true;
+  try {
+    const { data } = await api.get(
+      `${base()}/entries/${encodeURIComponent(entry)}/acl`,
+    );
+    if (token !== aclGeneration) return;
+    aclRows.value = data;
+    loadedAcl.value = entry;
+    aclFailure.value = "";
+    selectAclMember();
+  } catch (error) {
+    if (token === aclGeneration) aclFailure.value = errorText(error);
+  } finally {
+    if (token === aclGeneration) aclBusy.value = false;
+  }
+}
+function selectAcl(entry: string) {
+  acl.value.entry = entry;
+  tab.value = "members";
+  void loadAcl();
+}
+function selectAclMember() {
+  acl.value.permission =
+    aclRows.value.find((row) => row.user_id === acl.value.user)?.permission ||
+    "INHERIT";
+}
+async function saveAcl() {
+  await act(async () => {
+    await api.put(
+      `${base()}/entries/${encodeURIComponent(acl.value.entry)}/acl`,
+      {
+        userId: acl.value.user,
+        permission: acl.value.permission,
+      },
+    );
+    await loadAcl();
+  });
+}
 let loadGeneration = 0;
 onUnmounted(() => loadGeneration++);
 async function refreshTeams() {
@@ -104,7 +199,7 @@ async function load() {
     storageJobs.value = jobs.data;
   }
 }
-async function act(fn: () => Promise<unknown>) {
+async function act(fn: () => Promise<unknown> = async () => {}) {
   busy.value = true;
   try {
     await fn();
@@ -140,7 +235,6 @@ async function choose(team: any) {
   parent.value = team.root_id;
   page.value = 1;
   tab.value = "files";
-  issued.value = "";
   heartbeat.value = "";
   await act(load);
 }
@@ -318,17 +412,6 @@ async function resumeUpload() {
   } finally {
     uploadBusy.value = false;
   }
-}
-async function invite() {
-  await act(async () => {
-    issued.value = (
-      await api.post(`${base()}/invitations`, {
-        role: role.value,
-        contributor: contributor.value,
-        hours: 24,
-      })
-    ).data.token;
-  });
 }
 async function register() {
   await act(async () => {
@@ -521,15 +604,9 @@ async function register() {
                   type="danger"
                   @click="remove(row)"
                   >{{ t("next.delete") }}</el-button
-                ><el-button
-                  v-if="admin"
-                  link
-                  @click="
-                    acl.entry = row.id;
-                    tab = 'members';
-                  "
-                  >{{ t("next.permissions") }}</el-button
-                ></template
+                ><el-button v-if="admin" link @click="selectAcl(row.id)">{{
+                  t("next.permissions")
+                }}</el-button></template
               ></el-table-column
             ></el-table
           >
@@ -543,46 +620,26 @@ async function register() {
           />
         </el-tab-pane>
         <el-tab-pane :label="t('next.members')" name="members">
-          <div v-if="admin" class="next-toolbar">
-            <el-select v-model="role" style="width: 160px"
-              ><el-option
-                v-for="r in ['ADMIN', 'EDITOR', 'VIEWER', 'NONE']"
-                :key="r"
-                :value="r"
-                :label="t(`next.${r}`)" /></el-select
-            ><el-checkbox v-model="contributor">{{
-              t("next.contributor")
-            }}</el-checkbox
-            ><el-button @click="invite">{{
-              t("next.createInvitation")
-            }}</el-button>
-          </div>
-          <el-alert
-            v-if="issued"
-            :title="issued"
-            :description="t('next.invitationNotice')"
-            :closable="false"
-            type="success"
+          <TeamInvitations
+            v-if="admin"
+            :team-id="current.id"
+            :owner="current.file_role === 'OWNER'"
+            @changed="act()"
           />
-          <el-table :data="members"
+          <el-table :data="members" class="team-members"
             ><el-table-column
               prop="nickname"
               :label="t('next.name')"
             /><el-table-column :label="t('next.role')"
               ><template #default="{ row }"
                 ><el-select
-                  v-if="admin && row.file_role !== 'OWNER'"
-                  v-model="row.file_role"
+                  v-if="canManageMember(row) && row.file_role !== 'OWNER'"
+                  :model-value="row.file_role"
                   @change="
-                    act(() =>
-                      api.put(`${base()}/members/${row.user_id}`, {
-                        role: row.file_role,
-                        contributor: row.contributor,
-                      }),
-                    )
+                    (value: string) => updateMember(row, { role: value })
                   "
                   ><el-option
-                    v-for="r in ['ADMIN', 'EDITOR', 'VIEWER', 'NONE']"
+                    v-for="r in assignableRoles"
                     :key="r"
                     :value="r"
                     :label="t(`next.${r}`)" /></el-select
@@ -591,38 +648,32 @@ async function register() {
             ><el-table-column :label="t('next.contributor')"
               ><template #default="{ row }"
                 ><el-switch
-                  v-model="row.contributor"
-                  :disabled="
-                    !admin ||
-                    (row.file_role === 'OWNER' && current.file_role !== 'OWNER')
-                  "
+                  :model-value="row.contributor"
+                  :disabled="busy || !canManageMember(row)"
                   @change="
-                    act(() =>
-                      api.put(`${base()}/members/${row.user_id}`, {
-                        role: row.file_role,
-                        contributor: row.contributor,
-                      }),
-                    )
+                    (value: boolean | string | number) =>
+                      updateMember(row, { contributor: Boolean(value) })
                   " /></template></el-table-column
             ><el-table-column v-if="admin" :label="t('next.actions')"
               ><template #default="{ row }"
                 ><el-button
-                  v-if="row.file_role !== 'OWNER'"
+                  v-if="canManageMember(row) && row.file_role !== 'OWNER'"
                   link
                   type="danger"
-                  @click="
-                    act(() => api.delete(`${base()}/members/${row.user_id}`))
-                  "
+                  @click="removeMember(row)"
                   >{{ t("next.removeMember") }}</el-button
                 ></template
               ></el-table-column
             ></el-table
           >
-          <el-form v-if="admin" label-position="top" class="next-form"
+          <el-form
+            v-if="admin"
+            label-position="top"
+            class="next-form team-acl-form"
             ><el-form-item :label="t('next.entryId')"
-              ><el-input v-model="acl.entry" /></el-form-item
+              ><el-input v-model="acl.entry" @change="loadAcl" /></el-form-item
             ><el-form-item :label="t('next.member')"
-              ><el-select v-model="acl.user"
+              ><el-select v-model="acl.user" @change="selectAclMember"
                 ><el-option
                   v-for="m in members"
                   :key="m.user_id"
@@ -637,19 +688,50 @@ async function register() {
                   :label="t(`next.${r}`)" /></el-select></el-form-item
             ><el-form-item
               ><el-button
-                :disabled="!acl.entry || !acl.user"
-                @click="
-                  act(() =>
-                    api.put(`${base()}/entries/${acl.entry}/acl`, {
-                      userId: acl.user,
-                      permission: acl.permission,
-                    }),
-                  )
+                :disabled="
+                  !acl.entry || !acl.user || aclBusy || loadedAcl !== acl.entry
                 "
+                @click="saveAcl"
                 >{{ t("next.save") }}</el-button
               ></el-form-item
             ></el-form
           >
+          <template v-if="admin">
+            <p class="muted">{{ t("teamManagement.aclNotice") }}</p>
+            <el-button :disabled="!acl.entry || aclBusy" @click="loadAcl">{{
+              t("teamManagement.loadAcl")
+            }}</el-button>
+            <el-alert
+              v-if="aclFailure"
+              :title="aclFailure"
+              type="error"
+              :closable="false"
+            />
+            <el-table
+              v-if="loadedAcl === acl.entry && loadedAcl"
+              :data="aclRows"
+              :empty-text="t('teamManagement.noAcl')"
+              v-loading="aclBusy"
+              @row-click="
+                (row: any) => {
+                  acl.user = row.user_id;
+                  selectAclMember();
+                }
+              "
+            >
+              <el-table-column :label="t('next.member')" min-width="180"
+                ><template #default="{ row }">{{
+                  members.find((m) => m.user_id === row.user_id)?.nickname ||
+                  row.user_id
+                }}</template></el-table-column
+              >
+              <el-table-column :label="t('next.permissions')" min-width="160"
+                ><template #default="{ row }">{{
+                  t(`next.${row.permission}`)
+                }}</template></el-table-column
+              >
+            </el-table>
+          </template>
         </el-tab-pane>
         <el-tab-pane :label="t('next.contributions')" name="nodes"
           ><p>{{ t("next.contributionNotice") }}</p>
