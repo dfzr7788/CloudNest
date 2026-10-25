@@ -102,7 +102,7 @@ python scripts/check-api-contract.py
 
 Docker 集成与隔离恢复验证为 `python scripts/test-compose.py`，需要相应运行环境和磁盘空间。执行前阅读脚本，避免与本地正在运行的同名 Compose 项目冲突。
 
-GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端构建和维护脚本测试；非 PR 运行还执行 Docker 集成验证并发布 Linux amd64 镜像。工作流没有运行 Playwright，浏览器验收需要单独执行。
+GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端构建和维护脚本测试；非 PR 运行还执行 Docker 集成验证并发布 Linux amd64 镜像。工作流运行语言与布局 Playwright，并在隔离 Docker 实例上验证核心文件流程、上传恢复、团队权限及快照恢复。其他浏览器用例仍需按对应环境单独执行；未运行或跳过不算通过。
 
 提交要求、迁移规则及隐私检查见 [贡献说明](../CONTRIBUTING.md)。
 

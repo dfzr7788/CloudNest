@@ -8,14 +8,15 @@ Debian 12 的 root 用户在服务器项目目录执行一次：
 
 ```bash
 cd /root/CloudNest
-git pull --ff-only
+git fetch origin tag v2.3.0
+git merge --ff-only v2.3.0
 apt install -y python3
 bash scripts/install-updater.sh
 ```
 
 脚本使用已导入的预构建镜像，或构建前后端，将更新程序安装到 `/opt/cloudnest-updater/`，创建并启用 `cloudnest-updater.service`，在服务器 `.env` 的 COMPOSE_FILE 中追加更新叠加配置。既有 COMPOSE_FILE（包括公网端口或 TLS 配置）保留。按部署手册初始化的 HTTP 部署仍使用原来的 IP 和端口访问。更新正在执行时不能重装服务。
 
-安装后浏览器强制刷新，管理员打开“账号与安全 → 系统更新”，点击“检查更新”。GitHub main 出现新提交后可点击“一键更新”，确认后由服务器执行。本机未推送的提交无法获取。当前以 Git 提交摘要显示运行版本和最新版本。
+安装后浏览器强制刷新，管理员打开“账号与安全 → 系统更新”，点击“检查更新”。默认 stable 通道发现新正式 Release 后可点击“一键更新”，确认后由服务器执行。本机未推送的提交无法获取。当前以 Git 提交摘要显示运行版本和最新版本。
 
 后续使用自动读取 `.env` 的 `docker compose`。手动指定 `-f` 文件时也须包含 `-f deploy/compose.updater.yml`。当前支持 root 管理、单实例、官方 HTTPS origin 和 main 分支及标准本地数据卷。远程对象在停写窗口导出并校验后纳入备份；旧版维护程序尚不支持远程导出时会中止更新，需要先人工完成桶备份与升级。
 
@@ -23,7 +24,7 @@ bash scripts/install-updater.sh
 
 | 阶段 | 行为 |
 | --- | --- |
-| 检查 | 获取 GitHub main，不构建或停服务 |
+| 检查 | 获取正式 Release 标签并验证升级路径；preview 通道获取 main，不构建或停服务 |
 | 保存回退镜像 | 根据现有容器的原始镜像引用核对实际镜像身份，再保存回退标签；兼容 containerd 平台镜像摘要 |
 | 构建 | 保存旧镜像标签，快进代码，优先下载当前提交对应的 GitHub Release 镜像并验证 SHA256；旧容器继续服务 |
 | 备份 | 停止 web/server 写入，导出 MySQL，导出并校验远程对象，归档 app_data（含签名密钥），保存 .env、Compose 和版本信息 |
@@ -37,7 +38,7 @@ bash scripts/install-updater.sh
 
 如果旧更新器在 `docker tag` 时报 `No such image: sha256:...`，日志中的摘要可能是 containerd 的平台/配置摘要，不能直接作为打标签的镜像引用。新版根据现有容器的原始镜像引用，核对普通或平台特定身份后创建回退标签；镜像确实缺失、标签已指向不同内容或保存过程中被改动时，仍会停止更新，不停止原容器，不跳过回退检查。不要通过删除容器、清理镜像或删除数据卷处理此错误。
 
-旧更新器无法完成自身更新时，先确认网页任务已失败且 `/var/lib/cloudnest-updater/state/active.json` 不存在，再在项目目录执行 `git pull --ff-only`，将受信源码中的 worker 安装到宿主机并重启：
+旧更新器无法完成自身更新时，先确认网页任务已失败且 `/var/lib/cloudnest-updater/state/active.json` 不存在，再在项目目录执行 `git fetch origin tag v2.3.0` 和 `git merge --ff-only v2.3.0`，将受信源码中的 worker 安装到宿主机并重启：
 
 ```bash
 install -m 0755 scripts/updater.py /opt/cloudnest-updater/updater.py
@@ -69,7 +70,7 @@ docker compose ps
 
 旧镜像为 `cloudnest-rollback-server:<时间>` 和 `cloudnest-rollback-web:<时间>`。已迁移数据库时，单独切旧镜像不能完成回退，应在独立环境恢复配套 MySQL 与 app_data 后再切入口，见部署手册。
 
-关闭网页不影响后台任务。服务重启发现未完成请求时报告中断，不自动重放。应用容器只写固定动作请求，不获得 Docker socket、宿主机仓库或任意命令接口；宿主机程序信任官方 main 源码。
+关闭网页不影响后台任务。服务重启发现未完成请求时报告中断，不自动重放。应用容器只写固定动作请求，不获得 Docker socket、宿主机仓库或任意命令接口；宿主机程序信任官方仓库源码，stable 默认选择正式发布标签。
 
 ## 预构建镜像与定时备份
 
@@ -80,3 +81,18 @@ GitHub Actions 对 main 提交运行测试与构建，发布 `build-完整提交
 “立即备份”与每天定时、restic 异地副本、独立实例恢复操作见 [部署手册](deployment.md#备份与恢复)。定时备份与更新共用操作锁，不并发停写；网页只显示受控状态，不提供备份秘密文件的公开下载。
 
 双节点发现远端对象时，备份默认要求 split 模式和成套 A/B 检查点；未配置会中止更新并恢复原服务。请重新安装包含 split_backup.py 的宿主机 worker，并按 [双节点说明](deployment-dual-node.md#独立备份与共同批次) 配置独立仓库，不能只更新应用镜像。
+
+## 稳定与预览通道
+
+2.3.0 起，新更新器默认 `stable`：只读取官方仓库 latest 正式 Release，验证 `v数字.数字.数字` 标签并确认该提交属于 main。网络失败、没有正式版本或标签无效时停止，不自动改用开发提交。当前代码领先或偏离正式版本时拒绝降级。
+
+需要继续测试 main 时，执行 `systemctl edit cloudnest-updater` 添加：
+
+```ini
+[Service]
+Environment=CLOUDNEST_UPDATE_CHANNEL=preview
+```
+
+随后执行 `systemctl daemon-reload` 和 `systemctl restart cloudnest-updater`。改为 `stable` 即恢复正式通道。此配置属于宿主机 systemd 服务，不能只写入应用 `.env`。覆盖配置在重新安装服务后仍保留。
+
+旧更新器仍跟随 main；首次升级到 2.3.0 应在停写备份后按上文固定标签同步源码与 worker。仅发布一个 Git 标签不会改变已安装的旧更新器。

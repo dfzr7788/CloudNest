@@ -155,7 +155,7 @@ for (const width of [390, 1440]) {
       .getByRole("tab", { name: "Read-only diagnostics", exact: true })
       .click();
     await expect(
-      page.getByText(/Disabled by default\. Set AGENT_TOOLS_ENABLED/),
+      page.getByText(/Disabled\. Administrators can enable read-only diagnostics/),
     ).toBeVisible();
     await expect(
       page.getByRole("button", { name: "Run read-only query", exact: true }),

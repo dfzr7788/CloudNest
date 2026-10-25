@@ -2,6 +2,7 @@ name: Test and publish prebuilt images
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
   workflow_dispatch:
 permissions:
@@ -41,6 +42,10 @@ jobs:
           cache-dependency-path: cloudnest-web/package-lock.json
       - name: Test and package server
         run: mvn -B -f cloudnest-server/pom.xml verify
+      - name: Verify stable version and publication contract
+        run: |
+          python3 scripts/check-release-version.py
+          python3 scripts/check-publication.py
       - name: Verify deployment artifact contract
         run: python3 scripts/check-deployment-artifact.py --require-artifact
       - name: Verify existing and connected development schemas on disposable MySQL
@@ -68,6 +73,7 @@ jobs:
           python3 scripts/test-split-backup.py
           python3 scripts/test-sync-client.py
           python3 scripts/test-sync-installer.py
+          python3 scripts/test-storage-node.py
           python3 scripts/package-sync-client.py --output cloudnest-windows-sync-dev.zip --revision "$GITHUB_SHA"
       - name: Test locale switching in desktop and mobile layouts
         working-directory: cloudnest-web
@@ -82,6 +88,12 @@ jobs:
           docker build --platform linux/amd64 -f deploy/Dockerfile.web-runtime -t "cloudnest-web:sha-$REV" .
       - name: Verify Docker deployment and isolated backup restore
         run: python3 scripts/test-compose.py
+      - name: Verify core browser workflows against disposable deployment
+        working-directory: cloudnest-web
+        env:
+          CN_NEXT_FIXTURE: '1'
+          CN_E2E_BASE_URL: http://127.0.0.1:18088
+        run: npx playwright test --config playwright.release.config.ts
       - name: Export verified images
         if: github.event_name != 'pull_request'
         env:
@@ -95,4 +107,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REV: ${{ github.sha }}
         run: |
-          gh release create "build-$REV" --target "$REV" --prerelease --latest=false --title "Build $REV" --notes 'Prebuilt Linux amd64 images and opt-in Windows sync development source installer. Verify SHA256SUMS. Development sync requires an isolated connected-dev server.' cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip SHA256SUMS
+          if ! gh release view "build-$REV" >/dev/null 2>&1; then
+            gh release create "build-$REV" --target "$REV" --prerelease --latest=false --title "Build $REV" --notes 'Verified Linux amd64 images and experimental Windows sync source installer. Verify SHA256SUMS.' cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip SHA256SUMS
+          fi
+      - name: Publish stable release after all checks pass
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" --verify-tag --latest --title "CloudNest ${TAG#v}" --notes-file "docs/releases/${TAG#v}.md" cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip SHA256SUMS

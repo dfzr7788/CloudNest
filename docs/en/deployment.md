@@ -2,8 +2,9 @@
 
 [简体中文](../deployment.md) · [English home](../../README.en.md)
 
-These instructions describe the current repository configuration. A fresh Linux
-server reproduction of this English guide is still required before stable release.
+These instructions install the pinned 2.3.0 release. The release workflow verifies
+the Linux Docker deployment and an isolated backup restore. Validate networking,
+TLS and remote object storage in your own deployment.
 
 ## Prerequisites and startup
 
@@ -13,8 +14,9 @@ for the database, files, upload staging, builds and backups. Operation on a 1 GB
 VPS has not yet passed the real-server acceptance gate.
 
 ```bash
-git clone https://github.com/duyan9030-dotcom/CloudNest.git
+git clone --branch v2.3.0 https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
+git switch -c main
 bash scripts/init-env.sh
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
@@ -69,7 +71,8 @@ Never rehearse restoration over the working deployment.
 Only after validating the backup and rollback baseline:
 
 ```bash
-git pull --ff-only
+git fetch origin tag v2.3.0
+git merge --ff-only v2.3.0
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```

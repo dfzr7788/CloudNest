@@ -58,4 +58,15 @@ if __name__=='__main__':
     first.ready()
     first.request('/auth/login',{'username':'restore_fixture','password':password})
     assert first.request('/files/'+file+'/download',raw=True)==content
+    # Provision the isolated browser fixture through the supported operator path.
+    fixture_env = dict(os.environ, CN_OPERATOR_PASSWORD='Next-Isolated-Fixture-123')
+    subprocess.run(['docker', 'compose', 'stop', 'web', 'server'], cwd=repo, check=True)
+    try:
+        subprocess.run(['docker', 'compose', 'run', '--rm', '--no-deps', '-e', 'CN_OPERATOR_PASSWORD',
+                        'server', '--server.port=0', '--cloudnest.maintenance=true',
+                        '--cloudnest.action=create-admin', '--cloudnest.operator-username=horizonnext'],
+                       cwd=repo, env=fixture_env, check=True)
+    finally:
+        subprocess.run(['docker', 'compose', 'start', 'server', 'web'], cwd=repo, check=True)
+    first.ready()
     print('Docker health, portable backup, isolated restore and original deployment preservation passed.')

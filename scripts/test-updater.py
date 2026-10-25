@@ -15,6 +15,10 @@ spec.loader.exec_module(module)
 
 
 class FakeUpdater(module.Updater):
+    def stable_target(self):
+        self.status['release'] = 'v2.3.0'
+        return 'b' * 40
+
     def prebuilt(self, revision):
         return False
     def __init__(self, directory, failure=None, dirty='', upstream=''):
@@ -74,6 +78,60 @@ class FakeUpdater(module.Updater):
 
 
 class Tests(unittest.TestCase):
+    def test_stable_is_default_and_does_not_follow_main(self):
+        with tempfile.TemporaryDirectory() as directory, patch.dict(module.os.environ, {}, clear=True):
+            updater = FakeUpdater(directory)
+            updater.inspect_target()
+            self.assertEqual('stable', updater.status['channel'])
+            self.assertEqual('v2.3.0', updater.status['release'])
+            self.assertNotIn(('git', 'rev-parse', 'origin/main'), updater.calls)
+
+    def test_preview_is_explicit_and_invalid_channels_fail(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater = FakeUpdater(directory)
+            with patch.dict(module.os.environ, {'CLOUDNEST_UPDATE_CHANNEL': 'preview'}):
+                updater.inspect_target()
+            self.assertIn(('git', 'rev-parse', 'origin/main'), updater.calls)
+            with patch.dict(module.os.environ, {'CLOUDNEST_UPDATE_CHANNEL': 'typo'}):
+                with self.assertRaisesRegex(RuntimeError, 'stable 或 preview'):
+                    updater.inspect_target()
+
+    def test_stable_release_is_resolved_through_tag_and_checked_against_main(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater = FakeUpdater(directory)
+            response = io.BytesIO(json.dumps({'tag_name': 'v2.3.0', 'draft': False, 'prerelease': False}).encode())
+            with patch.object(module.urllib.request, 'urlopen', return_value=response):
+                module.Updater.stable_target(updater)
+            self.assertIn(('git', 'fetch', 'origin', 'refs/tags/v2.3.0:refs/tags/v2.3.0'), updater.calls)
+            self.assertIn(('git', 'rev-parse', 'refs/tags/v2.3.0^{commit}'), updater.calls)
+            self.assertTrue(any(c[:3] == ('git', 'merge-base', '--is-ancestor') for c in updater.calls))
+
+    def test_unavailable_or_invalid_release_never_falls_back_to_preview(self):
+        for release in ({'tag_name': 'v2.3.0-rc.1', 'draft': False, 'prerelease': True},
+                        {'tag_name': 'main', 'draft': False, 'prerelease': False},
+                        {'tag_name': 'v2.3.0', 'draft': True, 'prerelease': False}):
+            with self.subTest(release=release), tempfile.TemporaryDirectory() as directory:
+                updater = FakeUpdater(directory)
+                with patch.object(module.urllib.request, 'urlopen', return_value=io.BytesIO(json.dumps(release).encode())):
+                    with self.assertRaisesRegex(RuntimeError, '元数据无效'):
+                        module.Updater.stable_target(updater)
+                self.assertEqual([], updater.calls)
+        with tempfile.TemporaryDirectory() as directory:
+            updater = FakeUpdater(directory)
+            with patch.object(module.urllib.request, 'urlopen', side_effect=OSError('offline')):
+                with self.assertRaisesRegex(RuntimeError, '不会回退'):
+                    module.Updater.stable_target(updater)
+            self.assertEqual([], updater.calls)
+
+    def test_stable_rejects_downgrade_before_build_or_stop(self):
+        with tempfile.TemporaryDirectory() as directory:
+            updater = FakeUpdater(directory, failure='git merge-base --is-ancestor')
+            with patch.object(module.sys, 'stderr', io.StringIO()):
+                updater.perform('update')
+            self.assertEqual('FAILED', updater.status['phase'])
+            self.assertIn('不会降级', updater.status['message'])
+            self.assertFalse(any(c[0] == 'docker' for c in updater.calls))
+
     def test_worker_refresh_installs_missing_helper_even_if_main_is_unchanged(self):
         with tempfile.TemporaryDirectory() as directory:
             updater=FakeUpdater(directory)

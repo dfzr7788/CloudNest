@@ -71,6 +71,25 @@ class Updater:
     def backup_step(self, step, message):
         self.publish('BACKUP', message, backupStep=step)
 
+    def stable_target(self):
+        request = urllib.request.Request(
+            'https://api.github.com/repos/duyan9030-dotcom/CloudNest/releases/latest',
+            headers={'Accept': 'application/vnd.github+json', 'User-Agent': 'CloudNest-updater'})
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                release = json.load(response)
+        except (OSError, ValueError):
+            raise RuntimeError('无法获取正式版本；请检查网络或等待正式 Release 发布，不会回退到开发分支') from None
+        tag = release.get('tag_name', '')
+        if (release.get('draft') is not False or release.get('prerelease') is not False
+                or not re.fullmatch(r'v\d+\.\d+\.\d+', tag)):
+            raise RuntimeError('正式版本元数据无效，已停止更新')
+        self.run('git', 'fetch', 'origin', f'refs/tags/{tag}:refs/tags/{tag}', timeout=180)
+        target = self.run('git', 'rev-parse', f'refs/tags/{tag}^{{commit}}')
+        self.run('git', 'merge-base', '--is-ancestor', target, 'origin/main')
+        self.status['release'] = tag
+        return target
+
     def inspect_target(self):
         if self.run('git', 'remote', 'get-url', 'origin') != ORIGIN:
             raise RuntimeError('origin 地址与已配置的官方仓库不符，已停止')
@@ -78,8 +97,15 @@ class Updater:
             raise RuntimeError('更新服务仅支持 main 分支')
         self.run('git', 'fetch', 'origin', 'main', timeout=180)
         head = self.run('git', 'rev-parse', 'HEAD')
-        target = self.run('git', 'rev-parse', 'origin/main')
-        self.run('git', 'merge-base', '--is-ancestor', head, target)
+        channel = os.environ.get('CLOUDNEST_UPDATE_CHANNEL', 'stable')
+        if channel not in ('stable', 'preview'):
+            raise RuntimeError('更新通道必须为 stable 或 preview')
+        self.status.update(channel=channel, release=None)
+        target = self.stable_target() if channel == 'stable' else self.run('git', 'rev-parse', 'origin/main')
+        try:
+            self.run('git', 'merge-base', '--is-ancestor', head, target)
+        except RuntimeError:
+            raise RuntimeError('当前代码不在目标版本的升级路径上，可能已领先正式版；不会降级，请等待后续版本或使用 preview 通道') from None
         changed = self.run('git', 'diff', '--name-only', 'HEAD').splitlines()
         # Existing deployments may have changed the HTTP bind address in this file.
         # Preserve it only when this release does not modify that same tracked file.
@@ -290,7 +316,7 @@ class Updater:
     def perform(self, action):
         self.stopped = False
         self.deploying = False
-        self.publish('CHECKING', '正在检查 GitHub main 分支', busy=True, failedPhase=None, backup=None, backupStep=None)
+        self.publish('CHECKING', '正在检查更新通道', busy=True, failedPhase=None, backup=None, backupStep=None)
         try:
             head, target = self.inspect_target()
             if action == 'check' or not self.status['available']:

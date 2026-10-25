@@ -1,6 +1,9 @@
 import { test, expect } from "@playwright/test";
 const username = "ui_" + Date.now(),
   password = "Browser-test-123";
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem("cloudnest-locale", "zh-CN"));
+});
 test("UI01 完整浏览器流程：注册、目录、上传预览、分享、恢复、网格与退出", async ({
   page,
   context,
@@ -68,7 +71,7 @@ test("UI01 完整浏览器流程：注册、目录、上传预览、分享、恢
   await page.getByRole("button", { name: "创建分享", exact: true }).click();
   const link = await page.getByLabel("分享链接").inputValue();
   expect(link).toContain("/s/");
-  const visitor = await context.browser()!.newContext();
+  const visitor = await context.browser()!.newContext({ locale: "zh-CN" });
   const sharePage = await visitor.newPage();
   await sharePage.goto(link);
   await expect(
@@ -157,6 +160,23 @@ test("UI03 上传暂停、刷新重选原文件续传与秒传", async ({ page }
   await expect(page.getByText("上传中", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "暂停", exact: true }).click();
   await expect(page.getByText("已暂停", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(page.getByText("已暂停", { exact: true })).toBeVisible();
+  // Simulate eviction of browser-cached sources after a session was persisted
+  // on the server. Recovery must request and verify the original file.
+  await page.evaluate(async () => {
+    await new Promise<void>((resolve, reject) => {
+      const request = indexedDB.open("cloudnest-upload-queue", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("tasks", "readwrite");
+        tx.objectStore("tasks").clear();
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    });
+  });
   await page.reload();
   await expect(page.getByText("等待选择原文件", { exact: true })).toBeVisible();
   const chooserEvent = page.waitForEvent("filechooser");

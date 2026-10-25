@@ -4,7 +4,7 @@ English · [简体中文](README.md)
 
 CloudNest is a self-hosted, multi-user file drive with personal file management, team workspaces, multiple storage nodes and data protection. Optional AI features use your own API provider.
 
-Current version: `2.3.0-dev.1` (development preview). The backend supports one application instance. Windows sync, WebDAV drive mapping and public direct uploads have the limitations described in the [feature guide (Chinese)](docs/features.md#功能边界).
+Current version: `2.3.0` (first stable release). The backend supports one application instance. Windows sync, WebDAV drive mapping and public direct uploads have the limitations described in the [feature guide (Chinese)](docs/features.md#功能边界).
 
 ## Features
 
@@ -25,8 +25,9 @@ AI is disabled by default. Uploading files or saving settings does not call a mo
 Requirements: Git, OpenSSL, Python 3, Docker Engine and Docker Compose 2.24.4+.
 
 ```bash
-git clone https://github.com/duyan9030-dotcom/CloudNest.git
+git clone --branch v2.3.0 https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
+git switch -c main
 bash scripts/init-env.sh
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
@@ -42,7 +43,8 @@ The initialization script generates random secrets and preserves existing `.env`
 Back up MySQL, local and remote objects, signing keys, deployment configuration and the running version as a consistent set. **`docker compose down -v` deletes business data volumes.** Verify restoration before upgrading. Source deployments can then run:
 
 ```bash
-git pull --ff-only
+git fetch origin tag v2.3.0
+git merge --ff-only v2.3.0
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```
