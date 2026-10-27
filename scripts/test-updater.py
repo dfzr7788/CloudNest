@@ -16,7 +16,7 @@ spec.loader.exec_module(module)
 
 class FakeUpdater(module.Updater):
     def stable_target(self):
-        self.status['release'] = 'v2.3.0'
+        self.status['release'] = 'v1.0.0'
         return 'b' * 40
 
     def prebuilt(self, revision):
@@ -83,7 +83,7 @@ class Tests(unittest.TestCase):
             updater = FakeUpdater(directory)
             updater.inspect_target()
             self.assertEqual('stable', updater.status['channel'])
-            self.assertEqual('v2.3.0', updater.status['release'])
+            self.assertEqual('v1.0.0', updater.status['release'])
             self.assertNotIn(('git', 'rev-parse', 'origin/main'), updater.calls)
 
     def test_preview_is_explicit_and_invalid_channels_fail(self):
@@ -99,17 +99,17 @@ class Tests(unittest.TestCase):
     def test_stable_release_is_resolved_through_tag_and_checked_against_main(self):
         with tempfile.TemporaryDirectory() as directory:
             updater = FakeUpdater(directory)
-            response = io.BytesIO(json.dumps({'tag_name': 'v2.3.0', 'draft': False, 'prerelease': False}).encode())
+            response = io.BytesIO(json.dumps({'tag_name': 'v1.0.0', 'draft': False, 'prerelease': False}).encode())
             with patch.object(module.urllib.request, 'urlopen', return_value=response):
                 module.Updater.stable_target(updater)
-            self.assertIn(('git', 'fetch', 'origin', 'refs/tags/v2.3.0:refs/tags/v2.3.0'), updater.calls)
-            self.assertIn(('git', 'rev-parse', 'refs/tags/v2.3.0^{commit}'), updater.calls)
+            self.assertIn(('git', 'fetch', 'origin', 'refs/tags/v1.0.0:refs/tags/v1.0.0'), updater.calls)
+            self.assertIn(('git', 'rev-parse', 'refs/tags/v1.0.0^{commit}'), updater.calls)
             self.assertTrue(any(c[:3] == ('git', 'merge-base', '--is-ancestor') for c in updater.calls))
 
     def test_unavailable_or_invalid_release_never_falls_back_to_preview(self):
-        for release in ({'tag_name': 'v2.3.0-rc.1', 'draft': False, 'prerelease': True},
+        for release in ({'tag_name': 'v1.0.0-rc.1', 'draft': False, 'prerelease': True},
                         {'tag_name': 'main', 'draft': False, 'prerelease': False},
-                        {'tag_name': 'v2.3.0', 'draft': True, 'prerelease': False}):
+                        {'tag_name': 'v1.0.0', 'draft': True, 'prerelease': False}):
             with self.subTest(release=release), tempfile.TemporaryDirectory() as directory:
                 updater = FakeUpdater(directory)
                 with patch.object(module.urllib.request, 'urlopen', return_value=io.BytesIO(json.dumps(release).encode())):

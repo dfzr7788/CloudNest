@@ -2,7 +2,7 @@
 
 [简体中文](../deployment.md) · [English home](../../README.en.md)
 
-These instructions install the pinned 2.3.0 release. The release workflow verifies
+These instructions install the pinned 1.0.0 release. The release workflow verifies
 the Linux Docker deployment and an isolated backup restore. Validate networking,
 TLS and remote object storage in your own deployment.
 
@@ -14,7 +14,7 @@ for the database, files, upload staging, builds and backups. Operation on a 1 GB
 VPS has not yet passed the real-server acceptance gate.
 
 ```bash
-git clone --branch v2.3.0 https://github.com/duyan9030-dotcom/CloudNest.git
+git clone --branch v1.0.0 https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
 git switch -c main
 bash scripts/init-env.sh
@@ -71,8 +71,8 @@ Never rehearse restoration over the working deployment.
 Only after validating the backup and rollback baseline:
 
 ```bash
-git fetch origin tag v2.3.0
-git merge --ff-only v2.3.0
+git fetch origin tag v1.0.0
+git merge --ff-only v1.0.0
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```

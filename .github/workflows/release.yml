@@ -8,7 +8,7 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: build-${{ github.ref }}
+  group: build-${{ github.sha }}
   cancel-in-progress: false
 jobs:
   windows-sync-installer:
@@ -117,3 +117,6 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           gh release create "$TAG" --verify-tag --latest --title "CloudNest ${TAG#v}" --notes-file "docs/releases/${TAG#v}.md" cloudnest-images-linux-amd64.tar.gz cloudnest-windows-sync-dev.zip SHA256SUMS
+          if [ "$TAG" = 'v1.0.0' ] && gh release view v2.3.0 >/dev/null 2>&1; then
+            gh release edit v2.3.0 --prerelease --latest=false --title 'Superseded: incorrect version v2.3.0' --notes '版本编号更正：CloudNest 首个稳定版为 v1.0.0。此版本编号错误，已被 v1.0.0 取代。请使用 https://github.com/dfzr7788/CloudNest/releases/tag/v1.0.0 。旧标签和资产为已有部署追溯保留。'
+          fi

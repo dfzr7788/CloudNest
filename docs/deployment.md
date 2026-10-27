@@ -40,7 +40,7 @@ docker run --rm hello-world
 ## 下载并启动
 
 ```bash
-git clone --branch v2.3.0 https://github.com/duyan9030-dotcom/CloudNest.git
+git clone --branch v1.0.0 https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
 git switch -c main
 bash scripts/init-env.sh
@@ -133,8 +133,8 @@ COMPOSE_FILE=docker-compose.yml:deploy/compose.public.yml:deploy/compose.updater
 先完成下一节的一致性备份，再执行：
 
 ```bash
-git fetch origin tag v2.3.0
-git merge --ff-only v2.3.0
+git fetch origin tag v1.0.0
+git merge --ff-only v1.0.0
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 docker compose ps

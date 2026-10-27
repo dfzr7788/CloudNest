@@ -2,7 +2,7 @@
   "openapi": "3.0.3",
   "info": {
     "title": "CloudNest API",
-    "version": "2.3.0",
+    "version": "1.0.0",
     "description": "单实例私人云盘。完整请求与成功结果见 docs/api.md；导入后先执行 GET /auth/csrf，再填写当前 X-XSRF-TOKEN 并启用 Cookie jar。"
   },
   "servers": [

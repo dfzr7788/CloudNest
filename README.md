@@ -4,7 +4,7 @@
 
 CloudNest 是可自行部署的多用户私人云盘，支持个人文件管理、团队协作、多节点存储与数据保护，也可接入用户自己的 AI API 辅助阅读和诊断。
 
-当前版本为 `2.3.0`，为首个正式稳定版本。后端目前支持单实例部署；Windows 同步、WebDAV 盘符和公网直传的适用范围见[功能说明](docs/features.md#功能边界)。
+当前版本为 `1.0.0`，为首个正式稳定版本。后端目前支持单实例部署；Windows 同步、WebDAV 盘符和公网直传的适用范围见[功能说明](docs/features.md#功能边界)。
 
 ## 主要功能
 
@@ -26,7 +26,7 @@ CloudNest 是可自行部署的多用户私人云盘，支持个人文件管理�
 Linux 服务器需要 Git、OpenSSL、Python 3、Docker Engine 和 Docker Compose 2.24.4+；宿主机无需安装 Java、Node.js 或 MySQL。
 
 ```bash
-git clone --branch v2.3.0 https://github.com/duyan9030-dotcom/CloudNest.git
+git clone --branch v1.0.0 https://github.com/duyan9030-dotcom/CloudNest.git
 cd CloudNest
 git switch -c main
 bash scripts/init-env.sh
@@ -48,8 +48,8 @@ bash scripts/create-admin.sh owner
 升级前按[备份与恢复](docs/deployment.md#备份与恢复)创建并验证一致性备份。源码部署随后执行：
 
 ```bash
-git fetch origin tag v2.3.0
-git merge --ff-only v2.3.0
+git fetch origin tag v1.0.0
+git merge --ff-only v1.0.0
 docker compose config --quiet
 docker compose up -d --build --wait --wait-timeout 180
 ```

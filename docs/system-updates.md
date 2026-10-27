@@ -8,8 +8,8 @@ Debian 12 的 root 用户在服务器项目目录执行一次：
 
 ```bash
 cd /root/CloudNest
-git fetch origin tag v2.3.0
-git merge --ff-only v2.3.0
+git fetch origin tag v1.0.0
+git merge --ff-only v1.0.0
 apt install -y python3
 bash scripts/install-updater.sh
 ```
@@ -38,7 +38,7 @@ bash scripts/install-updater.sh
 
 如果旧更新器在 `docker tag` 时报 `No such image: sha256:...`，日志中的摘要可能是 containerd 的平台/配置摘要，不能直接作为打标签的镜像引用。新版根据现有容器的原始镜像引用，核对普通或平台特定身份后创建回退标签；镜像确实缺失、标签已指向不同内容或保存过程中被改动时，仍会停止更新，不停止原容器，不跳过回退检查。不要通过删除容器、清理镜像或删除数据卷处理此错误。
 
-旧更新器无法完成自身更新时，先确认网页任务已失败且 `/var/lib/cloudnest-updater/state/active.json` 不存在，再在项目目录执行 `git fetch origin tag v2.3.0` 和 `git merge --ff-only v2.3.0`，将受信源码中的 worker 安装到宿主机并重启：
+旧更新器无法完成自身更新时，先确认网页任务已失败且 `/var/lib/cloudnest-updater/state/active.json` 不存在，再在项目目录执行 `git fetch origin tag v1.0.0` 和 `git merge --ff-only v1.0.0`，将受信源码中的 worker 安装到宿主机并重启：
 
 ```bash
 install -m 0755 scripts/updater.py /opt/cloudnest-updater/updater.py
@@ -84,7 +84,7 @@ GitHub Actions 对 main 提交运行测试与构建，发布 `build-完整提交
 
 ## 稳定与预览通道
 
-2.3.0 起，新更新器默认 `stable`：只读取官方仓库 latest 正式 Release，验证 `v数字.数字.数字` 标签并确认该提交属于 main。网络失败、没有正式版本或标签无效时停止，不自动改用开发提交。当前代码领先或偏离正式版本时拒绝降级。
+1.0.0 起，新更新器默认 `stable`：只读取官方仓库 latest 正式 Release，验证 `v数字.数字.数字` 标签并确认该提交属于 main。网络失败、没有正式版本或标签无效时停止，不自动改用开发提交。当前代码领先或偏离正式版本时拒绝降级。
 
 需要继续测试 main 时，执行 `systemctl edit cloudnest-updater` 添加：
 
@@ -95,4 +95,4 @@ Environment=CLOUDNEST_UPDATE_CHANNEL=preview
 
 随后执行 `systemctl daemon-reload` 和 `systemctl restart cloudnest-updater`。改为 `stable` 即恢复正式通道。此配置属于宿主机 systemd 服务，不能只写入应用 `.env`。覆盖配置在重新安装服务后仍保留。
 
-旧更新器仍跟随 main；首次升级到 2.3.0 应在停写备份后按上文固定标签同步源码与 worker。仅发布一个 Git 标签不会改变已安装的旧更新器。
+旧更新器仍跟随 main；首次升级到 1.0.0 应在停写备份后按上文固定标签同步源码与 worker。仅发布一个 Git 标签不会改变已安装的旧更新器。
