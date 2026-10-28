@@ -1,5 +1,7 @@
 # 团队、数据保护与传输 API
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 API 前缀 `/api`。除节点心跳外，使用现有登录 Cookie，写操作保留 XSRF Cookie 并发送 `X-XSRF-TOKEN`。字段采用以下实际约定：请求用 camelCase；新持久化元数据/任务的响应沿用数据库的 snake_case。个人文件视图与上传会话继续使用既有 camelCase 契约。所有 ID 都是服务端分配的非路径标识。
 
 ## 快照与任务

@@ -23,7 +23,7 @@ A/B 规格、预算、带宽和可接受停机窗口由实际机器决定。512G
 3. 在 B 生成 32 字节 RPC 密钥，填入 TOML；应用访问键与秘密分别填入 `.env`。设置公网域名、A 的精确 HTTPS origin。Garage 候选版本依据官方快速入门为 v2.4.1；Caddy 示例为 2.10.2。上线前检查发布说明并记录实际镜像 digest，不使用浮动 latest。
 4. 安全组开放 B 的 HTTPS/HTTP 证书端口及限定来源的 WireGuard UDP 端口；S3 的 3900 仅监听 WireGuard 地址；RPC 3901 仅回环。不开公网 S3 写入口、网站桶或管理 API。A/B 时间同步是签名有效的前提。
 5. 在 B 的 `/etc/cloudnest-b` 执行 `docker compose -f compose.yml config --quiet`，再执行 `docker compose -f compose.yml up -d`，以 `docker compose -f compose.yml exec garage /garage status` 检查节点。先用可丢弃对象验证。
-6. CloudNest 管理员打开“账号与安全 → 服务与存储”，新建 S3 策略：内部地址 `http://10.77.0.2:3900`、桶 `cloudnest`、region **garage**、对应应用凭据。不要用旧 minio 环境配置接入 Garage；旧 minio 签名默认 region 为 us-east-1。
+6. CloudNest 管理员打开“节点中心”，新建 S3 兼容节点：内部地址 `http://10.77.0.2:3900`、桶 `cloudnest`、region **garage**、对应应用凭据。不要用旧 minio 环境配置接入 Garage；旧 minio 签名默认 region 为 us-east-1。
 7. 在节点列表执行完整检测。新节点 UNKNOWN 不接收任务；检测通过后再设为默认。配置公网地址 `https://objects.example.com`，完成公网签名小样后才开启直连。不要对签名结果替换域名。
 
 新旧管理 API 共用节点约束。节点停用、暂停和维护均阻止新上传/迁入，已有会话与任务固定原 backend 排空。实际离线时请求可能失败，不会自动改写到 A。健康检测不持有全局准入锁进行网络 I/O；配置版本变化时丢弃旧探测结果。

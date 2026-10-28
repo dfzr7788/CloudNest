@@ -1,5 +1,7 @@
 # 开发指南
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 ## 环境与目录
 
 需要 Java 21、Maven 3.9+、Node.js 22.13+ 或 24，以及 npm。浏览器测试使用本机 Google Chrome；维护脚本测试需要 Python 3，完整 Docker 集成验证还需要 Docker Engine 与 Compose。依赖版本分别由 `pom.xml` 和 `package-lock.json` 管理。
@@ -102,7 +104,7 @@ python scripts/check-api-contract.py
 
 Docker 集成与隔离恢复验证为 `python scripts/test-compose.py`，需要相应运行环境和磁盘空间。执行前阅读脚本，避免与本地正在运行的同名 Compose 项目冲突。
 
-GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端构建和维护脚本测试；非 PR 运行还执行 Docker 集成验证并发布 Linux amd64 镜像。工作流运行语言与布局 Playwright，并在隔离 Docker 实例上验证核心文件流程、上传恢复、团队权限及快照恢复。其他浏览器用例仍需按对应环境单独执行；未运行或跳过不算通过。
+GitHub Actions 的 `.github/workflows/release.yml` 运行后端校验、前端构建、维护脚本测试和 Docker 集成验证，PR 也执行这些检查；非 PR 运行才导出并发布 Linux amd64 镜像。工作流运行语言与布局 Playwright，并在隔离 Docker 实例上验证核心文件流程、上传恢复、团队权限及快照恢复。其他浏览器用例仍需按对应环境单独执行；未运行或跳过不算通过。
 
 提交要求、迁移规则及隐私检查见 [贡献说明](../CONTRIBUTING.md)。
 

@@ -1,5 +1,7 @@
 # Windows 同步开发原型
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 管理员现可在「账号与安全 → 集成服务 → 站点功能开关」保存运行时开关，无需重启。网页保存值优先于下文部署默认值。Agent 运行还需开启只读诊断及站点 AI 并配置模型；预览能力仍需按本文验收。
 
 完整客户端使用与恢复说明见 [客户端 README](../clients/windows-sync/README.md)。

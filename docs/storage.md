@@ -1,5 +1,7 @@
 # 存储节点与副本
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 本文说明当前节点调度、容量、迁移与副本读取行为。部署见[部署手册](deployment.md)和[双节点部署](deployment-dual-node.md)，功能范围见[功能说明](features.md)。
 
 ## 使用方式

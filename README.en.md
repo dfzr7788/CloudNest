@@ -6,6 +6,10 @@ CloudNest is a self-hosted, multi-user file drive with personal file management,
 
 Current version: `1.0.0` (first stable release). The backend supports one application instance. Windows sync, WebDAV drive mapping and public direct uploads have the limitations described in the [feature guide (Chinese)](docs/features.md#功能边界).
 
+## Documentation
+
+Start with [Usage](docs/en/usage.md), [Deployment](docs/en/deployment.md) or [Troubleshooting](docs/en/troubleshooting.md). The [full documentation index (Chinese)](docs/README.md) also links configuration, operations, storage, AI and API references. English guides are concise summaries, not complete translations.
+
 ## Features
 
 | Area | Capabilities |
@@ -71,7 +75,7 @@ Open `http://127.0.0.1:5173`. See the [development guide (Chinese)](docs/develop
 - [Read-only diagnostics](docs/en/agent-tools.md) and [Agent runs and approvals](docs/en/agent-runtime.md)
 - [Windows sync client](clients/windows-sync/README.md) and [storage node client](clients/storage-node/README.md)
 - [API reference](docs/api.md), [workspace API](docs/workspace-api.md) and [OpenAPI](docs/openapi.json)
-- [Complete documentation index (Chinese)](README.md#文档导航)
+- [Complete documentation index (Chinese)](docs/README.md)
 - [Contributing](CONTRIBUTING.md) and [security policy](SECURITY.md)
 
 [MIT license](LICENSE).

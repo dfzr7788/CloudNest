@@ -1,5 +1,7 @@
 # API 契约
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 本文描述接口行为与权限边界，配合 [OpenAPI](openapi.json) 和服务端控制器/校验使用；使用入口见 [使用说明](usage.md)，本地联调见 [开发指南](development.md)。
 
 2.2/2.3 的快照、恢复、巡检、团队、贡献节点与直传协议见 [团队与数据保护 API](workspace-api.md)。运行限制与验收边界见 [功能说明](features.md)。

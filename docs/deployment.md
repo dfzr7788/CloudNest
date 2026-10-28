@@ -1,8 +1,24 @@
 # Linux 服务器部署
 
-双节点 Garage、WireGuard、授权直连和独立备份配置见 [双节点部署与恢复](deployment-dual-node.md)。本地实现与测试已提供，真实 A/B 部署与完整恢复仍需验收。
+[文档中心](README.md) · [配置参考](configuration.md) · [运维验收](operations.md) · [排障](troubleshooting.md)
 
-本流程将云盘部署为 `http://服务器公网IP:8088`，不需要域名、证书或 Cloudflare。只发布 Web 端口，MySQL、Redis 和后端不对公网开放。以下命令在 Debian 12/13 的 root 终端执行；普通用户先运行 `sudo -i`。
+本页提供单后端实例的 Docker 部署路线：准备环境 → 启动服务 → 创建管理员 → 验证访问 → 配置备份。默认地址为 `http://服务器公网IP:8088`，只公开 Web 入口。数据库、Redis 和后端不直接对公网开放。
+
+## 部署前选择
+
+| 场景 | 路线 |
+| --- | --- |
+| 首次部署或需要自行构建 | 按本文源码流程 |
+| Linux amd64，希望减少服务器构建开销 | 启动章节中的预构建镜像路线 |
+| 本机开发与测试 | [开发指南](development.md)，不使用生产数据库 |
+| 已有 HTTPS 反向代理 | 保留自身入口方案，先核对监听地址与 Cookie 配置 |
+| 两台机器提供对象存储 | 完成基础部署后阅读[双节点部署与恢复](deployment-dual-node.md) |
+
+HTTP 便于初始连通性检查，但不加密账号与文件。正式公网使用应配置 HTTPS 并设置 `SECURE_COOKIES=true`。基础 Compose 绑定回环；初始化脚本选择 public 叠加后绑定所有接口，已有代理部署不要直接套用公网叠加。
+
+命令以 Debian root 终端为例，普通用户先运行 `sudo -i`。后续命令除特别说明外，均在 CloudNest 仓库根目录执行。先准备 Git、OpenSSL、Python 3、Docker Engine 和 Compose 2.24.4+，以及足够容纳数据、临时文件和备份的磁盘空间。
+
+安装后的验收标准：服务健康、管理员能登录、测试文件可上传并下载校验、能够创建备份并在隔离实例恢复。仅首页能打开还没有完成验收。
 
 ## 安装 Docker
 
@@ -96,6 +112,9 @@ curl --noproxy '*' -f http://127.0.0.1:8088/api/auth/csrf
 
 ## 邀请用户
 
+创建管理员并确认访问后，按[上线验收](operations.md#第一次上线)完成文件与恢复测试。
+
+
 默认 `REGISTRATION_OPEN=false`，公众不能自行注册。管理员登录后打开“账号与安全 → 系统管理”，点击“邀请新用户”，复制完整邀请链接给对方。链接只在创建时显示，一次有效，48 小时过期。通过 IP 访问创建的链接会包含当前 IP 和端口。
 
 ## 修改端口
@@ -129,6 +148,9 @@ COMPOSE_FILE=docker-compose.yml:deploy/compose.public.yml:deploy/compose.updater
 然后运行 `docker compose config --quiet` 和 `docker compose up -d --no-deps web`。不要直接覆盖包含其他部署配置的 COMPOSE_FILE；先核对其用途。显式使用 `-f` 会覆盖环境变量选择，日常直接使用 `docker compose`。
 
 ## 更新项目
+
+下面命令固定到本文对应的 `v1.0.0`。已有该版本时不会获得新版本；升级到后续版本前，先阅读目标 Release 的说明，再将标签替换为经过确认的目标版本。
+
 
 先完成下一节的一致性备份，再执行：
 
@@ -213,6 +235,9 @@ python3 scripts/backup.py restore \
 等待维护结果 `problems: 0` 后再登录。维护命令的正常退出不是服务故障；检查随后 server/web 已恢复运行。密码不要放入命令参数、`.env` 或截图。
 
 ## 常见问题
+
+完整的分层排查步骤见[故障排查](troubleshooting.md)。
+
 
 | 现象 | 排查 |
 | --- | --- |

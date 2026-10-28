@@ -1,5 +1,7 @@
 # 功能说明
 
+[文档中心](README.md) · [使用说明](usage.md) · [部署与维护](deployment.md)
+
 本文描述 CloudNest `1.0.0` 的现有能力。具体操作见[使用说明](usage.md)，服务配置见[进阶配置](advanced-features.md)，安装维护见[部署手册](deployment.md)。数量限制为默认值，允许配置的项目以实际部署为准。
 
 ## 个人文件与传输
